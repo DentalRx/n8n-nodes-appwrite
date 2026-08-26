@@ -7,6 +7,7 @@ import type {
 	JsonObject,
 } from 'n8n-workflow';
 import { NodeApiError } from 'n8n-workflow';
+import { randomBytes } from 'node:crypto';
 
 export type AppwriteContext = IExecuteFunctions | ILoadOptionsFunctions;
 
@@ -171,6 +172,13 @@ export async function appwriteApiRequestBinary(
  * on a form-data library, and Appwrite's upload endpoint needs precise control
  * over the file part and its filename.
  */
+function escapeHeaderParameter(value: string): string {
+	// A filename or field name reaching this unescaped would let a caller close
+	// the quoted string or start a new header line, and so forge multipart
+	// headers. Percent-encode the quote and drop anything that ends a line.
+	return value.replace(/[\r\n]/g, '').replace(/"/g, '%22');
+}
+
 function buildMultipartBody(
 	boundary: string,
 	fields: Array<[string, string]>,
@@ -181,15 +189,19 @@ function buildMultipartBody(
 	for (const [name, value] of fields) {
 		parts.push(
 			Buffer.from(
-				`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`,
+				`--${boundary}\r\nContent-Disposition: form-data; name="${escapeHeaderParameter(
+					name,
+				)}"\r\n\r\n${value}\r\n`,
 			),
 		);
 	}
 
 	parts.push(
 		Buffer.from(
-			`--${boundary}\r\nContent-Disposition: form-data; name="${file.field}"; filename="${file.filename}"\r\n` +
-				`Content-Type: ${file.contentType}\r\n\r\n`,
+			`--${boundary}\r\nContent-Disposition: form-data; name="${escapeHeaderParameter(
+				file.field,
+			)}"; filename="${escapeHeaderParameter(file.filename)}"\r\n` +
+				`Content-Type: ${escapeHeaderParameter(file.contentType)}\r\n\r\n`,
 		),
 		file.content,
 		Buffer.from('\r\n'),
@@ -263,10 +275,11 @@ export async function appwriteFileUpload(
 	return response as IDataObject;
 }
 
-let boundaryCounter = 0;
-
-/** A per-request boundary suffix that can never collide within one execution. */
+/**
+ * A boundary suffix drawn from a CSPRNG. A predictable boundary would let
+ * someone who controls part of an uploaded file guess it and inject extra
+ * multipart parts, which is what made the equivalent form-data flaw critical.
+ */
 function uniqueBoundarySuffix(): string {
-	boundaryCounter += 1;
-	return `${boundaryCounter}${Math.floor(Math.random() * 1e9).toString(16)}`;
+	return randomBytes(16).toString('hex');
 }
