@@ -14,14 +14,14 @@
 		"authentication"
 	],
 	"license": "MIT",
-	"homepage": "https://github.com/dentalrx/n8n-nodes-appwrite",
+	"homepage": "https://github.com/DentalRx/n8n-nodes-appwrite",
 	"author": {
 		"name": "DentalRx",
 		"email": "admin@dentalrx.ca"
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/dentalrx/n8n-nodes-appwrite.git"
+		"url": "git+https://github.com/DentalRx/n8n-nodes-appwrite.git"
 	},
 	"engines": {
 		"node": ">=18.17.0"
