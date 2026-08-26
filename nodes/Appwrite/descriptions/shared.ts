@@ -181,7 +181,21 @@ export function queriesProperties(
 							default: false,
 							description:
 								'Whether to always send the value as a string instead of auto-detecting numbers, booleans, and arrays',
-							displayOptions: { hide: { type: [...NO_VALUE_TYPES, 'limit', 'offset'] } },
+							displayOptions: {
+								hide: {
+									type: [
+										...NO_VALUE_TYPES,
+										'cursorAfter',
+										'cursorBefore',
+										'endsWith',
+										'limit',
+										'offset',
+										'search',
+										'select',
+										'startsWith',
+									],
+								},
+							},
 						},
 					],
 				},

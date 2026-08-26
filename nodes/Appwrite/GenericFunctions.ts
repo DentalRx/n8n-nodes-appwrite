@@ -94,6 +94,12 @@ export function smartParseValue(value: string, treatAsString: boolean): unknown 
 	if (treatAsString) return value;
 	const trimmed = value.trim();
 	if (trimmed === '') return value;
+	// Pure-integer strings outside the double-safe range would be silently
+	// rounded by JSON.parse (Appwrite integer columns are 64-bit); keep the
+	// original string so the value is never corrupted.
+	if (/^-?\d+$/.test(trimmed) && !Number.isSafeInteger(Number(trimmed))) {
+		return value;
+	}
 	if (
 		/^(-?\d+(\.\d+)?([eE][+-]?\d+)?|true|false|null)$/.test(trimmed) ||
 		trimmed.startsWith('[') ||
@@ -194,9 +200,22 @@ function buildSingleQuery(
 		case 'orderDesc':
 			return Query.orderDesc(column);
 		case 'limit':
-			return Query.limit(Number(condition.value ?? 25));
-		case 'offset':
-			return Query.offset(Number(condition.value ?? 0));
+		case 'offset': {
+			const isLimit = type === 'limit';
+			const raw = condition.value;
+			if (raw === undefined || raw === null || String(raw).trim() === '') {
+				return isLimit ? Query.limit(25) : Query.offset(0);
+			}
+			const parsed = Number(raw);
+			if (Number.isNaN(parsed)) {
+				throw new NodeOperationError(
+					this.getNode(),
+					`Query "${isLimit ? 'Limit' : 'Offset'}" requires a numeric value, got "${raw}"`,
+					{ itemIndex },
+				);
+			}
+			return isLimit ? Query.limit(parsed) : Query.offset(parsed);
+		}
 		case 'cursorAfter':
 			return Query.cursorAfter(condition.value ?? '');
 		case 'cursorBefore':
@@ -262,38 +281,97 @@ export function getRowData(this: IExecuteFunctions, itemIndex: number): IDataObj
 }
 
 /**
- * Paginate an Appwrite list endpoint until all results are fetched, using
- * cursor pagination in pages of 100 (queries may not contain cursor/limit).
+ * Paginate an Appwrite list endpoint until all results are fetched, in pages
+ * of 100. Cursor pagination is used where the returned models carry $id;
+ * models without one (e.g. columns and indexes) fall back to offset paging.
+ * A user-supplied Cursor After or Offset query sets the starting point;
+ * Return All overrides any Limit query.
  */
-export async function fetchAllPages<T extends { $id: string }>(
+export async function fetchAllPages<T extends { $id?: string }>(
 	baseQueries: string[],
 	fetchPage: (queries: string[]) => Promise<{ rows?: T[]; total: number } | IDataObject>,
 	listKey: string,
 ): Promise<T[]> {
 	const results: T[] = [];
-	let cursor: string | undefined;
+	const cleanQueries: string[] = [];
+	const initialQueries: string[] = [];
+	let startOffset = 0;
 
-	// Cursor pagination breaks if the caller also set cursor queries; strip them.
+	for (const q of baseQueries) {
+		let method = '';
+		let values: unknown[] = [];
+		try {
+			const parsed = JSON.parse(q) as { method?: string; values?: unknown[] };
+			method = parsed.method ?? '';
+			values = parsed.values ?? [];
+		} catch {
+			cleanQueries.push(q);
+			continue;
+		}
+		if (method === 'limit') continue;
+		if (method === 'cursorBefore') {
+			throw new Error(
+				'A Cursor Before query cannot be combined with Return All. Use Cursor After, or disable Return All.',
+			);
+		}
+		if (method === 'cursorAfter' || method === 'offset') {
+			if (method === 'offset' && typeof values[0] === 'number') startOffset = values[0];
+			initialQueries.push(q);
+			continue;
+		}
+		cleanQueries.push(q);
+	}
+
+	let cursor: string | undefined;
+	for (let page = 0; ; page++) {
+		const pageQueries = [...cleanQueries, Query.limit(100)];
+		if (cursor !== undefined) {
+			pageQueries.push(Query.cursorAfter(cursor));
+		} else if (page === 0) {
+			pageQueries.push(...initialQueries);
+		} else {
+			pageQueries.push(Query.offset(startOffset + results.length));
+		}
+
+		const response = (await fetchPage(pageQueries)) as unknown as Record<string, T[]>;
+		const list = response[listKey] ?? [];
+		results.push(...list);
+
+		if (list.length < 100) break;
+		cursor = list[list.length - 1].$id;
+	}
+
+	return results;
+}
+
+/**
+ * Paginate a list endpoint that only supports limit/offset queries (e.g. the
+ * audit log endpoints, whose entries carry no usable cursor).
+ */
+export async function fetchAllPagesByOffset<T>(
+	baseQueries: string[],
+	fetchPage: (queries: string[]) => Promise<IDataObject>,
+	listKey: string,
+): Promise<T[]> {
 	const cleanQueries = baseQueries.filter((q) => {
 		try {
 			const parsed = JSON.parse(q) as { method?: string };
-			return !['limit', 'cursorAfter', 'cursorBefore', 'offset'].includes(parsed.method ?? '');
+			return !['limit', 'offset', 'cursorAfter', 'cursorBefore'].includes(parsed.method ?? '');
 		} catch {
 			return true;
 		}
 	});
 
+	const results: T[] = [];
 	for (;;) {
-		const pageQueries = [...cleanQueries, Query.limit(100)];
-		if (cursor) pageQueries.push(Query.cursorAfter(cursor));
-
-		const response = (await fetchPage(pageQueries)) as unknown as Record<string, T[]>;
-		const page = response[listKey] ?? [];
-		results.push(...page);
-
-		if (page.length < 100) break;
-		cursor = page[page.length - 1].$id;
+		const response = (await fetchPage([
+			...cleanQueries,
+			Query.limit(100),
+			Query.offset(results.length),
+		])) as unknown as Record<string, T[]>;
+		const list = response[listKey] ?? [];
+		results.push(...list);
+		if (list.length < 100) break;
 	}
-
 	return results;
 }

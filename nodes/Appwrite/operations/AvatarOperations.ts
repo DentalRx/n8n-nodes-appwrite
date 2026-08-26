@@ -55,12 +55,13 @@ export async function executeAvatarOperation(
 		arrayBuffer: ArrayBuffer,
 		fileName: string,
 		json: IDataObject,
+		mimeType = 'image/png',
 	): Promise<INodeExecutionData[]> => {
 		const outputBinaryField = this.getNodeParameter('outputBinaryField', i, 'data') as string;
 		const binary = await this.helpers.prepareBinaryData(
 			Buffer.from(arrayBuffer),
 			fileName,
-			'image/png',
+			mimeType,
 		);
 		return [
 			{
@@ -110,7 +111,19 @@ export async function executeAvatarOperation(
 	if (operation === 'getFavicon') {
 		const url = this.getNodeParameter('url', i) as string;
 		const arrayBuffer = await avatars.getFavicon({ url });
-		return await toBinaryItem(arrayBuffer, 'favicon.png', { url });
+		// The favicon endpoint returns ICO and SVG favicons unconverted; sniff
+		// the bytes so the binary metadata matches the actual content.
+		const bytes = Buffer.from(arrayBuffer);
+		let fileName = 'favicon.png';
+		let mimeType = 'image/png';
+		if (bytes.length >= 4 && bytes.readUInt32LE(0) === 0x00010000) {
+			fileName = 'favicon.ico';
+			mimeType = 'image/x-icon';
+		} else if (bytes.slice(0, 256).toString('utf8').trimStart().startsWith('<')) {
+			fileName = 'favicon.svg';
+			mimeType = 'image/svg+xml';
+		}
+		return await toBinaryItem(arrayBuffer, fileName, { url }, mimeType);
 	}
 
 	if (operation === 'getFlag') {

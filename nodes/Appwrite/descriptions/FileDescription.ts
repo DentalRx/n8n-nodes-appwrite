@@ -233,7 +233,7 @@ export const fileFields: INodeProperties[] = [
 				name: 'borderColor',
 				type: 'color',
 				default: '',
-				description: 'Preview image border color as a HEX color without the # prefix',
+				description: 'Preview image border color. A leading # in the HEX value is removed automatically.',
 			},
 			{
 				displayName: 'Border Radius',
@@ -250,6 +250,14 @@ export const fileFields: INodeProperties[] = [
 				typeOptions: { minValue: 0, maxValue: 100 },
 				default: 0,
 				description: 'Preview image border width in pixels, between 0 and 100',
+			},
+			{
+				displayName: 'File Token',
+				name: 'token',
+				type: 'string',
+				typeOptions: { password: true },
+				default: '',
+				description: 'File token for accessing this file if it is not public',
 			},
 			{
 				displayName: 'Gravity',

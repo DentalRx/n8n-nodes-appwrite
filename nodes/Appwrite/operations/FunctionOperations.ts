@@ -210,7 +210,7 @@ export async function executeFunctionOperation(
 			variableId,
 			key,
 			value: value === '' ? undefined : value,
-			secret,
+			secret: secret ? true : undefined,
 		});
 		return toItems(response as unknown as IDataObject);
 	}

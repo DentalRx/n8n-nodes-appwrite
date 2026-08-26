@@ -5,6 +5,7 @@ import { ID, Query, type Users } from 'node-appwrite';
 import {
 	buildQueries,
 	fetchAllPages,
+	fetchAllPagesByOffset,
 	parseJsonArrayParameter,
 	parseJsonParameter,
 } from '../GenericFunctions';
@@ -157,11 +158,13 @@ export async function executeUserOperation(
 		const queries = buildQueries.call(this, i);
 
 		if (returnAll) {
-			const response = await users.listLogs({
-				userId,
-				queries: queries.length > 0 ? queries : undefined,
-			});
-			return toItems(response.logs as unknown as IDataObject[]);
+			const logs = await fetchAllPagesByOffset(
+				queries,
+				async (pageQueries) =>
+					(await users.listLogs({ userId, queries: pageQueries })) as unknown as IDataObject,
+				'logs',
+			);
+			return toItems(logs as unknown as IDataObject[]);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
