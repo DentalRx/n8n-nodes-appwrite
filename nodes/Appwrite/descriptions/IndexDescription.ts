@@ -73,7 +73,7 @@ export const indexFields: INodeProperties[] = [
 			{
 				name: 'Fulltext',
 				value: 'fulltext',
-				description: 'Enables Search queries on the indexed columns',
+				description: 'Enables full-text search on the indexed columns',
 			},
 			{
 				name: 'Key',
@@ -92,7 +92,6 @@ export const indexFields: INodeProperties[] = [
 			},
 		],
 		default: 'key',
-		description: 'The type of the index',
 		displayOptions: {
 			show: {
 				resource: ['index'],
@@ -115,36 +114,39 @@ export const indexFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Orders',
-		name: 'orders',
-		type: 'string',
-		default: '',
-		placeholder: 'ASC,DESC',
-		description:
-			'The sort order for each indexed column, comma-separated (ASC or DESC, or a JSON array). Leave empty for the default order.',
-		displayOptions: {
-			show: {
-				resource: ['index'],
-				operation: ['create'],
-			},
-		},
-	},
-	{
-		displayName: 'Lengths',
-		name: 'lengths',
-		type: 'string',
-		default: '',
-		placeholder: '128,256',
-		description:
-			'The maximum indexed length for each column, comma-separated numbers (or a JSON array). Leave empty for defaults.',
-		displayOptions: {
-			show: {
-				resource: ['index'],
-				operation: ['create'],
-			},
-		},
-	},
 	...returnAllAndLimitProperties('index', ['getMany']),
 	...queriesProperties('index', ['getMany']),
+	{
+		displayName: 'Options',
+		name: 'options',
+		type: 'collection',
+		placeholder: 'Add option',
+		default: {},
+		displayOptions: {
+			show: {
+				resource: ['index'],
+				operation: ['create'],
+			},
+		},
+		options: [
+			{
+				displayName: 'Lengths',
+				name: 'lengths',
+				type: 'string',
+				default: '',
+				placeholder: '128,256',
+				description:
+					'The maximum indexed length for each column, matched position by position against Columns, comma-separated numbers (or a JSON array)',
+			},
+			{
+				displayName: 'Orders',
+				name: 'orders',
+				type: 'string',
+				default: '',
+				placeholder: 'ASC,DESC',
+				description:
+					'The sort order for each column, matched position by position against Columns, comma-separated (ASC or DESC, or a JSON array)',
+			},
+		],
+	},
 ];

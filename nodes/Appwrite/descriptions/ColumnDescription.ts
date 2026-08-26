@@ -89,7 +89,8 @@ export const columnFields: INodeProperties[] = [
 			{ name: 'URL', value: 'url' },
 		],
 		default: 'string',
-		description: 'The data type of the column',
+		description:
+			"The data type of the column. When updating, this must match the column's existing type.",
 		displayOptions: {
 			show: {
 				resource: ['column'],
@@ -144,21 +145,6 @@ export const columnFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Encrypt',
-		name: 'encrypt',
-		type: 'boolean',
-		default: false,
-		description:
-			'Whether to encrypt the column value at rest. Encrypted columns cannot be queried or indexed.',
-		displayOptions: {
-			show: {
-				resource: ['column'],
-				operation: ['create'],
-				columnType: ['string'],
-			},
-		},
-	},
 	// Enum-specific
 	{
 		displayName: 'Elements',
@@ -185,7 +171,7 @@ export const columnFields: INodeProperties[] = [
 		required: true,
 		default: '',
 		description:
-			'The table to create the relationship with. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+			'The table to create the relationship with. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: ['column'],
@@ -229,67 +215,6 @@ export const columnFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Two Way',
-		name: 'twoWay',
-		type: 'boolean',
-		default: false,
-		description: 'Whether the relationship is two-way, adding a column on the related table too',
-		displayOptions: {
-			show: {
-				resource: ['column'],
-				operation: ['create'],
-				columnType: ['relationship'],
-			},
-		},
-	},
-	{
-		displayName: 'Two Way Key',
-		name: 'twoWayKey',
-		type: 'string',
-		default: '',
-		description:
-			'The key (name) of the column created on the related table for two-way relationships',
-		displayOptions: {
-			show: {
-				resource: ['column'],
-				operation: ['create'],
-				columnType: ['relationship'],
-				twoWay: [true],
-			},
-		},
-	},
-	{
-		displayName: 'On Delete',
-		name: 'onDelete',
-		type: 'options',
-		options: [
-			{
-				name: 'Cascade',
-				value: 'cascade',
-				description: 'Also delete the related rows',
-			},
-			{
-				name: 'Restrict',
-				value: 'restrict',
-				description: 'Block deletion while related rows exist',
-			},
-			{
-				name: 'Set Null',
-				value: 'setNull',
-				description: 'Set the relationship to NULL on the related rows',
-			},
-		],
-		default: 'restrict',
-		description: 'What happens to related rows when a row is deleted',
-		displayOptions: {
-			show: {
-				resource: ['column'],
-				operation: ['create', 'update'],
-				columnType: ['relationship'],
-			},
-		},
-	},
 	// Common flags
 	{
 		displayName: 'Required',
@@ -307,95 +232,171 @@ export const columnFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Default Value',
-		name: 'defaultValue',
-		type: 'string',
-		default: '',
-		description:
-			'The default value for the column. Leave empty for no default. Parsed according to the column type (e.g. true/false for booleans, numbers for integer/float, a JSON array of coordinates for spatial types). Cannot be set when Required is enabled.',
-		displayOptions: {
-			show: {
-				resource: ['column'],
-				operation: ['create', 'update'],
-			},
-			hide: {
-				columnType: ['relationship'],
-			},
-		},
-	},
-	{
-		displayName: 'Array',
-		name: 'array',
-		type: 'boolean',
-		default: false,
-		description: 'Whether the column holds an array of values instead of a single value',
-		displayOptions: {
-			show: {
-				resource: ['column'],
-				operation: ['create'],
-				columnType: SCALAR_TYPES,
-			},
-		},
-	},
-	// Integer/float bounds
-	{
-		displayName: 'Minimum',
-		name: 'min',
-		type: 'string',
-		default: '',
-		description: 'The smallest value the column accepts. Leave empty for no minimum.',
-		displayOptions: {
-			show: {
-				resource: ['column'],
-				operation: ['create', 'update'],
-				columnType: ['integer', 'float'],
-			},
-		},
-	},
-	{
-		displayName: 'Maximum',
-		name: 'max',
-		type: 'string',
-		default: '',
-		description: 'The largest value the column accepts. Leave empty for no maximum.',
-		displayOptions: {
-			show: {
-				resource: ['column'],
-				operation: ['create', 'update'],
-				columnType: ['integer', 'float'],
-			},
-		},
-	},
-	// Update-only extras
-	{
-		displayName: 'New Size',
-		name: 'newSize',
-		type: 'string',
-		default: '',
-		description:
-			'A new maximum length for the string column. Leave empty to keep the current size.',
-		displayOptions: {
-			show: {
-				resource: ['column'],
-				operation: ['update'],
-				columnType: ['string'],
-			},
-		},
-	},
-	{
-		displayName: 'New Key',
-		name: 'newKey',
-		type: 'string',
-		default: '',
-		description: 'A new key (name) for the column. Leave empty to keep the current key.',
-		displayOptions: {
-			show: {
-				resource: ['column'],
-				operation: ['update'],
-			},
-		},
-	},
 	...returnAllAndLimitProperties('column', ['getMany']),
 	...queriesProperties('column', ['getMany']),
+	{
+		displayName: 'Options',
+		name: 'options',
+		type: 'collection',
+		placeholder: 'Add option',
+		default: {},
+		displayOptions: {
+			show: {
+				resource: ['column'],
+				operation: ['create', 'update'],
+			},
+		},
+		options: [
+			{
+				displayName: 'Array',
+				name: 'array',
+				type: 'boolean',
+				default: false,
+				description: 'Whether the column holds an array of values instead of a single value',
+				displayOptions: {
+					show: {
+						'/operation': ['create'],
+						'/columnType': SCALAR_TYPES,
+					},
+				},
+			},
+			{
+				displayName: 'Default Value',
+				name: 'defaultValue',
+				type: 'string',
+				default: '',
+				description:
+					'The default value for the column. It is parsed according to the column type (e.g. true/false for booleans, numbers for integer/float, a JSON array of coordinates for spatial types). It cannot be set when Required is enabled.',
+				displayOptions: {
+					hide: {
+						'/columnType': ['relationship'],
+					},
+				},
+			},
+			{
+				displayName: 'Encrypt',
+				name: 'encrypt',
+				type: 'boolean',
+				default: false,
+				description:
+					'Whether to encrypt the column value at rest. Encrypted columns cannot be queried or indexed.',
+				displayOptions: {
+					show: {
+						'/operation': ['create'],
+						'/columnType': ['string'],
+					},
+				},
+			},
+			{
+				displayName: 'Maximum',
+				name: 'max',
+				type: 'number',
+				default: 0,
+				description: 'The largest value the column accepts. Leave this option out for no maximum.',
+				displayOptions: {
+					show: {
+						'/columnType': ['integer', 'float'],
+					},
+				},
+			},
+			{
+				displayName: 'Minimum',
+				name: 'min',
+				type: 'number',
+				default: 0,
+				description: 'The smallest value the column accepts. Leave this option out for no minimum.',
+				displayOptions: {
+					show: {
+						'/columnType': ['integer', 'float'],
+					},
+				},
+			},
+			{
+				displayName: 'New Key',
+				name: 'newKey',
+				type: 'string',
+				default: '',
+				description:
+					'A new key (name) for the column. Leave this option out to keep the current key.',
+				displayOptions: {
+					show: {
+						'/operation': ['update'],
+					},
+				},
+			},
+			{
+				displayName: 'New Size',
+				name: 'newSize',
+				type: 'number',
+				typeOptions: { minValue: 1 },
+				default: 255,
+				description:
+					'A new maximum length for the string column, in characters. Leave this option out to keep the current size.',
+				displayOptions: {
+					show: {
+						'/operation': ['update'],
+						'/columnType': ['string'],
+					},
+				},
+			},
+			{
+				displayName: 'On Delete',
+				name: 'onDelete',
+				type: 'options',
+				options: [
+					{
+						name: 'Cascade',
+						value: 'cascade',
+						description: 'Also delete the related rows',
+					},
+					{
+						name: 'Restrict',
+						value: 'restrict',
+						description: 'Block deletion while related rows exist',
+					},
+					{
+						name: 'Set Null',
+						value: 'setNull',
+						description: 'Set the relationship to NULL on the related rows',
+					},
+				],
+				default: 'restrict',
+				description: 'What happens to related rows when a row is deleted. Defaults to Restrict.',
+				displayOptions: {
+					show: {
+						'/columnType': ['relationship'],
+					},
+				},
+			},
+			{
+				displayName: 'Two Way',
+				name: 'twoWay',
+				type: 'boolean',
+				default: false,
+				description:
+					'Whether the relationship is two-way, adding a column on the related table too',
+				displayOptions: {
+					show: {
+						'/operation': ['create'],
+						'/columnType': ['relationship'],
+					},
+				},
+			},
+			{
+				displayName: 'Two Way Key',
+				name: 'twoWayKey',
+				type: 'string',
+				default: '',
+				description:
+					'The key (name) of the column created on the related table for two-way relationships',
+				displayOptions: {
+					show: {
+						'/operation': ['create'],
+						'/columnType': ['relationship'],
+						twoWay: [true],
+					},
+				},
+			},
+		],
+	},
 ];

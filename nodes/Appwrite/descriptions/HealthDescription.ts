@@ -13,12 +13,6 @@ export const healthOperations: INodeProperties[] = [
 		},
 		options: [
 			{
-				name: 'Get',
-				value: 'get',
-				description: 'Check the Appwrite HTTP server is up and responsive',
-				action: 'Get the HTTP health status',
-			},
-			{
 				name: 'Get Antivirus',
 				value: 'getAntivirus',
 				description: 'Check the Appwrite antivirus server is up and connection is successful',
@@ -44,22 +38,28 @@ export const healthOperations: INodeProperties[] = [
 				action: 'Get the database health status',
 			},
 			{
-				name: 'Get Pub Sub',
+				name: 'Get HTTP',
+				value: 'get',
+				description: 'Check the Appwrite HTTP server is up and responsive',
+				action: 'Get the HTTP health status',
+			},
+			{
+				name: 'Get Local Storage',
+				value: 'getStorageLocal',
+				description: 'Check the Appwrite local storage device is up and connection is successful',
+				action: 'Get the local storage health status',
+			},
+			{
+				name: 'Get PubSub',
 				value: 'getPubSub',
-				description: 'Check the Appwrite pub-sub servers are up and connection is successful',
-				action: 'Get the pub sub health status',
+				description: 'Check the Appwrite PubSub servers are up and connection is successful',
+				action: 'Get the pubsub health status',
 			},
 			{
 				name: 'Get Storage',
 				value: 'getStorage',
 				description: 'Check the Appwrite storage device is up and connection is successful',
 				action: 'Get the storage health status',
-			},
-			{
-				name: 'Get Storage Local',
-				value: 'getStorageLocal',
-				description: 'Check the Appwrite local storage device is up and connection is successful',
-				action: 'Get the local storage health status',
 			},
 			{
 				name: 'Get Time',
@@ -74,18 +74,27 @@ export const healthOperations: INodeProperties[] = [
 
 export const healthFields: INodeProperties[] = [
 	{
-		displayName: 'Domain',
-		name: 'domain',
-		type: 'string',
-		default: '',
-		placeholder: 'example.com',
-		description:
-			'The domain to fetch the SSL certificate for. Leave empty to check the Appwrite endpoint domain.',
+		displayName: 'Options',
+		name: 'options',
+		type: 'collection',
+		placeholder: 'Add option',
+		default: {},
 		displayOptions: {
 			show: {
 				resource: ['health'],
 				operation: ['getCertificate'],
 			},
 		},
+		options: [
+			{
+				displayName: 'Domain',
+				name: 'domain',
+				type: 'string',
+				default: '',
+				placeholder: 'example.com',
+				description:
+					'The domain to fetch the SSL certificate for. Leave empty to check the Appwrite endpoint domain.',
+			},
+		],
 	},
 ];

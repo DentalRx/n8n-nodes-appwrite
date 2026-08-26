@@ -102,10 +102,22 @@ export async function executeColumnOperation(
 
 	const columnType = this.getNodeParameter('columnType', i) as string;
 	const isCreate = operation === 'create';
+	const options = this.getNodeParameter('options', i, {}) as {
+		array?: boolean;
+		defaultValue?: string;
+		encrypt?: boolean;
+		max?: number | string;
+		min?: number | string;
+		newKey?: string;
+		newSize?: number | string;
+		onDelete?: string;
+		twoWay?: boolean;
+		twoWayKey?: string;
+	};
 
 	// Relationship columns have their own parameter set.
 	if (columnType === 'relationship') {
-		const onDeleteRaw = this.getNodeParameter('onDelete', i, 'restrict') as string;
+		const onDeleteRaw = options.onDelete ?? 'restrict';
 		const onDelete = RELATION_MUTATE_MAP[onDeleteRaw];
 
 		if (isCreate) {
@@ -114,9 +126,9 @@ export async function executeColumnOperation(
 				'table',
 			);
 			const typeRaw = this.getNodeParameter('relationshipType', i) as string;
-			const twoWay = this.getNodeParameter('twoWay', i, false) as boolean;
+			const twoWay = options.twoWay ?? false;
 			const relationshipKey = this.getNodeParameter('relationshipKey', i, '') as string;
-			const twoWayKey = this.getNodeParameter('twoWayKey', i, '') as string;
+			const twoWayKey = options.twoWayKey ?? '';
 			const response = (await appwriteApiRequest.call(
 				this,
 				'POST',
@@ -137,7 +149,7 @@ export async function executeColumnOperation(
 		}
 
 		const key = this.getNodeParameter('key', i) as string;
-		const newKeyRaw = this.getNodeParameter('newKey', i, '') as string;
+		const newKeyRaw = options.newKey ?? '';
 		const response = (await appwriteApiRequest.call(
 			this,
 			'PATCH',
@@ -156,9 +168,9 @@ export async function executeColumnOperation(
 	// All other column types share a common parameter set.
 	const key = this.getNodeParameter('key', i) as string;
 	const required = this.getNodeParameter('columnRequired', i, false) as boolean;
-	const defaultRaw = this.getNodeParameter('defaultValue', i, '') as string;
-	const array = isCreate ? (this.getNodeParameter('array', i, false) as boolean) : undefined;
-	const newKeyRaw = isCreate ? '' : (this.getNodeParameter('newKey', i, '') as string);
+	const defaultRaw = options.defaultValue ?? '';
+	const array = isCreate ? (options.array ?? false) : undefined;
+	const newKeyRaw = isCreate ? '' : (options.newKey ?? '');
 	const newKey = newKeyRaw === '' ? undefined : newKeyRaw;
 
 	/** POST /tablesdb/{databaseId}/tables/{tableId}/columns/{type} */
@@ -181,12 +193,15 @@ export async function executeColumnOperation(
 			i,
 		)) as IDataObject;
 
-	const parseNumericBound = (name: string): number | undefined => {
-		const raw = this.getNodeParameter(name, i, '') as string;
-		if (raw === '') return undefined;
-		const parsed = Number(raw);
+	/** Read a numeric option, reporting problems under the name the user sees. */
+	const numericOption = (
+		value: number | string | undefined,
+		displayName: string,
+	): number | undefined => {
+		if (value === undefined || value === '') return undefined;
+		const parsed = Number(value);
 		if (Number.isNaN(parsed)) {
-			throw new NodeOperationError(this.getNode(), `Parameter "${name}" must be a number`, {
+			throw new NodeOperationError(this.getNode(), `Parameter "${displayName}" must be a number`, {
 				itemIndex: i,
 			});
 		}
@@ -222,7 +237,7 @@ export async function executeColumnOperation(
 
 	const spatialDefault = (): GenericValue[] | undefined => {
 		if (defaultRaw === '') return undefined;
-		return parseJsonArrayParameter.call(this, defaultRaw, 'defaultValue', i) as GenericValue[];
+		return parseJsonArrayParameter.call(this, defaultRaw, 'Default Value', i) as GenericValue[];
 	};
 
 	const getElements = (): string[] => {
@@ -302,16 +317,16 @@ export async function executeColumnOperation(
 				? await createColumn('float', {
 						key,
 						required,
-						min: parseNumericBound('min'),
-						max: parseNumericBound('max'),
+						min: numericOption(options.min, 'Minimum'),
+						max: numericOption(options.max, 'Maximum'),
 						default: numberDefault(),
 						array,
 					})
 				: await updateColumn('float', {
 						required,
 						default: numberDefault(),
-						min: parseNumericBound('min'),
-						max: parseNumericBound('max'),
+						min: numericOption(options.min, 'Minimum'),
+						max: numericOption(options.max, 'Maximum'),
 						newKey,
 					});
 			break;
@@ -320,16 +335,16 @@ export async function executeColumnOperation(
 				? await createColumn('integer', {
 						key,
 						required,
-						min: parseNumericBound('min'),
-						max: parseNumericBound('max'),
+						min: numericOption(options.min, 'Minimum'),
+						max: numericOption(options.max, 'Maximum'),
 						default: numberDefault(),
 						array,
 					})
 				: await updateColumn('integer', {
 						required,
 						default: numberDefault(),
-						min: parseNumericBound('min'),
-						max: parseNumericBound('max'),
+						min: numericOption(options.min, 'Minimum'),
+						max: numericOption(options.max, 'Maximum'),
 						newKey,
 					});
 			break;
@@ -394,24 +409,12 @@ export async function executeColumnOperation(
 						required,
 						default: stringDefault,
 						array,
-						encrypt: this.getNodeParameter('encrypt', i, false) as boolean,
+						encrypt: options.encrypt ?? false,
 					})
 				: await updateColumn('string', {
 						required,
 						default: stringDefault,
-						size: (() => {
-							const raw = this.getNodeParameter('newSize', i, '') as string;
-							if (raw === '') return undefined;
-							const parsed = Number(raw);
-							if (Number.isNaN(parsed)) {
-								throw new NodeOperationError(
-									this.getNode(),
-									'Parameter "New Size" must be a number',
-									{ itemIndex: i },
-								);
-							}
-							return parsed;
-						})(),
+						size: numericOption(options.newSize, 'New Size'),
 						newKey,
 					});
 			break;

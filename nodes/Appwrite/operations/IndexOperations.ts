@@ -29,11 +29,11 @@ export async function executeIndexOperation(
 		return list.map((json) => ({ json, pairedItem: { item: i } }));
 	};
 
-	const parseList = (name: string): string[] => {
-		const raw = this.getNodeParameter(name, i, '') as string;
+	/** Split a comma-separated list (or a JSON array) into strings. */
+	const parseList = (raw: string, displayName: string): string[] => {
 		if (raw.trim() === '') return [];
 		if (raw.trim().startsWith('[')) {
-			return parseJsonArrayParameter.call(this, raw, name, i).map((e) => String(e));
+			return parseJsonArrayParameter.call(this, raw, displayName, i).map((e) => String(e));
 		}
 		return raw
 			.split(',')
@@ -44,9 +44,13 @@ export async function executeIndexOperation(
 	if (operation === 'create') {
 		const key = this.getNodeParameter('key', i) as string;
 		const typeRaw = this.getNodeParameter('indexType', i) as string;
-		const columns = parseList('columns');
-		const orders = parseList('orders');
-		const lengths = parseList('lengths').map((value) => {
+		const options = this.getNodeParameter('options', i, {}) as {
+			lengths?: string;
+			orders?: string;
+		};
+		const columns = parseList(this.getNodeParameter('columns', i, '') as string, 'Columns');
+		const orders = parseList(options.orders ?? '', 'Orders');
+		const lengths = parseList(options.lengths ?? '', 'Lengths').map((value) => {
 			const parsed = Number(value);
 			if (Number.isNaN(parsed)) {
 				throw new NodeOperationError(this.getNode(), 'Parameter "Lengths" must contain numbers', {

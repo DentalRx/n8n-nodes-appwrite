@@ -87,7 +87,7 @@ export const databaseFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		description: 'The database name. Max length: 128 chars.',
+		description: 'Name for the database, up to 128 characters',
 		displayOptions: {
 			show: {
 				resource: ['database'],
@@ -101,13 +101,36 @@ export const databaseFields: INodeProperties[] = [
 		type: 'boolean',
 		default: true,
 		description:
-			'Whether the database is enabled. When disabled, users cannot access it, but server SDKs with an API key still can.',
+			'Whether the database is enabled. When disabled, users cannot access it, but server SDKs with an API key still can. Defaults to true.',
 		displayOptions: {
 			show: {
 				resource: ['database'],
-				operation: ['create', 'update'],
+				operation: ['create'],
 			},
 		},
+	},
+	{
+		displayName: 'Update Fields',
+		name: 'updateFields',
+		type: 'collection',
+		placeholder: 'Add field',
+		default: {},
+		displayOptions: {
+			show: {
+				resource: ['database'],
+				operation: ['update'],
+			},
+		},
+		options: [
+			{
+				displayName: 'Enabled',
+				name: 'enabled',
+				type: 'boolean',
+				default: true,
+				description:
+					'Whether the database is enabled. When disabled, users cannot access it, but server SDKs with an API key still can. Leave this out to keep the current setting.',
+			},
+		],
 	},
 	...returnAllAndLimitProperties('database', ['getMany']),
 	...queriesProperties('database', ['getMany']),

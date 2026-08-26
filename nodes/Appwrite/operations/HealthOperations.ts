@@ -48,7 +48,7 @@ export async function executeHealthOperation(
 
 	const qs: IDataObject = {};
 	if (operation === 'getCertificate') {
-		const domain = this.getNodeParameter('domain', i, '') as string;
+		const { domain = '' } = this.getNodeParameter('options', i, {}) as { domain?: string };
 		qs.domain = domain === '' ? undefined : domain;
 	}
 

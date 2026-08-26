@@ -35,7 +35,7 @@ export const rowOperations: INodeProperties[] = [
 			{
 				name: 'Create or Update',
 				value: 'upsert',
-				description: 'Create a new record, or update the current one if it already exists (upsert)',
+				description: 'Create a new row, or update the current one if it already exists (upsert)',
 				action: 'Create or update a row',
 			},
 			{
@@ -253,8 +253,8 @@ export const rowFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Value',
-		name: 'value',
+		displayName: 'Amount',
+		name: 'amount',
 		type: 'number',
 		default: 1,
 		description: 'The amount to change the column by',

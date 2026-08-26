@@ -53,7 +53,7 @@ export const topicOperations: INodeProperties[] = [
 			{
 				name: 'Get Many Subscribers',
 				value: 'getManySubscribers',
-				description: 'List the subscribers of a topic',
+				description: 'List the subscribers of a topic, with optional filters',
 				action: 'Get many topic subscribers',
 			},
 			{
@@ -99,13 +99,12 @@ export const topicFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Topic ID',
-		name: 'topicId',
+		displayName: 'Name',
+		name: 'name',
 		type: 'string',
+		required: true,
 		default: '',
-		placeholder: 'unique()',
-		description:
-			'The ID for the topic. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
+		description: 'The name of the topic',
 		displayOptions: {
 			show: {
 				resource: ['topic'],
@@ -114,12 +113,13 @@ export const topicFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Name',
-		name: 'name',
+		displayName: 'Topic ID',
+		name: 'topicId',
 		type: 'string',
-		required: true,
 		default: '',
-		description: 'The name of the topic',
+		placeholder: 'unique()',
+		description:
+			'The ID for the topic. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {
 			show: {
 				resource: ['topic'],
@@ -148,11 +148,25 @@ export const topicFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		description: 'The ID of the subscriber',
+		description: 'The ID of the subscriber record that links a target to this topic',
 		displayOptions: {
 			show: {
 				resource: ['topic'],
 				operation: ['deleteSubscriber', 'getSubscriber'],
+			},
+		},
+	},
+	{
+		displayName: 'Target ID',
+		name: 'targetId',
+		type: 'string',
+		required: true,
+		default: '',
+		description: 'The ID of the target to link to the topic',
+		displayOptions: {
+			show: {
+				resource: ['topic'],
+				operation: ['createSubscriber'],
 			},
 		},
 	},
@@ -164,20 +178,6 @@ export const topicFields: INodeProperties[] = [
 		placeholder: 'unique()',
 		description:
 			'The ID for the subscriber. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
-		displayOptions: {
-			show: {
-				resource: ['topic'],
-				operation: ['createSubscriber'],
-			},
-		},
-	},
-	{
-		displayName: 'Target ID',
-		name: 'targetId',
-		type: 'string',
-		required: true,
-		default: '',
-		description: 'The ID of the target to link to the topic',
 		displayOptions: {
 			show: {
 				resource: ['topic'],

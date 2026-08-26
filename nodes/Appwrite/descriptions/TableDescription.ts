@@ -94,11 +94,25 @@ export const tableFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		description: 'The table name. Max length: 128 chars.',
+		description: 'Name for the table, up to 128 characters',
 		displayOptions: {
 			show: {
 				resource: ['table'],
 				operation: ['create', 'update'],
+			},
+		},
+	},
+	{
+		displayName: 'Enabled',
+		name: 'enabled',
+		type: 'boolean',
+		default: true,
+		description:
+			'Whether the table is enabled. When disabled, users cannot access it, but server SDKs with an API key still can. Defaults to true.',
+		displayOptions: {
+			show: {
+				resource: ['table'],
+				operation: ['create'],
 			},
 		},
 	},
@@ -113,27 +127,44 @@ export const tableFields: INodeProperties[] = [
 		type: 'boolean',
 		default: false,
 		description:
-			'Whether to enable row-level security. When enabled, users can access rows they have been granted permission to, in addition to the table-level permissions.',
+			'Whether to enable row-level security. When enabled, users can access rows they have been granted permission to, in addition to the table-level permissions. Defaults to false.',
 		displayOptions: {
 			show: {
 				resource: ['table'],
-				operation: ['create', 'update'],
+				operation: ['create'],
 			},
 		},
 	},
 	{
-		displayName: 'Enabled',
-		name: 'enabled',
-		type: 'boolean',
-		default: true,
-		description:
-			'Whether the table is enabled. When disabled, users cannot access it, but server SDKs with an API key still can.',
+		displayName: 'Update Fields',
+		name: 'updateFields',
+		type: 'collection',
+		placeholder: 'Add field',
+		default: {},
 		displayOptions: {
 			show: {
 				resource: ['table'],
-				operation: ['create', 'update'],
+				operation: ['update'],
 			},
 		},
+		options: [
+			{
+				displayName: 'Enabled',
+				name: 'enabled',
+				type: 'boolean',
+				default: true,
+				description:
+					'Whether the table is enabled. When disabled, users cannot access it, but server SDKs with an API key still can. Leave this out to keep the current setting.',
+			},
+			{
+				displayName: 'Row Security',
+				name: 'rowSecurity',
+				type: 'boolean',
+				default: false,
+				description:
+					'Whether to enable row-level security. When enabled, users can access rows they have been granted permission to, in addition to the table-level permissions. Leave this out to keep the current setting.',
+			},
+		],
 	},
 	...returnAllAndLimitProperties('table', ['getMany']),
 	...queriesProperties('table', ['getMany']),

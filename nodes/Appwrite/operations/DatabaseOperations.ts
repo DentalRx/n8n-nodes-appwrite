@@ -77,12 +77,12 @@ export async function executeDatabaseOperation(
 	if (operation === 'update') {
 		const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
 		const name = this.getNodeParameter('name', i) as string;
-		const enabled = this.getNodeParameter('enabled', i, true) as boolean;
+		const updateFields = this.getNodeParameter('updateFields', i, {}) as { enabled?: boolean };
 		const response = await appwriteApiRequest.call(
 			this,
 			'PUT',
 			`/tablesdb/${encodeURIComponent(databaseId)}`,
-			{ body: { name, enabled } },
+			{ body: { name, enabled: updateFields.enabled } },
 			i,
 		);
 		return toItems(response);

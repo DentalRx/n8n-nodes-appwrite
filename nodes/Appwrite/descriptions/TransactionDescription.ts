@@ -68,7 +68,7 @@ export const transactionFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		description: 'The ID of the transaction',
+		description: 'The ID returned by the Create operation when the transaction was started',
 		displayOptions: {
 			show: {
 				resource: ['transaction'],
@@ -82,7 +82,8 @@ export const transactionFields: INodeProperties[] = [
 		type: 'number',
 		typeOptions: { minValue: 1 },
 		default: 300,
-		description: 'Number of seconds before the transaction expires',
+		description:
+			'Number of seconds before the transaction expires. Appwrite rejects a value outside the range its deployment allows.',
 		displayOptions: {
 			show: {
 				resource: ['transaction'],
@@ -94,7 +95,10 @@ export const transactionFields: INodeProperties[] = [
 		displayName: 'Operations (JSON)',
 		name: 'operationsJson',
 		type: 'json',
+		required: true,
 		default: '[]',
+		placeholder:
+			'[{"action": "create", "databaseId": "main", "tableId": "posts", "rowId": "unique()", "data": {"title": "Hello"}}]',
 		description:
 			'A JSON array of operations to stage in the transaction. Each entry describes an action (e.g. create, update, delete) with its databaseId, tableId, rowId, and data.',
 		displayOptions: {

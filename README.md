@@ -78,8 +78,8 @@ Row operations support:
 | Resource | Operations |
 | --- | --- |
 | **Avatar** | Get Browser Icon, Get Credit Card Icon, Get Favicon, Get Flag, Get Image, Get Initials, Get QR Code (binary image output) |
-| **Locale** | Get, Continents, Countries, EU Countries, Currencies, Languages, Locale Codes, Phone Codes |
-| **Health** | Get, Antivirus, Cache, Certificate, Database, PubSub, Storage, Storage Local, Time |
+| **Locale** | Get, Get Many Continents, Get Many Countries, Get Many Currencies, Get Many EU Countries, Get Many Languages, Get Many Locale Codes, Get Many Phone Codes |
+| **Health** | Get Antivirus, Get Cache, Get Certificate, Get Database, Get HTTP, Get Local Storage, Get PubSub, Get Storage, Get Time |
 
 ## Example workflows
 

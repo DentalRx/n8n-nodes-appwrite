@@ -83,13 +83,22 @@ export async function executeTableOperation(
 		const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
 		const name = this.getNodeParameter('name', i) as string;
 		const permissions = getPermissions.call(this, i);
-		const rowSecurity = this.getNodeParameter('rowSecurity', i, false) as boolean;
-		const enabled = this.getNodeParameter('enabled', i, true) as boolean;
+		const updateFields = this.getNodeParameter('updateFields', i, {}) as {
+			enabled?: boolean;
+			rowSecurity?: boolean;
+		};
 		const response = await appwriteApiRequest.call(
 			this,
 			'PUT',
 			`${tablesPath}/${encodeURIComponent(tableId)}`,
-			{ body: { name, permissions, rowSecurity, enabled } },
+			{
+				body: {
+					name,
+					permissions,
+					rowSecurity: updateFields.rowSecurity,
+					enabled: updateFields.enabled,
+				},
+			},
 			i,
 		);
 		return toItems(response);

@@ -105,7 +105,7 @@ export const functionOperations: INodeProperties[] = [
 
 const functionConfigOptions: INodeProperties[] = [
 	{
-		displayName: 'Commands',
+		displayName: 'Build Commands',
 		name: 'commands',
 		type: 'string',
 		default: '',
@@ -138,13 +138,13 @@ const functionConfigOptions: INodeProperties[] = [
 			'Events that trigger the function, as a comma-separated list or a JSON array. Maximum of 100 events.',
 	},
 	{
-		displayName: 'Execute Roles',
+		displayName: 'Execute Access',
 		name: 'execute',
 		type: 'string',
 		default: '',
 		placeholder: 'any, users, team:abc',
 		description:
-			'Role strings granted permission to execute the function, as a comma-separated list or a JSON array. By default no user can execute it. Maximum of 100 roles.',
+			'Roles allowed to execute the function, as a comma-separated list or a JSON array. By default no user can execute it. Maximum of 100 roles.',
 	},
 	{
 		displayName: 'Logging',
@@ -186,7 +186,8 @@ const functionConfigOptions: INodeProperties[] = [
 		type: 'number',
 		typeOptions: { minValue: 1 },
 		default: 15,
-		description: 'Maximum execution time in seconds',
+		description:
+			'Maximum execution time in seconds. Defaults to 15, and the ceiling is whatever the Appwrite deployment allows (900 on Appwrite Cloud).',
 	},
 ];
 
@@ -217,21 +218,6 @@ export const functionFields: INodeProperties[] = [
 					'update',
 					'updateVariable',
 				],
-			},
-		},
-	},
-	{
-		displayName: 'Function ID',
-		name: 'functionId',
-		type: 'string',
-		default: '',
-		placeholder: 'unique()',
-		description:
-			'The ID for the function. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
-		displayOptions: {
-			show: {
-				resource: ['function'],
-				operation: ['create'],
 			},
 		},
 	},
@@ -269,7 +255,7 @@ export const functionFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		description: 'The function name. Max length: 128 chars.',
+		description: 'The function name. Max length: 128 characters.',
 		displayOptions: {
 			show: {
 				resource: ['function'],
@@ -294,12 +280,27 @@ export const functionFields: INodeProperties[] = [
 		},
 	},
 	{
+		displayName: 'Function ID',
+		name: 'functionId',
+		type: 'string',
+		default: '',
+		placeholder: 'unique()',
+		description:
+			'The ID for the function. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
+		displayOptions: {
+			show: {
+				resource: ['function'],
+				operation: ['create'],
+			},
+		},
+	},
+	{
 		displayName: 'Key',
 		name: 'key',
 		type: 'string',
 		required: true,
 		default: '',
-		description: 'The variable key (environment variable name). Max length: 255 chars.',
+		description: 'The variable key (environment variable name). Max length: 255 characters.',
 		displayOptions: {
 			show: {
 				resource: ['function'],
@@ -313,7 +314,7 @@ export const functionFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		description: 'The variable value. Max length: 8192 chars.',
+		description: 'The variable value. Max length: 8192 characters.',
 		displayOptions: {
 			show: {
 				resource: ['function'],
@@ -327,7 +328,7 @@ export const functionFields: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		description:
-			'The new variable value. Leave empty to keep the current value. Max length: 8192 chars.',
+			'The new variable value. Leave empty to keep the current value. Max length: 8192 characters.',
 		displayOptions: {
 			show: {
 				resource: ['function'],
@@ -341,7 +342,7 @@ export const functionFields: INodeProperties[] = [
 		type: 'boolean',
 		default: false,
 		description:
-			'Whether the variable is secret. Secret variables can be updated or deleted, but only functions can read them during build and runtime.',
+			'Whether the variable is secret. Secret variables can be updated or deleted, but only functions can read them during build and runtime. When updating, leaving this off keeps the existing setting.',
 		displayOptions: {
 			show: {
 				resource: ['function'],

@@ -216,7 +216,7 @@ export async function executeRowOperation(
 	if (operation === 'increment') {
 		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
 		const column = this.getNodeParameter('column', i) as string;
-		const value = this.getNodeParameter('value', i, 1) as number;
+		const value = this.getNodeParameter('amount', i, 1) as number;
 		const response = (await appwriteApiRequest.call(
 			this,
 			'PATCH',
@@ -230,7 +230,7 @@ export async function executeRowOperation(
 	if (operation === 'decrement') {
 		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
 		const column = this.getNodeParameter('column', i) as string;
-		const value = this.getNodeParameter('value', i, 1) as number;
+		const value = this.getNodeParameter('amount', i, 1) as number;
 		const response = (await appwriteApiRequest.call(
 			this,
 			'PATCH',

@@ -75,7 +75,7 @@ export async function executeAvatarOperation(
 
 	if (operation === 'getBrowser' || operation === 'getCreditCard') {
 		const isBrowser = operation === 'getBrowser';
-		const code = this.getNodeParameter('code', i) as string;
+		const code = this.getNodeParameter(isBrowser ? 'browserCode' : 'creditCardCode', i) as string;
 		const options = this.getNodeParameter('options', i, {}) as ImageOptions;
 
 		const allowed = isBrowser ? BROWSER_CODES : CREDIT_CARD_CODES;
@@ -115,7 +115,7 @@ export async function executeAvatarOperation(
 	}
 
 	if (operation === 'getFlag') {
-		const code = this.getNodeParameter('code', i) as string;
+		const code = this.getNodeParameter('countryCode', i) as string;
 		const options = this.getNodeParameter('options', i, {}) as ImageOptions;
 		const content = await getImage(`/avatars/flags/${encodeURIComponent(code)}`, {
 			width: options.width,
@@ -137,19 +137,19 @@ export async function executeAvatarOperation(
 	}
 
 	if (operation === 'getInitials') {
+		const name = this.getNodeParameter('name', i, '') as string;
 		const options = this.getNodeParameter('options', i, {}) as {
-			name?: string;
 			width?: number;
 			height?: number;
 			background?: string;
 		};
 		const content = await getImage('/avatars/initials', {
-			name: options.name === '' ? undefined : options.name,
+			name: name === '' ? undefined : name,
 			width: options.width,
 			height: options.height,
 			background: options.background === '' ? undefined : options.background,
 		});
-		return await toBinaryItem(content, 'initials.png', { ...options });
+		return await toBinaryItem(content, 'initials.png', { name, ...options });
 	}
 
 	if (operation === 'getQr') {
@@ -157,13 +157,11 @@ export async function executeAvatarOperation(
 		const options = this.getNodeParameter('options', i, {}) as {
 			size?: number;
 			margin?: number;
-			download?: boolean;
 		};
 		const content = await getImage('/avatars/qr', {
 			text,
 			size: options.size,
 			margin: options.margin,
-			download: options.download,
 		});
 		return await toBinaryItem(content, 'qr.png', { text, ...options });
 	}
