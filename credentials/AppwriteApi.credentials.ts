@@ -10,6 +10,8 @@ export class AppwriteApi implements ICredentialType {
 
 	displayName = 'Appwrite API';
 
+	icon = 'file:../nodes/Appwrite/appwrite.svg' as const;
+
 	documentationUrl = 'https://appwrite.io/docs/advanced/platform/api-keys';
 
 	properties: INodeProperties[] = [

@@ -1,12 +1,12 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { ID, Query, type TablesDB } from 'node-appwrite';
 
 import { buildQueries, fetchAllPages } from '../GenericFunctions';
+import { Query, resolveId } from '../helpers/appwrite';
+import { appwriteApiRequest } from '../transport';
 
 export async function executeDatabaseOperation(
 	this: IExecuteFunctions,
-	tablesDB: TablesDB,
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
@@ -16,18 +16,29 @@ export async function executeDatabaseOperation(
 	};
 
 	if (operation === 'create') {
-		const rawId = this.getNodeParameter('databaseId', i, '') as string;
-		const databaseId = rawId === '' || rawId === 'unique()' ? ID.unique() : rawId;
+		const databaseId = resolveId(this.getNodeParameter('databaseId', i, '') as string);
 		const name = this.getNodeParameter('name', i) as string;
 		const enabled = this.getNodeParameter('enabled', i, true) as boolean;
-		const response = await tablesDB.create({ databaseId, name, enabled });
-		return toItems(response as unknown as IDataObject);
+		const response = await appwriteApiRequest.call(
+			this,
+			'POST',
+			'/tablesdb',
+			{ body: { databaseId, name, enabled } },
+			i,
+		);
+		return toItems(response);
 	}
 
 	if (operation === 'get') {
 		const databaseId = this.getNodeParameter('databaseId', i) as string;
-		const response = await tablesDB.get({ databaseId });
-		return toItems(response as unknown as IDataObject);
+		const response = await appwriteApiRequest.call(
+			this,
+			'GET',
+			`/tablesdb/${encodeURIComponent(databaseId)}`,
+			{},
+			i,
+		);
+		return toItems(response);
 	}
 
 	if (operation === 'getMany') {
@@ -40,31 +51,52 @@ export async function executeDatabaseOperation(
 			const databases = await fetchAllPages(
 				queries,
 				async (pageQueries) =>
-					(await tablesDB.list({ queries: pageQueries, search: searchArg })) as unknown as IDataObject,
+					await appwriteApiRequest.call(
+						this,
+						'GET',
+						'/tablesdb',
+						{ qs: { queries: pageQueries, search: searchArg } },
+						i,
+					),
 				'databases',
 			);
-			return toItems(databases as unknown as IDataObject[]);
+			return toItems(databases as IDataObject[]);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = await tablesDB.list({
-			queries: [...queries, Query.limit(limit)],
-			search: searchArg,
-		});
-		return toItems(response.databases as unknown as IDataObject[]);
+		const response = await appwriteApiRequest.call(
+			this,
+			'GET',
+			'/tablesdb',
+			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			i,
+		);
+		return toItems(response.databases as IDataObject[]);
 	}
 
 	if (operation === 'update') {
 		const databaseId = this.getNodeParameter('databaseId', i) as string;
 		const name = this.getNodeParameter('name', i) as string;
 		const enabled = this.getNodeParameter('enabled', i, true) as boolean;
-		const response = await tablesDB.update({ databaseId, name, enabled });
-		return toItems(response as unknown as IDataObject);
+		const response = await appwriteApiRequest.call(
+			this,
+			'PUT',
+			`/tablesdb/${encodeURIComponent(databaseId)}`,
+			{ body: { name, enabled } },
+			i,
+		);
+		return toItems(response);
 	}
 
 	if (operation === 'delete') {
 		const databaseId = this.getNodeParameter('databaseId', i) as string;
-		await tablesDB.delete({ databaseId });
+		await appwriteApiRequest.call(
+			this,
+			'DELETE',
+			`/tablesdb/${encodeURIComponent(databaseId)}`,
+			{},
+			i,
+		);
 		return toItems({ success: true, databaseId });
 	}
 

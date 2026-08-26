@@ -2,7 +2,7 @@
 
 An [n8n](https://n8n.io) community node for [Appwrite](https://appwrite.io), built on the modern **TablesDB** API — databases contain **tables** (formerly collections) made of **columns** (formerly attributes) and **rows** (formerly documents).
 
-Powered by the official [`node-appwrite`](https://www.npmjs.com/package/node-appwrite) server SDK (v20+), so it speaks the current Appwrite API, including bulk row operations, upserts, atomic increments, database transactions, and spatial column types.
+It talks to the Appwrite REST API directly through n8n's own HTTP helpers, so the package ships with **zero runtime dependencies** — nothing extra is installed into your n8n instance. It covers the current Appwrite API, including bulk row operations, upserts, atomic increments, database transactions, and spatial column types.
 
 ## Installation
 
@@ -13,8 +13,6 @@ Or on a self-hosted instance:
 ```bash
 npm install @dentalrx/n8n-nodes-appwrite
 ```
-
-> **Note:** this package ships with the `node-appwrite` SDK as a runtime dependency, which is supported for self-hosted community nodes.
 
 ## Credentials
 
@@ -83,17 +81,71 @@ Row operations support:
 | **Locale** | Get, Continents, Countries, EU Countries, Currencies, Languages, Locale Codes, Phone Codes |
 | **Health** | Get, Antivirus, Cache, Certificate, Database, PubSub, Storage, Storage Local, Time |
 
+## Example workflows
+
+### Append a row to a table
+
+1. Add a **Schedule Trigger** (or any trigger).
+2. Add the **Appwrite** node and pick your **Appwrite API** credential.
+3. Set **Resource** to `Row` and **Operation** to `Create`.
+4. Choose your **Database Name or ID** and **Table Name or ID** from the dropdowns.
+5. Leave **Row ID** empty so Appwrite generates one.
+6. Set **Data Mode** to `Fields` and add a field per column, or switch to `JSON` and pass an
+   expression such as `={{ $json }}`.
+
+### Look up rows and act on them
+
+1. **Appwrite** → **Resource** `Row`, **Operation** `Get Many`.
+2. Turn on **Return All**, or leave it off and set a **Limit**.
+3. Under **Queries**, add conditions with the builder — for example **Type** `Equal`,
+   **Column** `status`, **Value** `active`. Each row comes out as its own n8n item.
+
+### Store a file from a previous node
+
+1. Any node that produces binary data (for example **HTTP Request** with a file response).
+2. **Appwrite** → **Resource** `File`, **Operation** `Upload`.
+3. Pick the **Bucket Name or ID**, and set **Input Data Field Name** to the binary field
+   holding the file (`data` by default). Files larger than 5 MB are uploaded in chunks
+   automatically.
+
+### Use Appwrite as an AI agent tool
+
+The node sets `usableAsTool`, so you can attach it to an **AI Agent** node and let the model
+read from or write to your Appwrite project.
+
 ## Usage notes
 
-- **IDs**: leave any ID field empty (or type `unique()`) on create operations to auto-generate a unique ID.
-- **Permissions**: enter one permission string per line (or a JSON array), e.g. `read("any")`, `update("user:abc")`, `delete("team:abc/owner")`.
-- **AI agents**: the node sets `usableAsTool`, so it can be used as a tool by n8n AI Agent nodes.
-- **Legacy Databases API**: this node intentionally targets the TablesDB API. If you still run an Appwrite version without TablesDB (< 1.8), use a legacy community node instead.
+- **Pick from a list or type an ID**: fields such as **Database Name or ID** and
+  **Table Name or ID** load the real values from your project. You can always switch the field
+  to an expression to supply an ID computed at runtime.
+- **Pasting console URLs**: ID fields also accept a URL copied out of the Appwrite Console —
+  the ID is extracted for you.
+- **Auto-generated IDs**: leave any ID field empty (or type `unique()`) on create operations to
+  have a unique ID generated.
+- **Permissions**: enter one permission string per line (or a JSON array), e.g. `read("any")`,
+  `update("user:abc")`, `delete("team:abc/owner")`.
+- **API key scopes**: each operation needs the matching scope on your Appwrite API key. A
+  `401`/`403` from Appwrite almost always means a missing scope rather than a bad key.
+- **Legacy Databases API**: this node intentionally targets the TablesDB API. If you still run an
+  Appwrite version without TablesDB (< 1.8), use a legacy community node instead.
 
 ## Compatibility
 
 - Requires n8n 1.x and Node.js ≥ 18.17.
 - Tested against Appwrite Cloud and self-hosted Appwrite 1.8+ (TablesDB).
+
+## Development
+
+This package is built and linted with n8n's official [`n8n-node`](https://docs.n8n.io/integrations/creating-nodes/build/reference/n8n-node-tool/) tool.
+
+```bash
+npm ci
+npm run build     # n8n-node build
+npm run lint      # n8n-node lint - n8n's community-node rule set
+npm run dev       # run a local n8n with this node loaded
+```
+
+Releases are published from the `Publish` GitHub Action with [npm provenance](https://docs.npmjs.com/generating-provenance-statements), so every published version is traceable to the commit it was built from.
 
 ## Resources
 
