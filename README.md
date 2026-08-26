@@ -36,7 +36,7 @@ Create an **Appwrite API** credential with:
 | **Table** | Create, Delete, Get, Get Many, Update (permissions, row security, enabled) |
 | **Column** | Create, Delete, Get, Get Many, Update — all 13 column types: string, integer, float, boolean, datetime, email, enum, IP, URL, point, line, polygon, and relationship |
 | **Index** | Create (key, unique, fulltext, spatial), Delete, Get, Get Many |
-| **Row** | Create, Create Many, Delete, Delete Many, Get, Get Many, Update, Update Many, Upsert, Upsert Many, Increment Column, Decrement Column |
+| **Row** | Create, Create Many, Create or Update (upsert), Create or Update Many, Delete, Delete Many, Get, Get Many, Update, Update Many, Increment Column, Decrement Column |
 | **Transaction** | Create, Commit, Rollback, Create Operations, Delete, Get, Get Many |
 
 Row operations support:

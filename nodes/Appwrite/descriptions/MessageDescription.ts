@@ -346,7 +346,7 @@ export const messageFields: INodeProperties[] = [
 			{
 				displayName: 'Color',
 				name: 'color',
-				type: 'string',
+				type: 'color',
 				default: '',
 				description: 'Color for the push notification. Available only on Android.',
 			},
@@ -604,7 +604,7 @@ export const messageFields: INodeProperties[] = [
 			{
 				displayName: 'Color',
 				name: 'color',
-				type: 'string',
+				type: 'color',
 				default: '',
 				description: 'Color for the push notification. Available only on Android.',
 			},

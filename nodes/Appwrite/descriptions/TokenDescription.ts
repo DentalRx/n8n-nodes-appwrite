@@ -82,6 +82,7 @@ export const tokenFields: INodeProperties[] = [
 		displayName: 'Token ID',
 		name: 'tokenId',
 		type: 'string',
+		typeOptions: { password: true },
 		required: true,
 		default: '',
 		description: 'The unique ID of the token',

@@ -231,7 +231,7 @@ export const fileFields: INodeProperties[] = [
 			{
 				displayName: 'Border Color',
 				name: 'borderColor',
-				type: 'string',
+				type: 'color',
 				default: '',
 				description: 'Preview image border color as a HEX color without the # prefix',
 			},
