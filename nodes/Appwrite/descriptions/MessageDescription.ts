@@ -1,6 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-import { queriesProperties, returnAllAndLimitProperties } from './shared';
+import { listOptionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
 
 export const messageOperations: INodeProperties[] = [
 	{
@@ -92,6 +92,7 @@ const recipientProperties: INodeProperties[] = [
 		name: 'topics',
 		type: 'string',
 		default: '',
+		placeholder: 'topic-1, topic-2',
 		description:
 			'Topic IDs to send the message to, as a comma-separated list or a JSON array. At least one of Topic IDs, User IDs, or Target IDs must be provided.',
 		displayOptions: {
@@ -106,6 +107,7 @@ const recipientProperties: INodeProperties[] = [
 		name: 'users',
 		type: 'string',
 		default: '',
+		placeholder: 'user-1, user-2',
 		description:
 			'User IDs to send the message to, as a comma-separated list or a JSON array. At least one of Topic IDs, User IDs, or Target IDs must be provided.',
 		displayOptions: {
@@ -120,6 +122,7 @@ const recipientProperties: INodeProperties[] = [
 		name: 'targets',
 		type: 'string',
 		default: '',
+		placeholder: 'target-1, target-2',
 		description:
 			'Target IDs to send the message to, as a comma-separated list or a JSON array. At least one of Topic IDs, User IDs, or Target IDs must be provided.',
 		displayOptions: {
@@ -239,22 +242,9 @@ export const messageFields: INodeProperties[] = [
 		},
 	},
 	...recipientProperties,
-	{
-		displayName: 'Search',
-		name: 'search',
-		type: 'string',
-		default: '',
-		description: 'Search term to filter the message list',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['getMany'],
-			},
-		},
-	},
 	...returnAllAndLimitProperties('message', ['getMany', 'getManyLogs', 'getManyTargets']),
 	...queriesProperties('message', ['getMany', 'getManyLogs', 'getManyTargets'], {
-		hint: 'Filter, sort, and paginate the results. For Get Many Logs, only Limit and Offset queries are supported.',
+		hint: 'Get Many Logs supports only Limit and Offset queries',
 	}),
 	{
 		displayName: 'Options',
@@ -274,6 +264,7 @@ export const messageFields: INodeProperties[] = [
 				name: 'attachments',
 				type: 'string',
 				default: '',
+				placeholder: 'bucket-1:file-1, bucket-1:file-2',
 				description:
 					'File IDs to attach to the email, as a comma-separated list or a JSON array of compound IDs formatted as &lt;BUCKET_ID&gt;:&lt;FILE_ID&gt;',
 			},
@@ -282,6 +273,7 @@ export const messageFields: INodeProperties[] = [
 				name: 'bcc',
 				type: 'string',
 				default: '',
+				placeholder: 'target-1, target-2',
 				description: 'Target IDs to add as BCC, as a comma-separated list or a JSON array',
 			},
 			{
@@ -289,6 +281,7 @@ export const messageFields: INodeProperties[] = [
 				name: 'cc',
 				type: 'string',
 				default: '',
+				placeholder: 'target-1, target-2',
 				description: 'Target IDs to add as CC, as a comma-separated list or a JSON array',
 			},
 			{
@@ -303,16 +296,15 @@ export const messageFields: INodeProperties[] = [
 				name: 'html',
 				type: 'boolean',
 				default: false,
-				description: 'Whether the content is of type HTML',
+				description: 'Whether the email content is HTML rather than plain text',
 			},
 			{
 				displayName: 'Scheduled At',
 				name: 'scheduledAt',
-				type: 'string',
+				type: 'dateTime',
 				default: '',
-				placeholder: '2026-12-31T12:00:00.000Z',
 				description:
-					'Scheduled delivery time for the message, in ISO 8601 format. The value must be in the future.',
+					'When to deliver the message. Must be in the future; leave empty to send immediately.',
 			},
 		],
 	},
@@ -334,12 +326,13 @@ export const messageFields: INodeProperties[] = [
 				name: 'action',
 				type: 'string',
 				default: '',
-				description: 'Action for the push notification',
+				description: 'The click action the app should handle when the user taps the notification',
 			},
 			{
 				displayName: 'Badge',
 				name: 'badge',
 				type: 'number',
+				typeOptions: { minValue: 0 },
 				default: 0,
 				description: 'Badge for the push notification. Available only on iOS.',
 			},
@@ -392,6 +385,7 @@ export const messageFields: INodeProperties[] = [
 				name: 'image',
 				type: 'string',
 				default: '',
+				placeholder: 'bucket-1:file-1',
 				description:
 					'Image for the push notification. Must be a compound ID of a JPEG, PNG, or BMP image in Appwrite Storage, formatted as &lt;BUCKET_ID&gt;:&lt;FILE_ID&gt;.',
 			},
@@ -408,21 +402,19 @@ export const messageFields: INodeProperties[] = [
 					{
 						name: 'Normal',
 						value: 'normal',
-						description:
-							'Consider the device state, which may delay delivery of the notification',
+						description: 'Consider the device state, which may delay delivery of the notification',
 					},
 				],
 				default: 'high',
-				description: 'The delivery priority of the push notification',
+				description: 'The delivery priority of the push notification. Defaults to High.',
 			},
 			{
 				displayName: 'Scheduled At',
 				name: 'scheduledAt',
-				type: 'string',
+				type: 'dateTime',
 				default: '',
-				placeholder: '2026-12-31T12:00:00.000Z',
 				description:
-					'Scheduled delivery time for the message, in ISO 8601 format. The value must be in the future.',
+					'When to deliver the message. Must be in the future; leave empty to send immediately.',
 			},
 			{
 				displayName: 'Sound',
@@ -463,11 +455,10 @@ export const messageFields: INodeProperties[] = [
 			{
 				displayName: 'Scheduled At',
 				name: 'scheduledAt',
-				type: 'string',
+				type: 'dateTime',
 				default: '',
-				placeholder: '2026-12-31T12:00:00.000Z',
 				description:
-					'Scheduled delivery time for the message, in ISO 8601 format. The value must be in the future.',
+					'When to deliver the message. Must be in the future; leave empty to send immediately.',
 			},
 		],
 	},
@@ -489,6 +480,7 @@ export const messageFields: INodeProperties[] = [
 				name: 'attachments',
 				type: 'string',
 				default: '',
+				placeholder: 'bucket-1:file-1, bucket-1:file-2',
 				description:
 					'File IDs to attach to the email, as a comma-separated list or a JSON array of compound IDs formatted as &lt;BUCKET_ID&gt;:&lt;FILE_ID&gt;',
 			},
@@ -497,6 +489,7 @@ export const messageFields: INodeProperties[] = [
 				name: 'bcc',
 				type: 'string',
 				default: '',
+				placeholder: 'target-1, target-2',
 				description: 'Target IDs to add as BCC, as a comma-separated list or a JSON array',
 			},
 			{
@@ -504,6 +497,7 @@ export const messageFields: INodeProperties[] = [
 				name: 'cc',
 				type: 'string',
 				default: '',
+				placeholder: 'target-1, target-2',
 				description: 'Target IDs to add as CC, as a comma-separated list or a JSON array',
 			},
 			{
@@ -519,23 +513,23 @@ export const messageFields: INodeProperties[] = [
 				name: 'draft',
 				type: 'boolean',
 				default: false,
-				description: 'Whether the message is a draft',
+				description:
+					'Whether to keep the message as a draft. Setting this to false releases the message for delivery.',
 			},
 			{
 				displayName: 'HTML',
 				name: 'html',
 				type: 'boolean',
 				default: false,
-				description: 'Whether the content is of type HTML',
+				description: 'Whether the email content is HTML rather than plain text',
 			},
 			{
 				displayName: 'Scheduled At',
 				name: 'scheduledAt',
-				type: 'string',
+				type: 'dateTime',
 				default: '',
-				placeholder: '2026-12-31T12:00:00.000Z',
 				description:
-					'Scheduled delivery time for the message, in ISO 8601 format. The value must be in the future.',
+					'When to deliver the message. Must be in the future; leave empty to send immediately.',
 			},
 			{
 				displayName: 'Subject',
@@ -585,12 +579,13 @@ export const messageFields: INodeProperties[] = [
 				name: 'action',
 				type: 'string',
 				default: '',
-				description: 'Action for the push notification',
+				description: 'The click action the app should handle when the user taps the notification',
 			},
 			{
 				displayName: 'Badge',
 				name: 'badge',
 				type: 'number',
+				typeOptions: { minValue: 0 },
 				default: 0,
 				description: 'Badge for the push notification. Available only on iOS.',
 			},
@@ -636,7 +631,8 @@ export const messageFields: INodeProperties[] = [
 				name: 'draft',
 				type: 'boolean',
 				default: false,
-				description: 'Whether the message is a draft',
+				description:
+					'Whether to keep the message as a draft. Setting this to false releases the message for delivery.',
 			},
 			{
 				displayName: 'Icon',
@@ -650,6 +646,7 @@ export const messageFields: INodeProperties[] = [
 				name: 'image',
 				type: 'string',
 				default: '',
+				placeholder: 'bucket-1:file-1',
 				description:
 					'Image for the push notification. Must be a compound ID of a JPEG, PNG, or BMP image in Appwrite Storage, formatted as &lt;BUCKET_ID&gt;:&lt;FILE_ID&gt;.',
 			},
@@ -666,21 +663,19 @@ export const messageFields: INodeProperties[] = [
 					{
 						name: 'Normal',
 						value: 'normal',
-						description:
-							'Consider the device state, which may delay delivery of the notification',
+						description: 'Consider the device state, which may delay delivery of the notification',
 					},
 				],
 				default: 'high',
-				description: 'The delivery priority of the push notification',
+				description: 'The delivery priority of the push notification. Defaults to High.',
 			},
 			{
 				displayName: 'Scheduled At',
 				name: 'scheduledAt',
-				type: 'string',
+				type: 'dateTime',
 				default: '',
-				placeholder: '2026-12-31T12:00:00.000Z',
 				description:
-					'Scheduled delivery time for the message, in ISO 8601 format. The value must be in the future.',
+					'When to deliver the message. Must be in the future; leave empty to send immediately.',
 			},
 			{
 				displayName: 'Sound',
@@ -751,16 +746,16 @@ export const messageFields: INodeProperties[] = [
 				name: 'draft',
 				type: 'boolean',
 				default: false,
-				description: 'Whether the message is a draft',
+				description:
+					'Whether to keep the message as a draft. Setting this to false releases the message for delivery.',
 			},
 			{
 				displayName: 'Scheduled At',
 				name: 'scheduledAt',
-				type: 'string',
+				type: 'dateTime',
 				default: '',
-				placeholder: '2026-12-31T12:00:00.000Z',
 				description:
-					'Scheduled delivery time for the message, in ISO 8601 format. The value must be in the future.',
+					'When to deliver the message. Must be in the future; leave empty to send immediately.',
 			},
 			{
 				displayName: 'Target IDs',
@@ -785,4 +780,5 @@ export const messageFields: INodeProperties[] = [
 			},
 		],
 	},
+	listOptionsProperty('message', ['getMany']),
 ];

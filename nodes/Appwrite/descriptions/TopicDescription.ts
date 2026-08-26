@@ -1,6 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-import { queriesProperties, returnAllAndLimitProperties } from './shared';
+import { listOptionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
 
 export const topicOperations: INodeProperties[] = [
 	{
@@ -53,7 +53,7 @@ export const topicOperations: INodeProperties[] = [
 			{
 				name: 'Get Many Subscribers',
 				value: 'getManySubscribers',
-				description: 'List the subscribers of a topic',
+				description: 'List the subscribers of a topic, with optional filters',
 				action: 'Get many topic subscribers',
 			},
 			{
@@ -75,12 +75,14 @@ export const topicOperations: INodeProperties[] = [
 
 export const topicFields: INodeProperties[] = [
 	{
-		displayName: 'Topic ID',
+		displayName: 'Topic Name or ID',
 		name: 'topicId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getTopics' },
 		required: true,
 		default: '',
-		description: 'The ID of the topic',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: ['topic'],
@@ -97,13 +99,12 @@ export const topicFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Topic ID',
-		name: 'topicId',
+		displayName: 'Name',
+		name: 'name',
 		type: 'string',
+		required: true,
 		default: '',
-		placeholder: 'unique()',
-		description:
-			'The ID for the topic. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
+		description: 'The name of the topic',
 		displayOptions: {
 			show: {
 				resource: ['topic'],
@@ -112,12 +113,13 @@ export const topicFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Name',
-		name: 'name',
+		displayName: 'Topic ID',
+		name: 'topicId',
 		type: 'string',
-		required: true,
 		default: '',
-		description: 'The name of the topic',
+		placeholder: 'unique()',
+		description:
+			'The ID for the topic. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {
 			show: {
 				resource: ['topic'],
@@ -146,26 +148,11 @@ export const topicFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		description: 'The ID of the subscriber',
+		description: 'The ID of the subscriber record that links a target to this topic',
 		displayOptions: {
 			show: {
 				resource: ['topic'],
 				operation: ['deleteSubscriber', 'getSubscriber'],
-			},
-		},
-	},
-	{
-		displayName: 'Subscriber ID',
-		name: 'subscriberId',
-		type: 'string',
-		default: '',
-		placeholder: 'unique()',
-		description:
-			'The ID for the subscriber. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
-		displayOptions: {
-			show: {
-				resource: ['topic'],
-				operation: ['createSubscriber'],
 			},
 		},
 	},
@@ -184,15 +171,17 @@ export const topicFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Search',
-		name: 'search',
+		displayName: 'Subscriber ID',
+		name: 'subscriberId',
 		type: 'string',
 		default: '',
-		description: 'Search term to filter the results',
+		placeholder: 'unique()',
+		description:
+			'The ID for the subscriber. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {
 			show: {
 				resource: ['topic'],
-				operation: ['getMany', 'getManySubscribers'],
+				operation: ['createSubscriber'],
 			},
 		},
 	},
@@ -229,4 +218,5 @@ export const topicFields: INodeProperties[] = [
 			},
 		],
 	},
+	listOptionsProperty('topic', ['getMany', 'getManySubscribers']),
 ];

@@ -1,15 +1,9 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { type Functions, type Models, type Runtime } from 'node-appwrite';
 
-import {
-	buildQueries,
-	fetchAllPages,
-	parseStringList,
-	resolveId,
-	toItems,
-	withLimit,
-} from '../GenericFunctions';
+import { buildQueries, fetchAllPages, parseJsonArrayParameter } from '../GenericFunctions';
+import { Query, extractId, resolveId } from '../helpers/appwrite';
+import { appwriteApiRequest } from '../transport';
 
 interface FunctionConfigOptions {
 	commands?: string;
@@ -26,188 +20,249 @@ interface FunctionConfigOptions {
 
 export async function executeFunctionOperation(
 	this: IExecuteFunctions,
-	functions: Functions,
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const functionId = this.getNodeParameter('functionId', i, '') as string;
+	const functionId = extractId(this.getNodeParameter('functionId', i, '') as string, 'function');
 
-	const getConfigOptionArgs = (current?: Models.Function) => {
+	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
+		const list = Array.isArray(data) ? data : [data];
+		return list.map((json) => ({ json, pairedItem: { item: i } }));
+	};
+
+	const parseList = (raw: string, name: string): string[] => {
+		if (raw.trim() === '') return [];
+		if (raw.trim().startsWith('[')) {
+			return parseJsonArrayParameter.call(this, raw, name, i).map((e) => String(e));
+		}
+		return raw
+			.split(',')
+			.map((e) => e.trim())
+			.filter((e) => e !== '');
+	};
+
+	const getConfigOptionArgs = () => {
 		const options = this.getNodeParameter('options', i, {}) as FunctionConfigOptions;
-		// An option the user never added keeps whatever the function already has;
-		// an option added and left blank clears it.
-		const list = (raw: string | undefined, name: string, fallback?: string[]) =>
-			raw === undefined ? fallback : parseStringList.call(this, raw, name, i);
-		const text = (raw: string | undefined, fallback?: string) =>
-			raw === undefined ? fallback : raw;
-
+		const execute = parseList(options.execute ?? '', 'execute');
+		const events = parseList(options.events ?? '', 'events');
+		const scopes = parseList(options.scopes ?? '', 'scopes');
 		return {
-			execute: list(options.execute, 'execute', current?.execute),
-			events: list(options.events, 'events', current?.events),
-			schedule: text(options.schedule, current?.schedule),
-			timeout: options.timeout ?? current?.timeout,
-			enabled: options.enabled ?? current?.enabled,
-			logging: options.logging ?? current?.logging,
-			entrypoint: text(options.entrypoint, current?.entrypoint),
-			commands: text(options.commands, current?.commands),
-			scopes: list(options.scopes, 'scopes', current?.scopes),
+			execute: execute.length > 0 ? execute : undefined,
+			events: events.length > 0 ? events : undefined,
+			schedule: options.schedule === '' ? undefined : options.schedule,
+			timeout: options.timeout,
+			enabled: options.enabled,
+			logging: options.logging,
+			entrypoint: options.entrypoint === '' ? undefined : options.entrypoint,
+			commands: options.commands === '' ? undefined : options.commands,
+			scopes: scopes.length > 0 ? scopes : undefined,
 		};
 	};
 
-	// The Runtime enum only enumerates the runtimes known at SDK release time and
-	// grows with every Appwrite version; the raw runtime ID string is the wire
-	// value, so casting keeps new runtimes usable without an SDK upgrade.
-	const toRuntime = (runtimeId: string): Runtime => runtimeId as Runtime;
-
 	if (operation === 'activateDeployment') {
 		const deploymentId = this.getNodeParameter('deploymentId', i) as string;
-		const response = await functions.updateFunctionDeployment({ functionId, deploymentId });
-		return toItems(response as unknown as IDataObject, i);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'PATCH',
+			`/functions/${encodeURIComponent(functionId)}/deployment`,
+			{ body: { deploymentId } },
+			i,
+		)) as IDataObject;
+		return toItems(response);
 	}
 
 	if (operation === 'create') {
-		const rawId = this.getNodeParameter('functionId', i, '') as string;
-		const newFunctionId = resolveId(rawId);
+		const newFunctionId = resolveId(this.getNodeParameter('functionId', i, '') as string);
 		const name = this.getNodeParameter('name', i) as string;
+		// The raw runtime ID string is the wire value, so it is passed through
+		// as-is: Appwrite adds runtimes with every release and the node must not
+		// restrict them to a fixed list.
 		const runtime = this.getNodeParameter('runtime', i) as string;
-		const response = await functions.create({
-			functionId: newFunctionId,
-			name,
-			runtime: toRuntime(runtime),
-			...getConfigOptionArgs(),
-		});
-		return toItems(response as unknown as IDataObject, i);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'POST',
+			'/functions',
+			{ body: { functionId: newFunctionId, name, runtime, ...getConfigOptionArgs() } },
+			i,
+		)) as IDataObject;
+		return toItems(response);
 	}
 
 	if (operation === 'createVariable') {
 		const key = this.getNodeParameter('key', i) as string;
 		const value = this.getNodeParameter('value', i) as string;
 		const secret = this.getNodeParameter('secret', i, false) as boolean;
-		const response = await functions.createVariable({ functionId, key, value, secret });
-		return toItems(response as unknown as IDataObject, i);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'POST',
+			`/functions/${encodeURIComponent(functionId)}/variables`,
+			{ body: { key, value, secret } },
+			i,
+		)) as IDataObject;
+		return toItems(response);
 	}
 
 	if (operation === 'delete') {
-		await functions.delete({ functionId });
-		return toItems({ success: true, functionId }, i);
+		await appwriteApiRequest.call(
+			this,
+			'DELETE',
+			`/functions/${encodeURIComponent(functionId)}`,
+			{},
+			i,
+		);
+		return toItems({ success: true, functionId });
 	}
 
 	if (operation === 'deleteDeployment') {
 		const deploymentId = this.getNodeParameter('deploymentId', i) as string;
-		await functions.deleteDeployment({ functionId, deploymentId });
-		return toItems({ success: true, functionId, deploymentId }, i);
+		await appwriteApiRequest.call(
+			this,
+			'DELETE',
+			`/functions/${encodeURIComponent(functionId)}/deployments/${encodeURIComponent(deploymentId)}`,
+			{},
+			i,
+		);
+		return toItems({ success: true, functionId, deploymentId });
 	}
 
 	if (operation === 'deleteVariable') {
 		const variableId = this.getNodeParameter('variableId', i) as string;
-		await functions.deleteVariable({ functionId, variableId });
-		return toItems({ success: true, functionId, variableId }, i);
+		await appwriteApiRequest.call(
+			this,
+			'DELETE',
+			`/functions/${encodeURIComponent(functionId)}/variables/${encodeURIComponent(variableId)}`,
+			{},
+			i,
+		);
+		return toItems({ success: true, functionId, variableId });
 	}
 
 	if (operation === 'get') {
-		const response = await functions.get({ functionId });
-		return toItems(response as unknown as IDataObject, i);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'GET',
+			`/functions/${encodeURIComponent(functionId)}`,
+			{},
+			i,
+		)) as IDataObject;
+		return toItems(response);
 	}
 
 	if (operation === 'getDeployment') {
 		const deploymentId = this.getNodeParameter('deploymentId', i) as string;
-		const response = await functions.getDeployment({ functionId, deploymentId });
-		return toItems(response as unknown as IDataObject, i);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'GET',
+			`/functions/${encodeURIComponent(functionId)}/deployments/${encodeURIComponent(deploymentId)}`,
+			{},
+			i,
+		)) as IDataObject;
+		return toItems(response);
 	}
 
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = this.getNodeParameter('search', i, '') as string;
+		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
 		if (returnAll) {
-			const functionList = await fetchAllPages(
+			const functionList = await fetchAllPages.call(
 				this,
-				i,
 				queries,
 				async (pageQueries) =>
-					(await functions.list({
-						queries: pageQueries,
-						search: searchArg,
-					})) as unknown as IDataObject,
+					(await appwriteApiRequest.call(
+						this,
+						'GET',
+						'/functions',
+						{ qs: { queries: pageQueries, search: searchArg } },
+						i,
+					)) as IDataObject,
 				'functions',
 			);
-			return toItems(functionList as unknown as IDataObject[], i);
+			return toItems(functionList as IDataObject[]);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = await functions.list({
-			queries: withLimit(queries, limit),
-			search: searchArg,
-		});
-		return toItems(response.functions as unknown as IDataObject[], i);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'GET',
+			'/functions',
+			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			i,
+		)) as IDataObject;
+		return toItems(response.functions as IDataObject[]);
 	}
 
 	if (operation === 'getManyDeployments') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = this.getNodeParameter('search', i, '') as string;
+		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
 		if (returnAll) {
-			const deployments = await fetchAllPages(
+			const deployments = await fetchAllPages.call(
 				this,
-				i,
 				queries,
 				async (pageQueries) =>
-					(await functions.listDeployments({
-						functionId,
-						queries: pageQueries,
-						search: searchArg,
-					})) as unknown as IDataObject,
+					(await appwriteApiRequest.call(
+						this,
+						'GET',
+						`/functions/${encodeURIComponent(functionId)}/deployments`,
+						{ qs: { queries: pageQueries, search: searchArg } },
+						i,
+					)) as IDataObject,
 				'deployments',
 			);
-			return toItems(deployments as unknown as IDataObject[], i);
+			return toItems(deployments as IDataObject[]);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = await functions.listDeployments({
-			functionId,
-			queries: withLimit(queries, limit),
-			search: searchArg,
-		});
-		return toItems(response.deployments as unknown as IDataObject[], i);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'GET',
+			`/functions/${encodeURIComponent(functionId)}/deployments`,
+			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			i,
+		)) as IDataObject;
+		return toItems(response.deployments as IDataObject[]);
 	}
 
 	if (operation === 'getManyVariables') {
-		const response = await functions.listVariables({ functionId });
-		return toItems(response.variables as unknown as IDataObject[], i);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'GET',
+			`/functions/${encodeURIComponent(functionId)}/variables`,
+			{},
+			i,
+		)) as IDataObject;
+		return toItems(response.variables as IDataObject[]);
 	}
 
 	if (operation === 'getVariable') {
 		const variableId = this.getNodeParameter('variableId', i) as string;
-		const response = await functions.getVariable({ functionId, variableId });
-		return toItems(response as unknown as IDataObject, i);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'GET',
+			`/functions/${encodeURIComponent(functionId)}/variables/${encodeURIComponent(variableId)}`,
+			{},
+			i,
+		)) as IDataObject;
+		return toItems(response);
 	}
 
 	if (operation === 'update') {
 		const name = this.getNodeParameter('name', i) as string;
 		const options = this.getNodeParameter('options', i, {}) as FunctionConfigOptions;
 		const runtime = options.runtime === '' ? undefined : options.runtime;
-		// Appwrite's function update is a full replace: settings left out of the
-		// request are reset to the API's own defaults, which would silently clear
-		// the schedule, event triggers, execute roles and the linked Git
-		// repository. Read the function first and resend everything unchanged.
-		const current = await functions.get({ functionId });
-		const response = await functions.update({
-			functionId,
-			name,
-			runtime: runtime === undefined ? undefined : toRuntime(runtime),
-			...getConfigOptionArgs(current),
-			installationId: current.installationId,
-			providerRepositoryId: current.providerRepositoryId,
-			providerBranch: current.providerBranch,
-			providerSilentMode: current.providerSilentMode,
-			providerRootDirectory: current.providerRootDirectory,
-			specification: current.specification,
-		});
-		return toItems(response as unknown as IDataObject, i);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'PUT',
+			`/functions/${encodeURIComponent(functionId)}`,
+			{ body: { name, runtime, ...getConfigOptionArgs() } },
+			i,
+		)) as IDataObject;
+		return toItems(response);
 	}
 
 	if (operation === 'updateVariable') {
@@ -215,14 +270,20 @@ export async function executeFunctionOperation(
 		const key = this.getNodeParameter('key', i) as string;
 		const value = this.getNodeParameter('value', i, '') as string;
 		const secret = this.getNodeParameter('secret', i, false) as boolean;
-		const response = await functions.updateVariable({
-			functionId,
-			variableId,
-			key,
-			value: value === '' ? undefined : value,
-			secret,
-		});
-		return toItems(response as unknown as IDataObject, i);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'PUT',
+			`/functions/${encodeURIComponent(functionId)}/variables/${encodeURIComponent(variableId)}`,
+			{
+				body: {
+					key,
+					value: value === '' ? undefined : value,
+					secret: secret ? true : undefined,
+				},
+			},
+			i,
+		)) as IDataObject;
+		return toItems(response);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown function operation "${operation}"`, {

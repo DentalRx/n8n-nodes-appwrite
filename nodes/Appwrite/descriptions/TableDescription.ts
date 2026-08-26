@@ -2,6 +2,7 @@ import type { INodeProperties } from 'n8n-workflow';
 
 import {
 	databaseIdProperty,
+	listOptionsProperty,
 	permissionsProperty,
 	queriesProperties,
 	returnAllAndLimitProperties,
@@ -57,12 +58,14 @@ export const tableOperations: INodeProperties[] = [
 export const tableFields: INodeProperties[] = [
 	databaseIdProperty(['table']),
 	{
-		displayName: 'Table ID',
+		displayName: 'Table Name or ID',
 		name: 'tableId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsDependsOn: ['databaseId'], loadOptionsMethod: 'getTables' },
 		required: true,
 		default: '',
-		description: 'The ID of the table',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: ['table'],
@@ -77,7 +80,7 @@ export const tableFields: INodeProperties[] = [
 		default: '',
 		placeholder: 'unique()',
 		description:
-			'The ID for the new table. Leave empty (or use unique()) to auto-generate a unique ID.',
+			'The ID for the new table. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {
 			show: {
 				resource: ['table'],
@@ -91,11 +94,25 @@ export const tableFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		description: 'The table name. Max length: 128 chars.',
+		description: 'Name for the table, up to 128 characters',
 		displayOptions: {
 			show: {
 				resource: ['table'],
 				operation: ['create', 'update'],
+			},
+		},
+	},
+	{
+		displayName: 'Enabled',
+		name: 'enabled',
+		type: 'boolean',
+		default: true,
+		description:
+			'Whether the table is enabled. When disabled, users cannot access it, but server SDKs with an API key still can. Defaults to true.',
+		displayOptions: {
+			show: {
+				resource: ['table'],
+				operation: ['create'],
 			},
 		},
 	},
@@ -110,41 +127,46 @@ export const tableFields: INodeProperties[] = [
 		type: 'boolean',
 		default: false,
 		description:
-			'Whether to enable row-level security. When enabled, users can access rows they have been granted permission to, in addition to the table-level permissions.',
+			'Whether to enable row-level security. When enabled, users can access rows they have been granted permission to, in addition to the table-level permissions. Defaults to false.',
 		displayOptions: {
 			show: {
 				resource: ['table'],
-				operation: ['create', 'update'],
+				operation: ['create'],
 			},
 		},
 	},
 	{
-		displayName: 'Enabled',
-		name: 'enabled',
-		type: 'boolean',
-		default: true,
-		description:
-			'Whether the table is enabled. When disabled, users cannot access it, but server SDKs with an API key still can.',
+		displayName: 'Update Fields',
+		name: 'updateFields',
+		type: 'collection',
+		placeholder: 'Add field',
+		default: {},
 		displayOptions: {
 			show: {
 				resource: ['table'],
-				operation: ['create', 'update'],
+				operation: ['update'],
 			},
 		},
-	},
-	{
-		displayName: 'Search',
-		name: 'search',
-		type: 'string',
-		default: '',
-		description: 'Search term to filter the table list',
-		displayOptions: {
-			show: {
-				resource: ['table'],
-				operation: ['getMany'],
+		options: [
+			{
+				displayName: 'Enabled',
+				name: 'enabled',
+				type: 'boolean',
+				default: true,
+				description:
+					'Whether the table is enabled. When disabled, users cannot access it, but server SDKs with an API key still can. Leave this out to keep the current setting.',
 			},
-		},
+			{
+				displayName: 'Row Security',
+				name: 'rowSecurity',
+				type: 'boolean',
+				default: false,
+				description:
+					'Whether to enable row-level security. When enabled, users can access rows they have been granted permission to, in addition to the table-level permissions. Leave this out to keep the current setting.',
+			},
+		],
 	},
 	...returnAllAndLimitProperties('table', ['getMany']),
 	...queriesProperties('table', ['getMany']),
+	listOptionsProperty('table', ['getMany']),
 ];

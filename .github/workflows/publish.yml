@@ -1,0 +1,36 @@
+name: Publish
+
+# n8n requires verified community nodes to be published from a GitHub Action
+# with an npm provenance statement, so the published artifact can be traced
+# back to the commit it was built from.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      # Required for npm provenance: mints the OIDC token npm uses to attest
+      # which workflow and commit produced the package.
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - run: npm run lint
+
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

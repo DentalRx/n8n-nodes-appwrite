@@ -45,12 +45,14 @@ export const executionOperations: INodeProperties[] = [
 
 export const executionFields: INodeProperties[] = [
 	{
-		displayName: 'Function ID',
+		displayName: 'Function Name or ID',
 		name: 'functionId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getFunctions' },
 		required: true,
 		default: '',
-		description: 'The ID of the function',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: ['execution'],
@@ -134,23 +136,23 @@ export const executionFields: INodeProperties[] = [
 					{ name: 'PUT', value: 'PUT' },
 				],
 				default: 'POST',
-				description: 'HTTP method of the execution',
+				description: 'HTTP method of the execution. Defaults to POST.',
 			},
 			{
 				displayName: 'Path',
 				name: 'xpath',
 				type: 'string',
 				default: '/',
-				description: 'HTTP path of the execution. The path can include query params.',
+				description: 'HTTP path of the execution. The path can include query parameters.',
 			},
 			{
 				displayName: 'Scheduled At',
 				name: 'scheduledAt',
-				type: 'string',
+				type: 'dateTime',
 				default: '',
-				placeholder: '2026-01-01T12:00:00Z',
+				displayOptions: { show: { '/async': [true] } },
 				description:
-					'Scheduled execution time in ISO 8601 format. Must be in the future, with precision in minutes. Requires Async to be enabled.',
+					'When to run the function. Must be in the future, with a precision of minutes.',
 			},
 		],
 	},

@@ -1,45 +1,46 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { Browser, CreditCard, type Avatars, type Flag } from 'node-appwrite';
 
-import { lookupEnum, stripHexHash } from '../GenericFunctions';
+import { appwriteApiRequestBinary } from '../transport';
 
-const BROWSER_MAP: Record<string, Browser> = {
-	aa: Browser.AvantBrowser,
-	an: Browser.AndroidWebViewBeta,
-	ch: Browser.GoogleChrome,
-	ci: Browser.GoogleChromeIOS,
-	cm: Browser.GoogleChromeMobile,
-	cr: Browser.Chromium,
-	ff: Browser.MozillaFirefox,
-	mf: Browser.MobileSafari,
-	oi: Browser.MicrosoftEdgeIOS,
-	om: Browser.OperaMini,
-	on: Browser.OperaNext,
-	op: Browser.Opera,
-	ps: Browser.MicrosoftEdge,
-	sf: Browser.Safari,
-};
+/** Browser codes Appwrite serves an icon for. */
+const BROWSER_CODES = new Set([
+	'aa',
+	'an',
+	'ch',
+	'ci',
+	'cm',
+	'cr',
+	'ff',
+	'mf',
+	'oi',
+	'om',
+	'on',
+	'op',
+	'ps',
+	'sf',
+]);
 
-const CREDIT_CARD_MAP: Record<string, CreditCard> = {
-	amex: CreditCard.AmericanExpress,
-	argencard: CreditCard.Argencard,
-	cabal: CreditCard.Cabal,
-	cencosud: CreditCard.Cencosud,
-	diners: CreditCard.DinersClub,
-	discover: CreditCard.Discover,
-	elo: CreditCard.Elo,
-	hipercard: CreditCard.Hipercard,
-	jcb: CreditCard.JCB,
-	maestro: CreditCard.Maestro,
-	mastercard: CreditCard.Mastercard,
-	mir: CreditCard.MIR,
-	naranja: CreditCard.Naranja,
-	rupay: CreditCard.Rupay,
-	'targeta-shopping': CreditCard.TarjetaShopping,
-	unionpay: CreditCard.UnionPay,
-	visa: CreditCard.Visa,
-};
+/** Credit card codes Appwrite serves an icon for. */
+const CREDIT_CARD_CODES = new Set([
+	'amex',
+	'argencard',
+	'cabal',
+	'cencosud',
+	'diners',
+	'discover',
+	'elo',
+	'hipercard',
+	'jcb',
+	'maestro',
+	'mastercard',
+	'mir',
+	'naranja',
+	'rupay',
+	'targeta-shopping',
+	'unionpay',
+	'visa',
+]);
 
 interface ImageOptions {
 	width?: number;
@@ -49,22 +50,17 @@ interface ImageOptions {
 
 export async function executeAvatarOperation(
 	this: IExecuteFunctions,
-	avatars: Avatars,
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
 	const toBinaryItem = async (
-		arrayBuffer: ArrayBuffer,
+		content: Buffer,
 		fileName: string,
 		json: IDataObject,
 		mimeType = 'image/png',
 	): Promise<INodeExecutionData[]> => {
 		const outputBinaryField = this.getNodeParameter('outputBinaryField', i, 'data') as string;
-		const binary = await this.helpers.prepareBinaryData(
-			Buffer.from(arrayBuffer),
-			fileName,
-			mimeType,
-		);
+		const binary = await this.helpers.prepareBinaryData(content, fileName, mimeType);
 		return [
 			{
 				json,
@@ -74,93 +70,86 @@ export async function executeAvatarOperation(
 		];
 	};
 
-	if (operation === 'getBrowser') {
-		const code = this.getNodeParameter('browserCode', i) as string;
-		const options = this.getNodeParameter('options', i, {}) as ImageOptions;
-		const browser = lookupEnum(this, BROWSER_MAP, code, 'browser code', i);
-		const arrayBuffer = await avatars.getBrowser({
-			code: browser,
-			width: options.width,
-			height: options.height,
-			quality: options.quality,
-		});
-		return await toBinaryItem(arrayBuffer, `browser-${code}.png`, { code, ...options });
-	}
+	const getImage = async (path: string, qs: IDataObject): Promise<Buffer> =>
+		await appwriteApiRequestBinary.call(this, 'GET', path, { qs }, i);
 
-	if (operation === 'getCreditCard') {
-		const code = this.getNodeParameter('creditCardCode', i) as string;
+	if (operation === 'getBrowser' || operation === 'getCreditCard') {
+		const isBrowser = operation === 'getBrowser';
+		const code = this.getNodeParameter(isBrowser ? 'browserCode' : 'creditCardCode', i) as string;
 		const options = this.getNodeParameter('options', i, {}) as ImageOptions;
-		const creditCard = lookupEnum(this, CREDIT_CARD_MAP, code, 'credit card code', i);
-		const arrayBuffer = await avatars.getCreditCard({
-			code: creditCard,
-			width: options.width,
-			height: options.height,
-			quality: options.quality,
+
+		const allowed = isBrowser ? BROWSER_CODES : CREDIT_CARD_CODES;
+		if (!allowed.has(code)) {
+			throw new NodeOperationError(
+				this.getNode(),
+				`Unknown ${isBrowser ? 'browser' : 'credit card'} code "${code}"`,
+				{ itemIndex: i },
+			);
+		}
+
+		const content = await getImage(
+			`/avatars/${isBrowser ? 'browsers' : 'credit-cards'}/${encodeURIComponent(code)}`,
+			{ width: options.width, height: options.height, quality: options.quality },
+		);
+		return await toBinaryItem(content, `${isBrowser ? 'browser' : 'card'}-${code}.png`, {
+			code,
+			...options,
 		});
-		return await toBinaryItem(arrayBuffer, `card-${code}.png`, { code, ...options });
 	}
 
 	if (operation === 'getFavicon') {
 		const url = this.getNodeParameter('url', i) as string;
-		const arrayBuffer = await avatars.getFavicon({ url });
+		const content = await getImage('/avatars/favicon', { url });
 		// The favicon endpoint returns ICO and SVG favicons unconverted; sniff
 		// the bytes so the binary metadata matches the actual content.
-		const bytes = Buffer.from(arrayBuffer);
 		let fileName = 'favicon.png';
 		let mimeType = 'image/png';
-		if (bytes.length >= 4 && bytes.readUInt32LE(0) === 0x00010000) {
+		if (content.length >= 4 && content.readUInt32LE(0) === 0x00010000) {
 			fileName = 'favicon.ico';
 			mimeType = 'image/x-icon';
-		} else if (bytes.slice(0, 256).toString('utf8').trimStart().startsWith('<')) {
+		} else if (content.subarray(0, 256).toString('utf8').trimStart().startsWith('<')) {
 			fileName = 'favicon.svg';
 			mimeType = 'image/svg+xml';
 		}
-		return await toBinaryItem(arrayBuffer, fileName, { url }, mimeType);
+		return await toBinaryItem(content, fileName, { url }, mimeType);
 	}
 
 	if (operation === 'getFlag') {
-		const code = (this.getNodeParameter('countryCode', i) as string).trim().toLowerCase();
+		const code = this.getNodeParameter('countryCode', i) as string;
 		const options = this.getNodeParameter('options', i, {}) as ImageOptions;
-		if (!/^[a-z]{2}$/.test(code)) {
-			throw new NodeOperationError(this.getNode(), `"${code}" is not a two-letter country code`, {
-				itemIndex: i,
-				description: 'Use an ISO 3166-1 alpha-2 code such as us, ca or de.',
-			});
-		}
-		const arrayBuffer = await avatars.getFlag({
-			code: code as Flag,
+		const content = await getImage(`/avatars/flags/${encodeURIComponent(code)}`, {
 			width: options.width,
 			height: options.height,
 			quality: options.quality,
 		});
-		return await toBinaryItem(arrayBuffer, `flag-${code}.png`, { code, ...options });
+		return await toBinaryItem(content, `flag-${code}.png`, { code, ...options });
 	}
 
 	if (operation === 'getImage') {
 		const url = this.getNodeParameter('url', i) as string;
 		const options = this.getNodeParameter('options', i, {}) as ImageOptions;
-		const arrayBuffer = await avatars.getImage({
+		const content = await getImage('/avatars/image', {
 			url,
 			width: options.width,
 			height: options.height,
 		});
-		return await toBinaryItem(arrayBuffer, 'image.png', { url, ...options });
+		return await toBinaryItem(content, 'image.png', { url, ...options });
 	}
 
 	if (operation === 'getInitials') {
+		const name = this.getNodeParameter('name', i, '') as string;
 		const options = this.getNodeParameter('options', i, {}) as {
-			name?: string;
 			width?: number;
 			height?: number;
 			background?: string;
 		};
-		const arrayBuffer = await avatars.getInitials({
-			name: options.name === '' ? undefined : options.name,
+		const content = await getImage('/avatars/initials', {
+			name: name === '' ? undefined : name,
 			width: options.width,
 			height: options.height,
-			background: stripHexHash(options.background),
+			background: options.background === '' ? undefined : options.background,
 		});
-		return await toBinaryItem(arrayBuffer, 'initials.png', { ...options });
+		return await toBinaryItem(content, 'initials.png', { name, ...options });
 	}
 
 	if (operation === 'getQr') {
@@ -168,15 +157,13 @@ export async function executeAvatarOperation(
 		const options = this.getNodeParameter('options', i, {}) as {
 			size?: number;
 			margin?: number;
-			download?: boolean;
 		};
-		const arrayBuffer = await avatars.getQR({
+		const content = await getImage('/avatars/qr', {
 			text,
 			size: options.size,
 			margin: options.margin,
-			download: options.download,
 		});
-		return await toBinaryItem(arrayBuffer, 'qr.png', { text, ...options });
+		return await toBinaryItem(content, 'qr.png', { text, ...options });
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown avatar operation "${operation}"`, {

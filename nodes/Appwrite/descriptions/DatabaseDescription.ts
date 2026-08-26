@@ -1,6 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-import { queriesProperties, returnAllAndLimitProperties } from './shared';
+import { listOptionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
 
 export const databaseOperations: INodeProperties[] = [
 	{
@@ -51,12 +51,14 @@ export const databaseOperations: INodeProperties[] = [
 
 export const databaseFields: INodeProperties[] = [
 	{
-		displayName: 'Database ID',
+		displayName: 'Database Name or ID',
 		name: 'databaseId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getDatabases' },
 		required: true,
 		default: '',
-		description: 'The ID of the database',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: ['database'],
@@ -71,7 +73,7 @@ export const databaseFields: INodeProperties[] = [
 		default: '',
 		placeholder: 'unique()',
 		description:
-			'The ID for the new database. Leave empty (or use unique()) to auto-generate a unique ID.',
+			'The ID for the new database. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {
 			show: {
 				resource: ['database'],
@@ -85,7 +87,7 @@ export const databaseFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		description: 'The database name. Max length: 128 chars.',
+		description: 'Name for the database, up to 128 characters',
 		displayOptions: {
 			show: {
 				resource: ['database'],
@@ -99,27 +101,38 @@ export const databaseFields: INodeProperties[] = [
 		type: 'boolean',
 		default: true,
 		description:
-			'Whether the database is enabled. When disabled, users cannot access it, but server SDKs with an API key still can.',
+			'Whether the database is enabled. When disabled, users cannot access it, but server SDKs with an API key still can. Defaults to true.',
 		displayOptions: {
 			show: {
 				resource: ['database'],
-				operation: ['create', 'update'],
+				operation: ['create'],
 			},
 		},
 	},
 	{
-		displayName: 'Search',
-		name: 'search',
-		type: 'string',
-		default: '',
-		description: 'Search term to filter the database list',
+		displayName: 'Update Fields',
+		name: 'updateFields',
+		type: 'collection',
+		placeholder: 'Add field',
+		default: {},
 		displayOptions: {
 			show: {
 				resource: ['database'],
-				operation: ['getMany'],
+				operation: ['update'],
 			},
 		},
+		options: [
+			{
+				displayName: 'Enabled',
+				name: 'enabled',
+				type: 'boolean',
+				default: true,
+				description:
+					'Whether the database is enabled. When disabled, users cannot access it, but server SDKs with an API key still can. Leave this out to keep the current setting.',
+			},
+		],
 	},
 	...returnAllAndLimitProperties('database', ['getMany']),
 	...queriesProperties('database', ['getMany']),
+	listOptionsProperty('database', ['getMany']),
 ];

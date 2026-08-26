@@ -35,7 +35,7 @@ export const rowOperations: INodeProperties[] = [
 			{
 				name: 'Create or Update',
 				value: 'upsert',
-				description: 'Create a new record, or update the current one if it already exists (upsert)',
+				description: 'Create a new row, or update the current one if it already exists (upsert)',
 				action: 'Create or update a row',
 			},
 			{
@@ -128,7 +128,7 @@ const dataProperties: INodeProperties[] = [
 		name: 'dataFieldsUi',
 		type: 'fixedCollection',
 		typeOptions: { multipleValues: true, sortable: true },
-		placeholder: 'Add Field',
+		placeholder: 'Add field',
 		default: {},
 		description: 'The column values to set on the row',
 		displayOptions: {
@@ -151,20 +151,20 @@ const dataProperties: INodeProperties[] = [
 						description: 'Name of the column to set',
 					},
 					{
-						displayName: 'Value',
-						name: 'fieldValue',
-						type: 'string',
-						default: '',
-						description:
-							'Value to set. Numbers, booleans, null, and JSON arrays/objects are parsed automatically.',
-					},
-					{
 						displayName: 'Treat Value as String',
 						name: 'treatValueAsString',
 						type: 'boolean',
 						default: false,
 						description:
 							'Whether to always send the value as a string instead of auto-detecting numbers, booleans, and arrays',
+					},
+					{
+						displayName: 'Value',
+						name: 'fieldValue',
+						type: 'string',
+						default: '',
+						description:
+							'Value to set. Numbers, booleans, null, and JSON arrays/objects are parsed automatically.',
 					},
 				],
 			},
@@ -209,6 +209,7 @@ export const rowFields: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		placeholder: 'unique()',
+		hint: 'Create or Update needs the ID of an existing row. An auto-generated ID always creates a new row.',
 		description:
 			'The ID for the row. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {
@@ -224,10 +225,12 @@ export const rowFields: INodeProperties[] = [
 		displayName: 'Rows (JSON)',
 		name: 'rowsJson',
 		type: 'json',
+		required: true,
 		default: '[]',
-		// eslint-disable-next-line n8n-nodes-base/node-param-description-miscased-id -- $id is Appwrite's literal field name
+		placeholder: '[{"title": "Hello", "status": "draft"}]',
+		hint: 'Add "$id" to set a row\'s own ID (omit it to auto-generate one) and "$permissions" to set its permissions',
 		description:
-			'A JSON array of row objects to create or upsert. Each object holds the column values; optionally include $id (omit it to auto-generate) and $permissions.',
+			"A JSON array of row objects to create or upsert. Each object holds the column values, and may also carry Appwrite's reserved keys for the row ID and its permissions.",
 		displayOptions: {
 			show: {
 				resource: ['row'],
@@ -236,12 +239,17 @@ export const rowFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Column',
+		displayName: 'Column Name or ID',
 		name: 'column',
-		type: 'string',
+		type: 'options',
+		typeOptions: {
+			loadOptionsDependsOn: ['databaseId', 'tableId'],
+			loadOptionsMethod: 'getColumns',
+		},
 		required: true,
 		default: '',
-		description: 'The name of the numeric column to change',
+		description:
+			'The numeric column to change. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 		displayOptions: {
 			show: {
 				resource: ['row'],
@@ -250,7 +258,7 @@ export const rowFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Value',
+		displayName: 'Amount',
 		name: 'amount',
 		type: 'number',
 		default: 1,
@@ -264,7 +272,7 @@ export const rowFields: INodeProperties[] = [
 	},
 	...returnAllAndLimitProperties('row', ['getMany']),
 	...queriesProperties('row', ['getMany', 'get', 'updateMany', 'deleteMany'], {
-		hint: 'Filter, sort, and paginate rows. For Get, only Select queries apply. For Update Many and Delete Many, the queries choose which rows are affected — no queries means ALL rows in the table.',
+		hint: 'Get uses only Select queries. For Update Many and Delete Many the queries choose which rows are affected, and no queries means every row in the table.',
 	}),
 	{
 		displayName: 'Options',
@@ -283,16 +291,16 @@ export const rowFields: INodeProperties[] = [
 				name: 'max',
 				type: 'number',
 				default: 0,
-				description:
-					'Maximum the column may reach when incrementing. Only used by Increment Column; leave the option out for no maximum.',
+				description: 'Maximum the column may reach; leave this option out for no maximum',
+				displayOptions: { show: { '/operation': ['increment'] } },
 			},
 			{
 				displayName: 'Min Value',
 				name: 'min',
 				type: 'number',
 				default: 0,
-				description:
-					'Minimum the column may reach when decrementing. Only used by Decrement Column; leave the option out for no minimum.',
+				description: 'Minimum the column may reach; leave this option out for no minimum',
+				displayOptions: { show: { '/operation': ['decrement'] } },
 			},
 			{
 				displayName: 'Transaction ID',

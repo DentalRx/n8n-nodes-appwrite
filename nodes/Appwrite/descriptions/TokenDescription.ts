@@ -51,12 +51,14 @@ export const tokenOperations: INodeProperties[] = [
 
 export const tokenFields: INodeProperties[] = [
 	{
-		displayName: 'Bucket ID',
+		displayName: 'Bucket Name or ID',
 		name: 'bucketId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getBuckets' },
 		required: true,
 		default: '',
-		description: 'The unique ID of the storage bucket',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: ['token'],
@@ -94,13 +96,11 @@ export const tokenFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Expire',
-		name: 'expiresAt',
-		type: 'string',
+		displayName: 'Expiry Date',
+		name: 'expire',
+		type: 'dateTime',
 		default: '',
-		placeholder: '2030-01-01T00:00:00.000Z',
-		description:
-			'The token expiry date as an ISO 8601 datetime string. Leave empty for a token that never expires.',
+		description: 'When the token stops working. Leave empty to create a token that never expires.',
 		displayOptions: {
 			show: {
 				resource: ['token'],

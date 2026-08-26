@@ -1,56 +1,39 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import type { Locale } from 'node-appwrite';
 
-import { toItems } from '../GenericFunctions';
+import { appwriteApiRequest } from '../transport';
+
+/** Each locale operation is a plain GET whose results live under one response key. */
+const LOCALE_OPERATIONS: Record<string, { path: string; listKey?: string }> = {
+	get: { path: '/locale' },
+	getManyContinents: { path: '/locale/continents', listKey: 'continents' },
+	getManyCountries: { path: '/locale/countries', listKey: 'countries' },
+	getManyCurrencies: { path: '/locale/currencies', listKey: 'currencies' },
+	getManyEuCountries: { path: '/locale/countries/eu', listKey: 'countries' },
+	getManyLanguages: { path: '/locale/languages', listKey: 'languages' },
+	getManyLocaleCodes: { path: '/locale/codes', listKey: 'localeCodes' },
+	getManyPhoneCodes: { path: '/locale/countries/phones', listKey: 'phones' },
+};
 
 export async function executeLocaleOperation(
 	this: IExecuteFunctions,
-	locale: Locale,
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	if (operation === 'get') {
-		const response = await locale.get();
-		return toItems(response as unknown as IDataObject, i);
+	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
+		const list = Array.isArray(data) ? data : [data];
+		return list.map((json) => ({ json, pairedItem: { item: i } }));
+	};
+
+	const target = LOCALE_OPERATIONS[operation];
+	if (target === undefined) {
+		throw new NodeOperationError(this.getNode(), `Unknown locale operation "${operation}"`, {
+			itemIndex: i,
+		});
 	}
 
-	if (operation === 'getManyContinents') {
-		const response = await locale.listContinents();
-		return toItems(response.continents as unknown as IDataObject[], i);
-	}
+	const response = await appwriteApiRequest.call(this, 'GET', target.path, {}, i);
 
-	if (operation === 'getManyCountries') {
-		const response = await locale.listCountries();
-		return toItems(response.countries as unknown as IDataObject[], i);
-	}
-
-	if (operation === 'getManyCurrencies') {
-		const response = await locale.listCurrencies();
-		return toItems(response.currencies as unknown as IDataObject[], i);
-	}
-
-	if (operation === 'getManyEuCountries') {
-		const response = await locale.listCountriesEU();
-		return toItems(response.countries as unknown as IDataObject[], i);
-	}
-
-	if (operation === 'getManyLanguages') {
-		const response = await locale.listLanguages();
-		return toItems(response.languages as unknown as IDataObject[], i);
-	}
-
-	if (operation === 'getManyLocaleCodes') {
-		const response = await locale.listCodes();
-		return toItems(response.localeCodes as unknown as IDataObject[], i);
-	}
-
-	if (operation === 'getManyPhoneCodes') {
-		const response = await locale.listCountriesPhones();
-		return toItems(response.phones as unknown as IDataObject[], i);
-	}
-
-	throw new NodeOperationError(this.getNode(), `Unknown locale operation "${operation}"`, {
-		itemIndex: i,
-	});
+	if (target.listKey === undefined) return toItems(response);
+	return toItems((response[target.listKey] ?? []) as IDataObject[]);
 }

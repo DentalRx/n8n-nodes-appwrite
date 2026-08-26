@@ -14,25 +14,24 @@
 		"authentication"
 	],
 	"license": "MIT",
-	"homepage": "https://github.com/dentalrx/n8n-nodes-appwrite",
+	"homepage": "https://github.com/DentalRx/n8n-nodes-appwrite",
 	"author": {
 		"name": "DentalRx",
 		"email": "admin@dentalrx.ca"
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/dentalrx/n8n-nodes-appwrite.git"
+		"url": "git+https://github.com/DentalRx/n8n-nodes-appwrite.git"
 	},
 	"engines": {
 		"node": ">=18.17.0"
 	},
 	"scripts": {
-		"build": "tsc && npm run copy-assets",
-		"copy-assets": "cp nodes/Appwrite/appwrite.svg nodes/Appwrite/Appwrite.node.json dist/nodes/Appwrite/",
-		"dev": "tsc --watch",
-		"lint": "eslint nodes credentials --ext .ts",
-		"lint:fix": "eslint nodes credentials --ext .ts --fix",
-		"format": "prettier --write \"nodes/**/*.ts\" \"credentials/**/*.ts\"",
+		"build": "n8n-node build",
+		"dev": "n8n-node dev",
+		"lint": "n8n-node lint",
+		"lint:fix": "n8n-node lint --fix",
+		"release": "n8n-node release",
 		"prepublishOnly": "npm run build && npm run lint"
 	},
 	"files": [
@@ -40,6 +39,7 @@
 	],
 	"n8n": {
 		"n8nNodesApiVersion": 1,
+		"strict": true,
 		"credentials": [
 			"dist/credentials/AppwriteApi.credentials.js"
 		],
@@ -47,20 +47,15 @@
 			"dist/nodes/Appwrite/Appwrite.node.js"
 		]
 	},
-	"dependencies": {
-		"node-appwrite": "^20.3.0"
-	},
-	"overrides": {
-		"form-data": "^4.0.4"
+	"peerDependencies": {
+		"n8n-workflow": "*"
 	},
 	"devDependencies": {
-		"@types/node": "^20.19.43",
-		"@typescript-eslint/eslint-plugin": "^7.18.0",
-		"@typescript-eslint/parser": "^7.18.0",
-		"eslint": "^8.57.0",
-		"eslint-plugin-n8n-nodes-base": "^1.16.3",
-		"n8n-workflow": "^1.82.0",
-		"prettier": "^3.3.0",
-		"typescript": "^5.5.0"
+		"@n8n/node-cli": "^0.45.4",
+		"@types/node": "^22.15.0",
+		"eslint": "^9.32.0",
+		"n8n-workflow": "^2.16.0",
+		"prettier": "^3.6.2",
+		"typescript": "^5.9.2"
 	}
 }

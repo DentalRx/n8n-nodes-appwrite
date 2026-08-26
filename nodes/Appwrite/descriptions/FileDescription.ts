@@ -1,6 +1,7 @@
 import type { INodeProperties } from 'n8n-workflow';
 
 import {
+	listOptionsProperty,
 	permissionsProperty,
 	queriesProperties,
 	returnAllAndLimitProperties,
@@ -51,7 +52,8 @@ export const fileOperations: INodeProperties[] = [
 			{
 				name: 'Get View',
 				value: 'getView',
-				description: 'Get the content of a file without the attachment download header',
+				description:
+					'Get the content of a file to display in the browser instead of downloading it',
 				action: 'Get a file view',
 			},
 			{
@@ -73,12 +75,14 @@ export const fileOperations: INodeProperties[] = [
 
 export const fileFields: INodeProperties[] = [
 	{
-		displayName: 'Bucket ID',
+		displayName: 'Bucket Name or ID',
 		name: 'bucketId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getBuckets' },
 		required: true,
 		default: '',
-		description: 'The unique ID of the storage bucket',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: ['file'],
@@ -100,13 +104,12 @@ export const fileFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'File ID',
-		name: 'fileId',
+		displayName: 'Input Data Field Name',
+		name: 'inputBinaryField',
 		type: 'string',
-		default: '',
-		placeholder: 'unique()',
-		description:
-			'The ID for the file. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
+		required: true,
+		default: 'data',
+		hint: 'The name of the input field holding the file to upload',
 		displayOptions: {
 			show: {
 				resource: ['file'],
@@ -115,12 +118,13 @@ export const fileFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Input Binary Field',
-		name: 'inputBinaryField',
+		displayName: 'File ID',
+		name: 'fileId',
 		type: 'string',
-		required: true,
-		default: 'data',
-		hint: 'The name of the input binary field containing the file to upload',
+		default: '',
+		placeholder: 'unique()',
+		description:
+			'The ID for the file. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {
 			show: {
 				resource: ['file'],
@@ -155,28 +159,20 @@ export const fileFields: INodeProperties[] = [
 			},
 		},
 	},
-	permissionsProperty('file', ['upload', 'update']),
-	{
-		displayName: 'Search',
-		name: 'search',
-		type: 'string',
-		default: '',
-		description: 'Search term to filter the file list',
-		displayOptions: {
-			show: {
-				resource: ['file'],
-				operation: ['getMany'],
-			},
-		},
-	},
+	permissionsProperty(
+		'file',
+		['upload', 'update'],
+		'Permission strings, one per line (or a JSON array). E.g. read("any"), update("user:abc"), delete("team:abc"). Leave empty to use the bucket permissions.',
+	),
 	...returnAllAndLimitProperties('file', ['getMany']),
 	...queriesProperties('file', ['getMany']),
 	{
-		displayName: 'Put Output in Field',
+		displayName: 'Output Data Field Name',
 		name: 'outputBinaryField',
 		type: 'string',
+		required: true,
 		default: 'data',
-		hint: 'The name of the output binary field to put the file in',
+		hint: 'The name of the output field to put the file in',
 		displayOptions: {
 			show: {
 				resource: ['file'],
@@ -203,7 +199,7 @@ export const fileFields: INodeProperties[] = [
 				type: 'string',
 				typeOptions: { password: true },
 				default: '',
-				description: 'File token for accessing this file',
+				description: 'File token for accessing this file if it is not public',
 			},
 		],
 	},
@@ -223,17 +219,18 @@ export const fileFields: INodeProperties[] = [
 			{
 				displayName: 'Background Color',
 				name: 'background',
-				type: 'string',
+				type: 'color',
 				default: '',
 				description:
-					'Preview image background color as a HEX color without the # prefix. Only works with transparent images (png).',
+					'Preview image background color. A leading # in the HEX value is removed automatically. Only works with transparent images (PNG).',
 			},
 			{
 				displayName: 'Border Color',
 				name: 'borderColor',
 				type: 'color',
 				default: '',
-				description: 'Preview image border color. A leading # in the HEX value is removed automatically.',
+				description:
+					'Preview image border color. A leading # in the HEX value is removed automatically.',
 			},
 			{
 				displayName: 'Border Radius',
@@ -292,7 +289,7 @@ export const fileFields: INodeProperties[] = [
 				typeOptions: { minValue: 0, maxValue: 1, numberPrecision: 2 },
 				default: 1,
 				description:
-					'Preview image opacity, between 0 and 1. Only works with images having an alpha channel (like png).',
+					'Preview image opacity, between 0 and 1. Only works with images having an alpha channel (like PNG).',
 			},
 			{
 				displayName: 'Output Format',
@@ -336,4 +333,5 @@ export const fileFields: INodeProperties[] = [
 			},
 		],
 	},
+	listOptionsProperty('file', ['getMany']),
 ];

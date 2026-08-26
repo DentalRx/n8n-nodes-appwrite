@@ -5,12 +5,14 @@ import type { INodeProperties } from 'n8n-workflow';
  */
 export function databaseIdProperty(resources: string[], operations?: string[]): INodeProperties {
 	return {
-		displayName: 'Database ID',
+		displayName: 'Database Name or ID',
 		name: 'databaseId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getDatabases' },
 		required: true,
 		default: '',
-		description: 'The ID of the database',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: resources,
@@ -25,12 +27,15 @@ export function databaseIdProperty(resources: string[], operations?: string[]): 
  */
 export function tableIdProperty(resources: string[], operations?: string[]): INodeProperties {
 	return {
-		displayName: 'Table ID',
+		displayName: 'Table Name or ID',
 		name: 'tableId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsDependsOn: ['databaseId'], loadOptionsMethod: 'getTables' },
 		required: true,
 		default: '',
-		description: 'The ID of the table (formerly known as a collection)',
+		hint: 'A table is what Appwrite used to call a collection',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: resources,
@@ -57,7 +62,7 @@ export function permissionsProperty(
 		placeholder: 'read("any")\nupdate("users")\ndelete("team:abc/owner")',
 		description:
 			description ??
-			'Permission strings, one per line (or a JSON array). E.g. read("any"), create("users"), update("user:abc"), delete("team:abc"). Leave empty to apply Appwrite\'s defaults on create, or to keep the existing permissions on update. Enter [] to clear all permissions.',
+			'Permission strings, one per line (or a JSON array). E.g. read("any"), create("users"), update("user:abc"), delete("team:abc"). Leave empty to use the default permissions.',
 		displayOptions: {
 			show: {
 				resource: [resource],
@@ -131,7 +136,8 @@ export function queriesProperties(
 			typeOptions: { multipleValues: true, sortable: true },
 			placeholder: 'Add Query',
 			default: {},
-			description: options.hint ?? 'Filter, sort, and paginate the results',
+			description: 'Filter, sort, and paginate the results',
+			...(options.hint ? { hint: options.hint } : {}),
 			displayOptions: { show: { ...show, queriesMode: ['builder'] } },
 			options: [
 				{
@@ -139,29 +145,12 @@ export function queriesProperties(
 					displayName: 'Query',
 					values: [
 						{
-							displayName: 'Type',
-							name: 'type',
-							type: 'options',
-							options: QUERY_TYPE_OPTIONS,
-							default: 'equal',
-							description: 'The query method to apply',
-						},
-						{
 							displayName: 'Column',
 							name: 'column',
 							type: 'string',
 							default: '',
 							description: 'The column (attribute) to query on',
 							displayOptions: { hide: { type: NO_COLUMN_TYPES } },
-						},
-						{
-							displayName: 'Value',
-							name: 'value',
-							type: 'string',
-							default: '',
-							description:
-								'The comparison value. Numbers, booleans, and JSON arrays are parsed automatically; use "Treat Value as String" to disable that. For Select, provide column names separated by commas (or a JSON array). For Limit/Offset, provide a number. For cursors, provide a row ID.',
-							displayOptions: { hide: { type: NO_VALUE_TYPES } },
 						},
 						{
 							displayName: 'Second Value',
@@ -194,6 +183,23 @@ export function queriesProperties(
 								},
 							},
 						},
+						{
+							displayName: 'Type',
+							name: 'type',
+							type: 'options',
+							options: QUERY_TYPE_OPTIONS,
+							default: 'equal',
+							description: 'The query method to apply',
+						},
+						{
+							displayName: 'Value',
+							name: 'value',
+							type: 'string',
+							default: '',
+							description:
+								'The comparison value. Numbers, booleans, and JSON arrays are parsed automatically; use "Treat Value as String" to disable that. For Select, provide a JSON array of column names. For Limit/Offset, provide a number. For cursors, provide a row ID.',
+							displayOptions: { hide: { type: NO_VALUE_TYPES } },
+						},
 					],
 				},
 			],
@@ -208,6 +214,30 @@ export function queriesProperties(
 			displayOptions: { show: { ...show, queriesMode: ['json'] } },
 		},
 	];
+}
+
+/**
+ * Optional filters for a Get Many operation. The standards keep optional
+ * fields inside a collection rather than on the node's face.
+ */
+export function listOptionsProperty(resource: string, operations: string[]): INodeProperties {
+	return {
+		displayName: 'Options',
+		name: 'options',
+		type: 'collection',
+		placeholder: 'Add option',
+		default: {},
+		displayOptions: { show: { resource: [resource], operation: operations } },
+		options: [
+			{
+				displayName: 'Search',
+				name: 'search',
+				type: 'string',
+				default: '',
+				description: 'Return only results matching this search term',
+			},
+		],
+	};
 }
 
 /**
