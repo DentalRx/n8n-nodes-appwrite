@@ -1,10 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-import {
-	permissionsProperty,
-	queriesProperties,
-	returnAllAndLimitProperties,
-} from './shared';
+import { permissionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
 
 export const fileOperations: INodeProperties[] = [
 	{
@@ -73,12 +69,14 @@ export const fileOperations: INodeProperties[] = [
 
 export const fileFields: INodeProperties[] = [
 	{
-		displayName: 'Bucket ID',
+		displayName: 'Bucket Name or ID',
 		name: 'bucketId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getBuckets' },
 		required: true,
 		default: '',
-		description: 'The unique ID of the storage bucket',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: ['file'],
@@ -115,12 +113,12 @@ export const fileFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Input Binary Field',
+		displayName: 'Input Data Field Name',
 		name: 'inputBinaryField',
 		type: 'string',
 		required: true,
 		default: 'data',
-		hint: 'The name of the input binary field containing the file to upload',
+		hint: 'The name of the input field holding the file to upload',
 		displayOptions: {
 			show: {
 				resource: ['file'],
@@ -172,11 +170,12 @@ export const fileFields: INodeProperties[] = [
 	...returnAllAndLimitProperties('file', ['getMany']),
 	...queriesProperties('file', ['getMany']),
 	{
-		displayName: 'Put Output in Field',
+		displayName: 'Output Data Field Name',
 		name: 'outputBinaryField',
 		type: 'string',
+		required: true,
 		default: 'data',
-		hint: 'The name of the output binary field to put the file in',
+		hint: 'The name of the output field to put the file in',
 		displayOptions: {
 			show: {
 				resource: ['file'],
@@ -233,7 +232,8 @@ export const fileFields: INodeProperties[] = [
 				name: 'borderColor',
 				type: 'color',
 				default: '',
-				description: 'Preview image border color. A leading # in the HEX value is removed automatically.',
+				description:
+					'Preview image border color. A leading # in the HEX value is removed automatically.',
 			},
 			{
 				displayName: 'Border Radius',

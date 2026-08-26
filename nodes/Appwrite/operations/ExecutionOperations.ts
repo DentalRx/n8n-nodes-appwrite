@@ -2,7 +2,7 @@ import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-wor
 import { NodeOperationError } from 'n8n-workflow';
 
 import { buildQueries, fetchAllPages, parseJsonParameter } from '../GenericFunctions';
-import { Query } from '../helpers/appwrite';
+import { Query, extractId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 /** The HTTP methods an execution can be triggered with. */
@@ -28,7 +28,7 @@ export async function executeExecutionOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const functionId = this.getNodeParameter('functionId', i) as string;
+	const functionId = extractId(this.getNodeParameter('functionId', i) as string, 'function');
 	const executionsPath = `/functions/${encodeURIComponent(functionId)}/executions`;
 
 	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {

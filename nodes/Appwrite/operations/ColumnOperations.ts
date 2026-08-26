@@ -7,7 +7,7 @@ import type {
 import { NodeOperationError } from 'n8n-workflow';
 
 import { buildQueries, fetchAllPages, parseJsonArrayParameter } from '../GenericFunctions';
-import { Query } from '../helpers/appwrite';
+import { Query, extractId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 const RELATION_MUTATE_MAP: Record<string, string> = {
@@ -28,8 +28,8 @@ export async function executeColumnOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const databaseId = this.getNodeParameter('databaseId', i) as string;
-	const tableId = this.getNodeParameter('tableId', i) as string;
+	const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
+	const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
 	const columnsPath = `/tablesdb/${encodeURIComponent(databaseId)}/tables/${encodeURIComponent(
 		tableId,
 	)}/columns`;
@@ -109,7 +109,10 @@ export async function executeColumnOperation(
 		const onDelete = RELATION_MUTATE_MAP[onDeleteRaw];
 
 		if (isCreate) {
-			const relatedTableId = this.getNodeParameter('relatedTableId', i) as string;
+			const relatedTableId = extractId(
+				this.getNodeParameter('relatedTableId', i) as string,
+				'table',
+			);
 			const typeRaw = this.getNodeParameter('relationshipType', i) as string;
 			const twoWay = this.getNodeParameter('twoWay', i, false) as boolean;
 			const relationshipKey = this.getNodeParameter('relationshipKey', i, '') as string;

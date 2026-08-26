@@ -7,7 +7,7 @@ import {
 	parseJsonArrayParameter,
 	parseJsonParameter,
 } from '../GenericFunctions';
-import { Query, resolveId } from '../helpers/appwrite';
+import { Query, extractId, resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeTeamOperation(
@@ -33,7 +33,7 @@ export async function executeTeamOperation(
 	};
 
 	const teamPath = (): string =>
-		`/teams/${encodeURIComponent(this.getNodeParameter('teamId', i) as string)}`;
+		`/teams/${encodeURIComponent(extractId(this.getNodeParameter('teamId', i) as string, 'team'))}`;
 
 	if (operation === 'create') {
 		const teamId = resolveId(this.getNodeParameter('teamId', i, '') as string);
@@ -77,13 +77,13 @@ export async function executeTeamOperation(
 	}
 
 	if (operation === 'delete') {
-		const teamId = this.getNodeParameter('teamId', i) as string;
+		const teamId = extractId(this.getNodeParameter('teamId', i) as string, 'team');
 		await appwriteApiRequest.call(this, 'DELETE', `/teams/${encodeURIComponent(teamId)}`, {}, i);
 		return toItems({ success: true, teamId });
 	}
 
 	if (operation === 'deleteMembership') {
-		const teamId = this.getNodeParameter('teamId', i) as string;
+		const teamId = extractId(this.getNodeParameter('teamId', i) as string, 'team');
 		const membershipId = this.getNodeParameter('membershipId', i) as string;
 		await appwriteApiRequest.call(
 			this,

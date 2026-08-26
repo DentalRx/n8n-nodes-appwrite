@@ -2,7 +2,7 @@ import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-wor
 import { NodeOperationError } from 'n8n-workflow';
 
 import { buildQueries, fetchAllPages } from '../GenericFunctions';
-import { Query, resolveId } from '../helpers/appwrite';
+import { Query, extractId, resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeDatabaseOperation(
@@ -30,7 +30,7 @@ export async function executeDatabaseOperation(
 	}
 
 	if (operation === 'get') {
-		const databaseId = this.getNodeParameter('databaseId', i) as string;
+		const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -75,7 +75,7 @@ export async function executeDatabaseOperation(
 	}
 
 	if (operation === 'update') {
-		const databaseId = this.getNodeParameter('databaseId', i) as string;
+		const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
 		const name = this.getNodeParameter('name', i) as string;
 		const enabled = this.getNodeParameter('enabled', i, true) as boolean;
 		const response = await appwriteApiRequest.call(
@@ -89,7 +89,7 @@ export async function executeDatabaseOperation(
 	}
 
 	if (operation === 'delete') {
-		const databaseId = this.getNodeParameter('databaseId', i) as string;
+		const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',

@@ -75,12 +75,14 @@ export const topicOperations: INodeProperties[] = [
 
 export const topicFields: INodeProperties[] = [
 	{
-		displayName: 'Topic ID',
+		displayName: 'Topic Name or ID',
 		name: 'topicId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getTopics' },
 		required: true,
 		default: '',
-		description: 'The ID of the topic',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: ['topic'],

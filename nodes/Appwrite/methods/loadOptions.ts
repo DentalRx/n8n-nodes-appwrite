@@ -68,9 +68,7 @@ function dependency(context: ILoadOptionsFunctions, name: string): string {
 	return typeof value === 'string' ? value : '';
 }
 
-export async function getDatabases(
-	this: ILoadOptionsFunctions,
-): Promise<INodePropertyOptions[]> {
+export async function getDatabases(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 	const databases = await listAll(this, '/tablesdb', 'databases');
 	return toOptions(databases, (database) => database.name ?? '');
 }

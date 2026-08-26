@@ -178,12 +178,14 @@ export const columnFields: INodeProperties[] = [
 	},
 	// Relationship-specific
 	{
-		displayName: 'Related Table ID',
+		displayName: 'Related Table Name or ID',
 		name: 'relatedTableId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsDependsOn: ['databaseId'], loadOptionsMethod: 'getTables' },
 		required: true,
 		default: '',
-		description: 'The ID of the table to create the relationship with',
+		description:
+			'The table to create the relationship with. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 		displayOptions: {
 			show: {
 				resource: ['column'],
@@ -246,7 +248,8 @@ export const columnFields: INodeProperties[] = [
 		name: 'twoWayKey',
 		type: 'string',
 		default: '',
-		description: 'The key (name) of the column created on the related table for two-way relationships',
+		description:
+			'The key (name) of the column created on the related table for two-way relationships',
 		displayOptions: {
 			show: {
 				resource: ['column'],
@@ -293,8 +296,7 @@ export const columnFields: INodeProperties[] = [
 		name: 'columnRequired',
 		type: 'boolean',
 		default: false,
-		description:
-			'Whether the column is required. Required columns cannot have a default value.',
+		description: 'Whether the column is required. Required columns cannot have a default value.',
 		displayOptions: {
 			show: {
 				resource: ['column'],
@@ -371,7 +373,8 @@ export const columnFields: INodeProperties[] = [
 		name: 'newSize',
 		type: 'string',
 		default: '',
-		description: 'A new maximum length for the string column. Leave empty to keep the current size.',
+		description:
+			'A new maximum length for the string column. Leave empty to keep the current size.',
 		displayOptions: {
 			show: {
 				resource: ['column'],

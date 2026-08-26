@@ -8,7 +8,7 @@ import {
 	getRowData,
 	parseJsonArrayParameter,
 } from '../GenericFunctions';
-import { Query, resolveId } from '../helpers/appwrite';
+import { Query, extractId, resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeRowOperation(
@@ -16,8 +16,8 @@ export async function executeRowOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const databaseId = this.getNodeParameter('databaseId', i) as string;
-	const tableId = this.getNodeParameter('tableId', i) as string;
+	const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
+	const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
 	const options = this.getNodeParameter('options', i, {}) as {
 		transactionId?: string;
 		min?: number;
@@ -64,7 +64,7 @@ export async function executeRowOperation(
 	}
 
 	if (operation === 'get') {
-		const rowId = this.getNodeParameter('rowId', i) as string;
+		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
 		const queries = buildQueries.call(this, i);
 		const response = (await appwriteApiRequest.call(
 			this,
@@ -121,7 +121,7 @@ export async function executeRowOperation(
 	}
 
 	if (operation === 'update') {
-		const rowId = this.getNodeParameter('rowId', i) as string;
+		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
 		const data = getRowData.call(this, i);
 		const permissions = getPermissions.call(this, i);
 		const response = (await appwriteApiRequest.call(
@@ -185,7 +185,7 @@ export async function executeRowOperation(
 	}
 
 	if (operation === 'delete') {
-		const rowId = this.getNodeParameter('rowId', i) as string;
+		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -214,7 +214,7 @@ export async function executeRowOperation(
 	}
 
 	if (operation === 'increment') {
-		const rowId = this.getNodeParameter('rowId', i) as string;
+		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
 		const column = this.getNodeParameter('column', i) as string;
 		const value = this.getNodeParameter('value', i, 1) as number;
 		const response = (await appwriteApiRequest.call(
@@ -228,7 +228,7 @@ export async function executeRowOperation(
 	}
 
 	if (operation === 'decrement') {
-		const rowId = this.getNodeParameter('rowId', i) as string;
+		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
 		const column = this.getNodeParameter('column', i) as string;
 		const value = this.getNodeParameter('value', i, 1) as number;
 		const response = (await appwriteApiRequest.call(

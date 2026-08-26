@@ -2,7 +2,7 @@ import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-wor
 import { NodeOperationError } from 'n8n-workflow';
 
 import { buildQueries, fetchAllPages } from '../GenericFunctions';
-import { Query } from '../helpers/appwrite';
+import { Query, extractId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeTokenOperation(
@@ -17,8 +17,8 @@ export async function executeTokenOperation(
 
 	/** Tokens are scoped to a file: /tokens/buckets/{bucketId}/files/{fileId} */
 	const filePath = (): string => {
-		const bucketId = this.getNodeParameter('bucketId', i) as string;
-		const fileId = this.getNodeParameter('fileId', i) as string;
+		const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
+		const fileId = extractId(this.getNodeParameter('fileId', i) as string, 'file');
 		return `/tokens/buckets/${encodeURIComponent(bucketId)}/files/${encodeURIComponent(fileId)}`;
 	};
 
@@ -87,13 +87,7 @@ export async function executeTokenOperation(
 
 	if (operation === 'delete') {
 		const tokenId = this.getNodeParameter('tokenId', i) as string;
-		await appwriteApiRequest.call(
-			this,
-			'DELETE',
-			`/tokens/${encodeURIComponent(tokenId)}`,
-			{},
-			i,
-		);
+		await appwriteApiRequest.call(this, 'DELETE', `/tokens/${encodeURIComponent(tokenId)}`, {}, i);
 		return toItems({ success: true, tokenId });
 	}
 

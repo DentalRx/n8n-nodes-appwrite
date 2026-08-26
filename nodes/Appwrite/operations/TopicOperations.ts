@@ -2,7 +2,7 @@ import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-wor
 import { NodeOperationError } from 'n8n-workflow';
 
 import { buildQueries, fetchAllPages, parseJsonArrayParameter } from '../GenericFunctions';
-import { Query, resolveId } from '../helpers/appwrite';
+import { Query, extractId, resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeTopicOperation(
@@ -32,7 +32,7 @@ export async function executeTopicOperation(
 	};
 
 	const topicPath = (): string =>
-		`/messaging/topics/${encodeURIComponent(this.getNodeParameter('topicId', i) as string)}`;
+		`/messaging/topics/${encodeURIComponent(extractId(this.getNodeParameter('topicId', i) as string, 'topic'))}`;
 
 	if (operation === 'create') {
 		const topicId = resolveId(this.getNodeParameter('topicId', i, '') as string);
@@ -66,7 +66,7 @@ export async function executeTopicOperation(
 	}
 
 	if (operation === 'delete') {
-		const topicId = this.getNodeParameter('topicId', i) as string;
+		const topicId = extractId(this.getNodeParameter('topicId', i) as string, 'topic');
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -78,7 +78,7 @@ export async function executeTopicOperation(
 	}
 
 	if (operation === 'deleteSubscriber') {
-		const topicId = this.getNodeParameter('topicId', i) as string;
+		const topicId = extractId(this.getNodeParameter('topicId', i) as string, 'topic');
 		const subscriberId = this.getNodeParameter('subscriberId', i) as string;
 		await appwriteApiRequest.call(
 			this,

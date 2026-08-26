@@ -2,7 +2,7 @@ import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-wor
 import { NodeOperationError } from 'n8n-workflow';
 
 import { buildQueries, fetchAllPages, getPermissions } from '../GenericFunctions';
-import { Query, resolveId } from '../helpers/appwrite';
+import { Query, extractId, resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeTableOperation(
@@ -10,7 +10,7 @@ export async function executeTableOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const databaseId = this.getNodeParameter('databaseId', i) as string;
+	const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
 	const tablesPath = `/tablesdb/${encodeURIComponent(databaseId)}/tables`;
 
 	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
@@ -35,7 +35,7 @@ export async function executeTableOperation(
 	}
 
 	if (operation === 'get') {
-		const tableId = this.getNodeParameter('tableId', i) as string;
+		const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -80,7 +80,7 @@ export async function executeTableOperation(
 	}
 
 	if (operation === 'update') {
-		const tableId = this.getNodeParameter('tableId', i) as string;
+		const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
 		const name = this.getNodeParameter('name', i) as string;
 		const permissions = getPermissions.call(this, i);
 		const rowSecurity = this.getNodeParameter('rowSecurity', i, false) as boolean;
@@ -96,7 +96,7 @@ export async function executeTableOperation(
 	}
 
 	if (operation === 'delete') {
-		const tableId = this.getNodeParameter('tableId', i) as string;
+		const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',

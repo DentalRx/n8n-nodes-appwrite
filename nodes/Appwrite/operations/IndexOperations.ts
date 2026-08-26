@@ -2,7 +2,7 @@ import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-wor
 import { NodeOperationError } from 'n8n-workflow';
 
 import { buildQueries, fetchAllPages, parseJsonArrayParameter } from '../GenericFunctions';
-import { Query } from '../helpers/appwrite';
+import { Query, extractId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 /** The index types Appwrite accepts, keyed by the value the UI stores. */
@@ -18,8 +18,8 @@ export async function executeIndexOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const databaseId = this.getNodeParameter('databaseId', i) as string;
-	const tableId = this.getNodeParameter('tableId', i) as string;
+	const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
+	const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
 	const indexesPath = `/tablesdb/${encodeURIComponent(databaseId)}/tables/${encodeURIComponent(
 		tableId,
 	)}/indexes`;

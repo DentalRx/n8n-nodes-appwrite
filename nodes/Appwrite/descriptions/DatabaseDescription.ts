@@ -51,12 +51,14 @@ export const databaseOperations: INodeProperties[] = [
 
 export const databaseFields: INodeProperties[] = [
 	{
-		displayName: 'Database ID',
+		displayName: 'Database Name or ID',
 		name: 'databaseId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getDatabases' },
 		required: true,
 		default: '',
-		description: 'The ID of the database',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: ['database'],

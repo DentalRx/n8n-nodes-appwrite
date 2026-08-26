@@ -270,7 +270,8 @@ export const avatarFields: INodeProperties[] = [
 				type: 'string',
 				default: '',
 				placeholder: 'fd366e',
-				description: 'Background color as a hex value. Leave empty for a random color that stays persistent for the given name.',
+				description:
+					'Background color as a hex value. Leave empty for a random color that stays persistent for the given name.',
 			},
 			{
 				displayName: 'Height',
@@ -338,11 +339,12 @@ export const avatarFields: INodeProperties[] = [
 		],
 	},
 	{
-		displayName: 'Put Output in Field',
+		displayName: 'Output Data Field Name',
 		name: 'outputBinaryField',
 		type: 'string',
+		required: true,
 		default: 'data',
-		hint: 'The name of the output binary field to put the image in',
+		hint: 'The name of the output field to put the image in',
 		displayOptions: {
 			show: {
 				resource: ['avatar'],

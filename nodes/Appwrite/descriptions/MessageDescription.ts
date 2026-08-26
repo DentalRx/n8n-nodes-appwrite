@@ -308,11 +308,10 @@ export const messageFields: INodeProperties[] = [
 			{
 				displayName: 'Scheduled At',
 				name: 'scheduledAt',
-				type: 'string',
+				type: 'dateTime',
 				default: '',
-				placeholder: '2026-12-31T12:00:00.000Z',
 				description:
-					'Scheduled delivery time for the message, in ISO 8601 format. The value must be in the future.',
+					'When to deliver the message. Must be in the future; leave empty to send immediately.',
 			},
 		],
 	},
@@ -408,8 +407,7 @@ export const messageFields: INodeProperties[] = [
 					{
 						name: 'Normal',
 						value: 'normal',
-						description:
-							'Consider the device state, which may delay delivery of the notification',
+						description: 'Consider the device state, which may delay delivery of the notification',
 					},
 				],
 				default: 'high',
@@ -418,11 +416,10 @@ export const messageFields: INodeProperties[] = [
 			{
 				displayName: 'Scheduled At',
 				name: 'scheduledAt',
-				type: 'string',
+				type: 'dateTime',
 				default: '',
-				placeholder: '2026-12-31T12:00:00.000Z',
 				description:
-					'Scheduled delivery time for the message, in ISO 8601 format. The value must be in the future.',
+					'When to deliver the message. Must be in the future; leave empty to send immediately.',
 			},
 			{
 				displayName: 'Sound',
@@ -463,11 +460,10 @@ export const messageFields: INodeProperties[] = [
 			{
 				displayName: 'Scheduled At',
 				name: 'scheduledAt',
-				type: 'string',
+				type: 'dateTime',
 				default: '',
-				placeholder: '2026-12-31T12:00:00.000Z',
 				description:
-					'Scheduled delivery time for the message, in ISO 8601 format. The value must be in the future.',
+					'When to deliver the message. Must be in the future; leave empty to send immediately.',
 			},
 		],
 	},
@@ -531,11 +527,10 @@ export const messageFields: INodeProperties[] = [
 			{
 				displayName: 'Scheduled At',
 				name: 'scheduledAt',
-				type: 'string',
+				type: 'dateTime',
 				default: '',
-				placeholder: '2026-12-31T12:00:00.000Z',
 				description:
-					'Scheduled delivery time for the message, in ISO 8601 format. The value must be in the future.',
+					'When to deliver the message. Must be in the future; leave empty to send immediately.',
 			},
 			{
 				displayName: 'Subject',
@@ -666,8 +661,7 @@ export const messageFields: INodeProperties[] = [
 					{
 						name: 'Normal',
 						value: 'normal',
-						description:
-							'Consider the device state, which may delay delivery of the notification',
+						description: 'Consider the device state, which may delay delivery of the notification',
 					},
 				],
 				default: 'high',
@@ -676,11 +670,10 @@ export const messageFields: INodeProperties[] = [
 			{
 				displayName: 'Scheduled At',
 				name: 'scheduledAt',
-				type: 'string',
+				type: 'dateTime',
 				default: '',
-				placeholder: '2026-12-31T12:00:00.000Z',
 				description:
-					'Scheduled delivery time for the message, in ISO 8601 format. The value must be in the future.',
+					'When to deliver the message. Must be in the future; leave empty to send immediately.',
 			},
 			{
 				displayName: 'Sound',
@@ -756,11 +749,10 @@ export const messageFields: INodeProperties[] = [
 			{
 				displayName: 'Scheduled At',
 				name: 'scheduledAt',
-				type: 'string',
+				type: 'dateTime',
 				default: '',
-				placeholder: '2026-12-31T12:00:00.000Z',
 				description:
-					'Scheduled delivery time for the message, in ISO 8601 format. The value must be in the future.',
+					'When to deliver the message. Must be in the future; leave empty to send immediately.',
 			},
 			{
 				displayName: 'Target IDs',

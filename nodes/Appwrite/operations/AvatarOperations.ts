@@ -91,11 +91,10 @@ export async function executeAvatarOperation(
 			`/avatars/${isBrowser ? 'browsers' : 'credit-cards'}/${encodeURIComponent(code)}`,
 			{ width: options.width, height: options.height, quality: options.quality },
 		);
-		return await toBinaryItem(
-			content,
-			`${isBrowser ? 'browser' : 'card'}-${code}.png`,
-			{ code, ...options },
-		);
+		return await toBinaryItem(content, `${isBrowser ? 'browser' : 'card'}-${code}.png`, {
+			code,
+			...options,
+		});
 	}
 
 	if (operation === 'getFavicon') {

@@ -3,17 +3,16 @@ import type { INodeProperties } from 'n8n-workflow';
 /**
  * Standard Database ID parameter, shown for the given resources/operations.
  */
-export function databaseIdProperty(
-	resources: string[],
-	operations?: string[],
-): INodeProperties {
+export function databaseIdProperty(resources: string[], operations?: string[]): INodeProperties {
 	return {
-		displayName: 'Database ID',
+		displayName: 'Database Name or ID',
 		name: 'databaseId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getDatabases' },
 		required: true,
 		default: '',
-		description: 'The ID of the database',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: resources,
@@ -28,12 +27,15 @@ export function databaseIdProperty(
  */
 export function tableIdProperty(resources: string[], operations?: string[]): INodeProperties {
 	return {
-		displayName: 'Table ID',
+		displayName: 'Table Name or ID',
 		name: 'tableId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsDependsOn: ['databaseId'], loadOptionsMethod: 'getTables' },
 		required: true,
 		default: '',
-		description: 'The ID of the table (formerly known as a collection)',
+		hint: 'A table is what Appwrite used to call a collection',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: resources,

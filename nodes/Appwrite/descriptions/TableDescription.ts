@@ -57,12 +57,14 @@ export const tableOperations: INodeProperties[] = [
 export const tableFields: INodeProperties[] = [
 	databaseIdProperty(['table']),
 	{
-		displayName: 'Table ID',
+		displayName: 'Table Name or ID',
 		name: 'tableId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsDependsOn: ['databaseId'], loadOptionsMethod: 'getTables' },
 		required: true,
 		default: '',
-		description: 'The ID of the table',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: ['table'],

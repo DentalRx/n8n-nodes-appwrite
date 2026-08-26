@@ -192,12 +192,14 @@ const functionConfigOptions: INodeProperties[] = [
 
 export const functionFields: INodeProperties[] = [
 	{
-		displayName: 'Function ID',
+		displayName: 'Function Name or ID',
 		name: 'functionId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getFunctions' },
 		required: true,
 		default: '',
-		description: 'The ID of the function',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: ['function'],

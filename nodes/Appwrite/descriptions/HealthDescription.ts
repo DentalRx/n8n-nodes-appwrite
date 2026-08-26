@@ -58,8 +58,7 @@ export const healthOperations: INodeProperties[] = [
 			{
 				name: 'Get Storage Local',
 				value: 'getStorageLocal',
-				description:
-					'Check the Appwrite local storage device is up and connection is successful',
+				description: 'Check the Appwrite local storage device is up and connection is successful',
 				action: 'Get the local storage health status',
 			},
 			{

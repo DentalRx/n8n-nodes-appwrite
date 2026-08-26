@@ -2,7 +2,7 @@ import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-wor
 import { NodeOperationError } from 'n8n-workflow';
 
 import { buildQueries, fetchAllPages, getPermissions } from '../GenericFunctions';
-import { Query, resolveId } from '../helpers/appwrite';
+import { Query, extractId, resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest, appwriteApiRequestBinary, appwriteFileUpload } from '../transport';
 
 /** Crop positions Appwrite accepts for a preview. The UI stores the wire value directly. */
@@ -46,7 +46,7 @@ export async function executeFileOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const bucketId = this.getNodeParameter('bucketId', i) as string;
+	const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
 	const filesPath = `/storage/buckets/${encodeURIComponent(bucketId)}/files`;
 
 	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
@@ -115,7 +115,7 @@ export async function executeFileOperation(
 	}
 
 	if (operation === 'get') {
-		const fileId = this.getNodeParameter('fileId', i) as string;
+		const fileId = extractId(this.getNodeParameter('fileId', i) as string, 'file');
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -160,7 +160,7 @@ export async function executeFileOperation(
 	}
 
 	if (operation === 'update') {
-		const fileId = this.getNodeParameter('fileId', i) as string;
+		const fileId = extractId(this.getNodeParameter('fileId', i) as string, 'file');
 		const name = this.getNodeParameter('name', i, '') as string;
 		const permissions = getPermissions.call(this, i);
 		const response = await appwriteApiRequest.call(
@@ -174,7 +174,7 @@ export async function executeFileOperation(
 	}
 
 	if (operation === 'delete') {
-		const fileId = this.getNodeParameter('fileId', i) as string;
+		const fileId = extractId(this.getNodeParameter('fileId', i) as string, 'file');
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -186,7 +186,7 @@ export async function executeFileOperation(
 	}
 
 	if (operation === 'download' || operation === 'getView') {
-		const fileId = this.getNodeParameter('fileId', i) as string;
+		const fileId = extractId(this.getNodeParameter('fileId', i) as string, 'file');
 		const options = this.getNodeParameter('options', i, {}) as { token?: string };
 		const token = options.token === '' ? undefined : options.token;
 		const content = await appwriteApiRequestBinary.call(
@@ -202,7 +202,7 @@ export async function executeFileOperation(
 	}
 
 	if (operation === 'getPreview') {
-		const fileId = this.getNodeParameter('fileId', i) as string;
+		const fileId = extractId(this.getNodeParameter('fileId', i) as string, 'file');
 		const options = this.getNodeParameter('options', i, {}) as PreviewOptions;
 
 		const output = options.output && IMAGE_FORMATS.has(options.output) ? options.output : undefined;

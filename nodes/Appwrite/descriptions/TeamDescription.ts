@@ -93,12 +93,14 @@ export const teamOperations: INodeProperties[] = [
 
 export const teamFields: INodeProperties[] = [
 	{
-		displayName: 'Team ID',
+		displayName: 'Team Name or ID',
 		name: 'teamId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getTeams' },
 		required: true,
 		default: '',
-		description: 'The ID of the team',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: ['team'],
@@ -207,12 +209,14 @@ export const teamFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'User ID',
+		displayName: 'User Name or ID',
 		name: 'userId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getUsers' },
 		default: '',
+		hint: 'Set at least one of Email, User Name or ID, or Phone',
 		description:
-			'The ID of an existing user to add to the team. At least one of email, user ID, or phone is required.',
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: ['team'],

@@ -165,12 +165,14 @@ export const userOperations: INodeProperties[] = [
 
 export const userFields: INodeProperties[] = [
 	{
-		displayName: 'User ID',
+		displayName: 'User Name or ID',
 		name: 'userId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getUsers' },
 		required: true,
 		default: '',
-		description: 'The ID of the user',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: ['user'],

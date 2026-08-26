@@ -7,7 +7,7 @@ import {
 	getPermissions,
 	parseJsonArrayParameter,
 } from '../GenericFunctions';
-import { Query, resolveId } from '../helpers/appwrite';
+import { Query, extractId, resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 /** The compression algorithms Appwrite accepts, keyed by the value the UI stores. */
@@ -80,7 +80,7 @@ export async function executeBucketOperation(
 	}
 
 	if (operation === 'get') {
-		const bucketId = this.getNodeParameter('bucketId', i) as string;
+		const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -125,7 +125,7 @@ export async function executeBucketOperation(
 	}
 
 	if (operation === 'update') {
-		const bucketId = this.getNodeParameter('bucketId', i) as string;
+		const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
 		const name = this.getNodeParameter('name', i) as string;
 		const permissions = getPermissions.call(this, i);
 		const response = await appwriteApiRequest.call(
@@ -139,7 +139,7 @@ export async function executeBucketOperation(
 	}
 
 	if (operation === 'delete') {
-		const bucketId = this.getNodeParameter('bucketId', i) as string;
+		const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
