@@ -1,6 +1,5 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { ID, MessagePriority, Query, type Messaging } from 'node-appwrite';
 
 import {
 	buildQueries,
@@ -9,10 +8,12 @@ import {
 	parseJsonArrayParameter,
 	parseJsonParameter,
 } from '../GenericFunctions';
+import { Query, resolveId } from '../helpers/appwrite';
+import { appwriteApiRequest } from '../transport';
 
-const PRIORITY_MAP: Record<string, MessagePriority> = {
-	high: MessagePriority.High,
-	normal: MessagePriority.Normal,
+const PRIORITY_MAP: Record<string, string> = {
+	high: 'high',
+	normal: 'normal',
 };
 
 interface EmailMessageFields {
@@ -61,7 +62,6 @@ interface SmsMessageFields {
 
 export async function executeMessageOperation(
 	this: IExecuteFunctions,
-	messaging: Messaging,
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
@@ -86,9 +86,6 @@ export async function executeMessageOperation(
 		return list.length > 0 ? list : undefined;
 	};
 
-	const resolveMessageId = (rawId: string): string =>
-		rawId === '' || rawId === 'unique()' ? ID.unique() : rawId;
-
 	const getRecipients = () => {
 		const topics = listOrUndefined(this.getNodeParameter('topics', i, '') as string, 'topics');
 		const users = listOrUndefined(this.getNodeParameter('users', i, '') as string, 'users');
@@ -97,7 +94,7 @@ export async function executeMessageOperation(
 	};
 
 	if (operation === 'createEmail') {
-		const messageId = resolveMessageId(this.getNodeParameter('messageId', i, '') as string);
+		const messageId = resolveId(this.getNodeParameter('messageId', i, '') as string);
 		const subject = this.getNodeParameter('subject', i) as string;
 		const content = this.getNodeParameter('content', i) as string;
 		const { topics, users, targets } = getRecipients();
@@ -109,25 +106,33 @@ export async function executeMessageOperation(
 			);
 		}
 		const options = this.getNodeParameter('options', i, {}) as EmailMessageFields;
-		const response = await messaging.createEmail({
-			messageId,
-			subject,
-			content,
-			topics,
-			users,
-			targets,
-			cc: listOrUndefined(options.cc, 'cc'),
-			bcc: listOrUndefined(options.bcc, 'bcc'),
-			attachments: listOrUndefined(options.attachments, 'attachments'),
-			draft: options.draft,
-			html: options.html,
-			scheduledAt: options.scheduledAt || undefined,
-		});
-		return toItems(response as unknown as IDataObject);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'POST',
+			'/messaging/messages/email',
+			{
+				body: {
+					messageId,
+					subject,
+					content,
+					topics,
+					users,
+					targets,
+					cc: listOrUndefined(options.cc, 'cc'),
+					bcc: listOrUndefined(options.bcc, 'bcc'),
+					attachments: listOrUndefined(options.attachments, 'attachments'),
+					draft: options.draft,
+					html: options.html,
+					scheduledAt: options.scheduledAt || undefined,
+				},
+			},
+			i,
+		)) as IDataObject;
+		return toItems(response);
 	}
 
 	if (operation === 'createPush') {
-		const messageId = resolveMessageId(this.getNodeParameter('messageId', i, '') as string);
+		const messageId = resolveId(this.getNodeParameter('messageId', i, '') as string);
 		const title = this.getNodeParameter('title', i, '') as string;
 		const body = this.getNodeParameter('body', i, '') as string;
 		const { topics, users, targets } = getRecipients();
@@ -139,35 +144,43 @@ export async function executeMessageOperation(
 			);
 		}
 		const options = this.getNodeParameter('options', i, {}) as PushMessageFields;
-		const response = await messaging.createPush({
-			messageId,
-			title: title === '' ? undefined : title,
-			body: body === '' ? undefined : body,
-			topics,
-			users,
-			targets,
-			data:
-				options.data === undefined
-					? undefined
-					: parseJsonParameter.call(this, options.data, 'data', i),
-			action: options.action || undefined,
-			image: options.image || undefined,
-			icon: options.icon || undefined,
-			sound: options.sound || undefined,
-			color: options.color || undefined,
-			tag: options.tag || undefined,
-			badge: options.badge,
-			draft: options.draft,
-			scheduledAt: options.scheduledAt || undefined,
-			contentAvailable: options.contentAvailable,
-			critical: options.critical,
-			priority: options.priority === undefined ? undefined : PRIORITY_MAP[options.priority],
-		});
-		return toItems(response as unknown as IDataObject);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'POST',
+			'/messaging/messages/push',
+			{
+				body: {
+					messageId,
+					title: title === '' ? undefined : title,
+					body: body === '' ? undefined : body,
+					topics,
+					users,
+					targets,
+					data:
+						options.data === undefined
+							? undefined
+							: parseJsonParameter.call(this, options.data, 'data', i),
+					action: options.action || undefined,
+					image: options.image || undefined,
+					icon: options.icon || undefined,
+					sound: options.sound || undefined,
+					color: options.color || undefined,
+					tag: options.tag || undefined,
+					badge: options.badge,
+					draft: options.draft,
+					scheduledAt: options.scheduledAt || undefined,
+					contentAvailable: options.contentAvailable,
+					critical: options.critical,
+					priority: options.priority === undefined ? undefined : PRIORITY_MAP[options.priority],
+				},
+			},
+			i,
+		)) as IDataObject;
+		return toItems(response);
 	}
 
 	if (operation === 'createSMS') {
-		const messageId = resolveMessageId(this.getNodeParameter('messageId', i, '') as string);
+		const messageId = resolveId(this.getNodeParameter('messageId', i, '') as string);
 		const content = this.getNodeParameter('content', i) as string;
 		const { topics, users, targets } = getRecipients();
 		if (!topics && !users && !targets) {
@@ -178,55 +191,82 @@ export async function executeMessageOperation(
 			);
 		}
 		const options = this.getNodeParameter('options', i, {}) as SmsMessageFields;
-		const response = await messaging.createSMS({
-			messageId,
-			content,
-			topics,
-			users,
-			targets,
-			draft: options.draft,
-			scheduledAt: options.scheduledAt || undefined,
-		});
-		return toItems(response as unknown as IDataObject);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'POST',
+			'/messaging/messages/sms',
+			{
+				body: {
+					messageId,
+					content,
+					topics,
+					users,
+					targets,
+					draft: options.draft,
+					scheduledAt: options.scheduledAt || undefined,
+				},
+			},
+			i,
+		)) as IDataObject;
+		return toItems(response);
 	}
 
 	if (operation === 'delete') {
 		const messageId = this.getNodeParameter('messageId', i) as string;
-		await messaging.delete({ messageId });
+		await appwriteApiRequest.call(
+			this,
+			'DELETE',
+			`/messaging/messages/${encodeURIComponent(messageId)}`,
+			{},
+			i,
+		);
 		return toItems({ success: true, messageId });
 	}
 
 	if (operation === 'get') {
 		const messageId = this.getNodeParameter('messageId', i) as string;
-		const response = await messaging.getMessage({ messageId });
-		return toItems(response as unknown as IDataObject);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'GET',
+			`/messaging/messages/${encodeURIComponent(messageId)}`,
+			{},
+			i,
+		)) as IDataObject;
+		return toItems(response);
 	}
 
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = this.getNodeParameter('search', i, '') as string;
+		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
 		if (returnAll) {
-			const messages = await fetchAllPages(
+			const messages = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
-					(await messaging.listMessages({
-						queries: pageQueries,
-						search: searchArg,
-					})) as unknown as IDataObject,
+					(await appwriteApiRequest.call(
+						this,
+						'GET',
+						'/messaging/messages',
+						{ qs: { queries: pageQueries, search: searchArg } },
+						i,
+					)) as IDataObject,
 				'messages',
 			);
-			return toItems(messages as unknown as IDataObject[]);
+			return toItems(messages as IDataObject[]);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = await messaging.listMessages({
-			queries: [...queries, Query.limit(limit)],
-			search: searchArg,
-		});
-		return toItems(response.messages as unknown as IDataObject[]);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'GET',
+			'/messaging/messages',
+			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			i,
+		)) as IDataObject;
+		return toItems(response.messages as IDataObject[]);
 	}
 
 	if (operation === 'getManyLogs') {
@@ -239,21 +279,27 @@ export async function executeMessageOperation(
 			const logs = await fetchAllPagesByOffset(
 				queries,
 				async (pageQueries) =>
-					(await messaging.listMessageLogs({
-						messageId,
-						queries: pageQueries,
-					})) as unknown as IDataObject,
+					(await appwriteApiRequest.call(
+						this,
+						'GET',
+						`/messaging/messages/${encodeURIComponent(messageId)}/logs`,
+						{ qs: { queries: pageQueries } },
+						i,
+					)) as IDataObject,
 				'logs',
 			);
-			return toItems(logs as unknown as IDataObject[]);
+			return toItems(logs as IDataObject[]);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = await messaging.listMessageLogs({
-			messageId,
-			queries: [...queries, Query.limit(limit)],
-		});
-		return toItems(response.logs as unknown as IDataObject[]);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'GET',
+			`/messaging/messages/${encodeURIComponent(messageId)}/logs`,
+			{ qs: { queries: [...queries, Query.limit(limit)] } },
+			i,
+		)) as IDataObject;
+		return toItems(response.logs as IDataObject[]);
 	}
 
 	if (operation === 'getManyTargets') {
@@ -262,90 +308,118 @@ export async function executeMessageOperation(
 		const queries = buildQueries.call(this, i);
 
 		if (returnAll) {
-			const targets = await fetchAllPages(
+			const targets = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
-					(await messaging.listTargets({
-						messageId,
-						queries: pageQueries,
-					})) as unknown as IDataObject,
+					(await appwriteApiRequest.call(
+						this,
+						'GET',
+						`/messaging/messages/${encodeURIComponent(messageId)}/targets`,
+						{ qs: { queries: pageQueries } },
+						i,
+					)) as IDataObject,
 				'targets',
 			);
-			return toItems(targets as unknown as IDataObject[]);
+			return toItems(targets as IDataObject[]);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = await messaging.listTargets({
-			messageId,
-			queries: [...queries, Query.limit(limit)],
-		});
-		return toItems(response.targets as unknown as IDataObject[]);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'GET',
+			`/messaging/messages/${encodeURIComponent(messageId)}/targets`,
+			{ qs: { queries: [...queries, Query.limit(limit)] } },
+			i,
+		)) as IDataObject;
+		return toItems(response.targets as IDataObject[]);
 	}
 
 	if (operation === 'updateEmail') {
 		const messageId = this.getNodeParameter('messageId', i) as string;
 		const updateFields = this.getNodeParameter('updateFields', i, {}) as EmailMessageFields;
-		const response = await messaging.updateEmail({
-			messageId,
-			topics: listOrUndefined(updateFields.topics, 'topics'),
-			users: listOrUndefined(updateFields.users, 'users'),
-			targets: listOrUndefined(updateFields.targets, 'targets'),
-			subject: updateFields.subject || undefined,
-			content: updateFields.content || undefined,
-			draft: updateFields.draft,
-			html: updateFields.html,
-			cc: listOrUndefined(updateFields.cc, 'cc'),
-			bcc: listOrUndefined(updateFields.bcc, 'bcc'),
-			scheduledAt: updateFields.scheduledAt || undefined,
-			attachments: listOrUndefined(updateFields.attachments, 'attachments'),
-		});
-		return toItems(response as unknown as IDataObject);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'PATCH',
+			`/messaging/messages/email/${encodeURIComponent(messageId)}`,
+			{
+				body: {
+					topics: listOrUndefined(updateFields.topics, 'topics'),
+					users: listOrUndefined(updateFields.users, 'users'),
+					targets: listOrUndefined(updateFields.targets, 'targets'),
+					subject: updateFields.subject || undefined,
+					content: updateFields.content || undefined,
+					draft: updateFields.draft,
+					html: updateFields.html,
+					cc: listOrUndefined(updateFields.cc, 'cc'),
+					bcc: listOrUndefined(updateFields.bcc, 'bcc'),
+					scheduledAt: updateFields.scheduledAt || undefined,
+					attachments: listOrUndefined(updateFields.attachments, 'attachments'),
+				},
+			},
+			i,
+		)) as IDataObject;
+		return toItems(response);
 	}
 
 	if (operation === 'updatePush') {
 		const messageId = this.getNodeParameter('messageId', i) as string;
 		const updateFields = this.getNodeParameter('updateFields', i, {}) as PushMessageFields;
-		const response = await messaging.updatePush({
-			messageId,
-			topics: listOrUndefined(updateFields.topics, 'topics'),
-			users: listOrUndefined(updateFields.users, 'users'),
-			targets: listOrUndefined(updateFields.targets, 'targets'),
-			title: updateFields.title || undefined,
-			body: updateFields.body || undefined,
-			data:
-				updateFields.data === undefined
-					? undefined
-					: parseJsonParameter.call(this, updateFields.data, 'data', i),
-			action: updateFields.action || undefined,
-			image: updateFields.image || undefined,
-			icon: updateFields.icon || undefined,
-			sound: updateFields.sound || undefined,
-			color: updateFields.color || undefined,
-			tag: updateFields.tag || undefined,
-			badge: updateFields.badge,
-			draft: updateFields.draft,
-			scheduledAt: updateFields.scheduledAt || undefined,
-			contentAvailable: updateFields.contentAvailable,
-			critical: updateFields.critical,
-			priority:
-				updateFields.priority === undefined ? undefined : PRIORITY_MAP[updateFields.priority],
-		});
-		return toItems(response as unknown as IDataObject);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'PATCH',
+			`/messaging/messages/push/${encodeURIComponent(messageId)}`,
+			{
+				body: {
+					topics: listOrUndefined(updateFields.topics, 'topics'),
+					users: listOrUndefined(updateFields.users, 'users'),
+					targets: listOrUndefined(updateFields.targets, 'targets'),
+					title: updateFields.title || undefined,
+					body: updateFields.body || undefined,
+					data:
+						updateFields.data === undefined
+							? undefined
+							: parseJsonParameter.call(this, updateFields.data, 'data', i),
+					action: updateFields.action || undefined,
+					image: updateFields.image || undefined,
+					icon: updateFields.icon || undefined,
+					sound: updateFields.sound || undefined,
+					color: updateFields.color || undefined,
+					tag: updateFields.tag || undefined,
+					badge: updateFields.badge,
+					draft: updateFields.draft,
+					scheduledAt: updateFields.scheduledAt || undefined,
+					contentAvailable: updateFields.contentAvailable,
+					critical: updateFields.critical,
+					priority:
+						updateFields.priority === undefined ? undefined : PRIORITY_MAP[updateFields.priority],
+				},
+			},
+			i,
+		)) as IDataObject;
+		return toItems(response);
 	}
 
 	if (operation === 'updateSMS') {
 		const messageId = this.getNodeParameter('messageId', i) as string;
 		const updateFields = this.getNodeParameter('updateFields', i, {}) as SmsMessageFields;
-		const response = await messaging.updateSMS({
-			messageId,
-			topics: listOrUndefined(updateFields.topics, 'topics'),
-			users: listOrUndefined(updateFields.users, 'users'),
-			targets: listOrUndefined(updateFields.targets, 'targets'),
-			content: updateFields.content || undefined,
-			draft: updateFields.draft,
-			scheduledAt: updateFields.scheduledAt || undefined,
-		});
-		return toItems(response as unknown as IDataObject);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'PATCH',
+			`/messaging/messages/sms/${encodeURIComponent(messageId)}`,
+			{
+				body: {
+					topics: listOrUndefined(updateFields.topics, 'topics'),
+					users: listOrUndefined(updateFields.users, 'users'),
+					targets: listOrUndefined(updateFields.targets, 'targets'),
+					content: updateFields.content || undefined,
+					draft: updateFields.draft,
+					scheduledAt: updateFields.scheduledAt || undefined,
+				},
+			},
+			i,
+		)) as IDataObject;
+		return toItems(response);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown message operation "${operation}"`, {

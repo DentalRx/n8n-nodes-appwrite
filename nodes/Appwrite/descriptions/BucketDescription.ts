@@ -1,6 +1,7 @@
 import type { INodeProperties } from 'n8n-workflow';
 
 import {
+	listOptionsProperty,
 	permissionsProperty,
 	queriesProperties,
 	returnAllAndLimitProperties,
@@ -55,12 +56,14 @@ export const bucketOperations: INodeProperties[] = [
 
 export const bucketFields: INodeProperties[] = [
 	{
-		displayName: 'Bucket ID',
+		displayName: 'Bucket Name or ID',
 		name: 'bucketId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getBuckets' },
 		required: true,
 		default: '',
-		description: 'The unique ID of the storage bucket',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: ['bucket'],
@@ -98,19 +101,6 @@ export const bucketFields: INodeProperties[] = [
 		},
 	},
 	permissionsProperty('bucket', ['create', 'update']),
-	{
-		displayName: 'Search',
-		name: 'search',
-		type: 'string',
-		default: '',
-		description: 'Search term to filter the bucket list',
-		displayOptions: {
-			show: {
-				resource: ['bucket'],
-				operation: ['getMany'],
-			},
-		},
-	},
 	...returnAllAndLimitProperties('bucket', ['getMany']),
 	...queriesProperties('bucket', ['getMany']),
 	{
@@ -195,8 +185,9 @@ export const bucketFields: INodeProperties[] = [
 				type: 'number',
 				typeOptions: { minValue: 1 },
 				default: 30000000,
-				description: 'Maximum file size allowed in bytes',
+				description: 'Maximum file size allowed in bytes. Defaults to 30000000 (30MB).',
 			},
 		],
 	},
+	listOptionsProperty('bucket', ['getMany']),
 ];

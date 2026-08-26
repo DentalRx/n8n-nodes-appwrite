@@ -57,7 +57,7 @@ export const localeOperations: INodeProperties[] = [
 			{
 				name: 'Get Many Phone Codes',
 				value: 'getManyPhoneCodes',
-				description: 'List all countries phone codes',
+				description: 'List the international phone code for every country',
 				action: 'Get many phone codes',
 			},
 		],

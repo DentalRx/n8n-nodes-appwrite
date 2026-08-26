@@ -1,35 +1,41 @@
-import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
+import type {
+	GenericValue,
+	IDataObject,
+	IExecuteFunctions,
+	INodeExecutionData,
+} from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import {
-	Query,
-	RelationMutate,
-	RelationshipType,
-	type TablesDB,
-} from 'node-appwrite';
 
 import { buildQueries, fetchAllPages, parseJsonArrayParameter } from '../GenericFunctions';
+import { Query, extractId } from '../helpers/appwrite';
+import { appwriteApiRequest } from '../transport';
 
-const RELATION_MUTATE_MAP: Record<string, RelationMutate> = {
-	cascade: RelationMutate.Cascade,
-	restrict: RelationMutate.Restrict,
-	setNull: RelationMutate.SetNull,
+const RELATION_MUTATE_MAP: Record<string, string> = {
+	cascade: 'cascade',
+	restrict: 'restrict',
+	setNull: 'setNull',
 };
 
-const RELATIONSHIP_TYPE_MAP: Record<string, RelationshipType> = {
-	oneToOne: RelationshipType.OneToOne,
-	oneToMany: RelationshipType.OneToMany,
-	manyToOne: RelationshipType.ManyToOne,
-	manyToMany: RelationshipType.ManyToMany,
+/** The column types whose update endpoint does not take a `default`. */
+const SPATIAL_COLUMN_TYPES = new Set(['point', 'line', 'polygon']);
+
+const RELATIONSHIP_TYPE_MAP: Record<string, string> = {
+	oneToOne: 'oneToOne',
+	oneToMany: 'oneToMany',
+	manyToOne: 'manyToOne',
+	manyToMany: 'manyToMany',
 };
 
 export async function executeColumnOperation(
 	this: IExecuteFunctions,
-	tablesDB: TablesDB,
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const databaseId = this.getNodeParameter('databaseId', i) as string;
-	const tableId = this.getNodeParameter('tableId', i) as string;
+	const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
+	const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
+	const columnsPath = `/tablesdb/${encodeURIComponent(databaseId)}/tables/${encodeURIComponent(
+		tableId,
+	)}/columns`;
 
 	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
 		const list = Array.isArray(data) ? data : [data];
@@ -38,13 +44,25 @@ export async function executeColumnOperation(
 
 	if (operation === 'get') {
 		const key = this.getNodeParameter('key', i) as string;
-		const response = await tablesDB.getColumn({ databaseId, tableId, key });
-		return toItems(response as unknown as IDataObject);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'GET',
+			`${columnsPath}/${encodeURIComponent(key)}`,
+			{},
+			i,
+		)) as IDataObject;
+		return toItems(response);
 	}
 
 	if (operation === 'delete') {
 		const key = this.getNodeParameter('key', i) as string;
-		await tablesDB.deleteColumn({ databaseId, tableId, key });
+		await appwriteApiRequest.call(
+			this,
+			'DELETE',
+			`${columnsPath}/${encodeURIComponent(key)}`,
+			{},
+			i,
+		);
 		return toItems({ success: true, databaseId, tableId, key });
 	}
 
@@ -53,26 +71,31 @@ export async function executeColumnOperation(
 		const queries = buildQueries.call(this, i);
 
 		if (returnAll) {
-			const columns = await fetchAllPages(
+			const columns = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
-					(await tablesDB.listColumns({
-						databaseId,
-						tableId,
-						queries: pageQueries,
-					})) as unknown as IDataObject,
+					(await appwriteApiRequest.call(
+						this,
+						'GET',
+						columnsPath,
+						{ qs: { queries: pageQueries } },
+						i,
+					)) as IDataObject,
 				'columns',
 			);
-			return toItems(columns as unknown as IDataObject[]);
+			return toItems(columns as IDataObject[]);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = await tablesDB.listColumns({
-			databaseId,
-			tableId,
-			queries: [...queries, Query.limit(limit)],
-		});
-		return toItems(response.columns as unknown as IDataObject[]);
+		const response = (await appwriteApiRequest.call(
+			this,
+			'GET',
+			columnsPath,
+			{ qs: { queries: [...queries, Query.limit(limit)] } },
+			i,
+		)) as IDataObject;
+		return toItems(response.columns as IDataObject[]);
 	}
 
 	if (operation !== 'create' && operation !== 'update') {
@@ -83,57 +106,119 @@ export async function executeColumnOperation(
 
 	const columnType = this.getNodeParameter('columnType', i) as string;
 	const isCreate = operation === 'create';
+	const options = this.getNodeParameter('options', i, {}) as {
+		array?: boolean;
+		defaultValue?: string;
+		encrypt?: boolean;
+		max?: number | string;
+		min?: number | string;
+		newKey?: string;
+		newSize?: number | string;
+		onDelete?: string;
+		twoWay?: boolean;
+		twoWayKey?: string;
+	};
 
 	// Relationship columns have their own parameter set.
 	if (columnType === 'relationship') {
-		const onDeleteRaw = this.getNodeParameter('onDelete', i, 'restrict') as string;
-		const onDelete = RELATION_MUTATE_MAP[onDeleteRaw];
-
 		if (isCreate) {
-			const relatedTableId = this.getNodeParameter('relatedTableId', i) as string;
+			const onDelete = RELATION_MUTATE_MAP[options.onDelete ?? 'restrict'];
+			const relatedTableId = extractId(
+				this.getNodeParameter('relatedTableId', i) as string,
+				'table',
+			);
 			const typeRaw = this.getNodeParameter('relationshipType', i) as string;
-			const twoWay = this.getNodeParameter('twoWay', i, false) as boolean;
+			const twoWay = options.twoWay ?? false;
 			const relationshipKey = this.getNodeParameter('relationshipKey', i, '') as string;
-			const twoWayKey = this.getNodeParameter('twoWayKey', i, '') as string;
-			const response = await tablesDB.createRelationshipColumn({
-				databaseId,
-				tableId,
-				relatedTableId,
-				type: RELATIONSHIP_TYPE_MAP[typeRaw],
-				twoWay,
-				key: relationshipKey === '' ? undefined : relationshipKey,
-				twoWayKey: twoWayKey === '' ? undefined : twoWayKey,
-				onDelete,
-			});
-			return toItems(response as unknown as IDataObject);
+			const twoWayKey = options.twoWayKey ?? '';
+			const response = (await appwriteApiRequest.call(
+				this,
+				'POST',
+				`${columnsPath}/relationship`,
+				{
+					body: {
+						relatedTableId,
+						type: RELATIONSHIP_TYPE_MAP[typeRaw],
+						twoWay,
+						key: relationshipKey === '' ? undefined : relationshipKey,
+						twoWayKey: twoWayKey === '' ? undefined : twoWayKey,
+						onDelete,
+					},
+				},
+				i,
+			)) as IDataObject;
+			return toItems(response);
 		}
 
 		const key = this.getNodeParameter('key', i) as string;
-		const newKeyRaw = this.getNodeParameter('newKey', i, '') as string;
-		const response = await tablesDB.updateRelationshipColumn({
-			databaseId,
-			tableId,
-			key,
-			onDelete,
-			newKey: newKeyRaw === '' ? undefined : newKeyRaw,
-		});
-		return toItems(response as unknown as IDataObject);
+		const newKeyRaw = options.newKey ?? '';
+		const response = (await appwriteApiRequest.call(
+			this,
+			'PATCH',
+			`${columnsPath}/${encodeURIComponent(key)}/relationship`,
+			{
+				body: {
+					// Appwrite treats onDelete as optional here, so leaving the option
+					// out has to omit it rather than restate a default that would
+					// overwrite the column's existing referential action.
+					onDelete:
+						options.onDelete === undefined ? undefined : RELATION_MUTATE_MAP[options.onDelete],
+					newKey: newKeyRaw === '' ? undefined : newKeyRaw,
+				},
+			},
+			i,
+		)) as IDataObject;
+		return toItems(response);
 	}
 
 	// All other column types share a common parameter set.
 	const key = this.getNodeParameter('key', i) as string;
 	const required = this.getNodeParameter('columnRequired', i, false) as boolean;
-	const defaultRaw = this.getNodeParameter('defaultValue', i, '') as string;
-	const array = isCreate ? (this.getNodeParameter('array', i, false) as boolean) : undefined;
-	const newKeyRaw = isCreate ? '' : (this.getNodeParameter('newKey', i, '') as string);
+	const defaultRaw = options.defaultValue ?? '';
+	const array = isCreate ? (options.array ?? false) : undefined;
+	const newKeyRaw = isCreate ? '' : (options.newKey ?? '');
 	const newKey = newKeyRaw === '' ? undefined : newKeyRaw;
 
-	const parseNumericBound = (name: string): number | undefined => {
-		const raw = this.getNodeParameter(name, i, '') as string;
-		if (raw === '') return undefined;
-		const parsed = Number(raw);
+	/** POST /tablesdb/{databaseId}/tables/{tableId}/columns/{type} */
+	const createColumn = async (type: string, body: IDataObject): Promise<IDataObject> =>
+		(await appwriteApiRequest.call(
+			this,
+			'POST',
+			`${columnsPath}/${type}`,
+			{ body },
+			i,
+		)) as IDataObject;
+
+	/**
+	 * PATCH /tablesdb/{databaseId}/tables/{tableId}/columns/{type}/{key}
+	 *
+	 * Appwrite marks `default` required-but-nullable on every scalar column
+	 * update, so an absent Default Value has to be sent as an explicit null;
+	 * omitting the key is rejected. The spatial types do not require it.
+	 */
+	const updateColumn = async (type: string, body: IDataObject): Promise<IDataObject> => {
+		const payload =
+			SPATIAL_COLUMN_TYPES.has(type) || body.default !== undefined
+				? body
+				: { ...body, default: null };
+		return (await appwriteApiRequest.call(
+			this,
+			'PATCH',
+			`${columnsPath}/${type}/${encodeURIComponent(key)}`,
+			{ body: payload },
+			i,
+		)) as IDataObject;
+	};
+
+	/** Read a numeric option, reporting problems under the name the user sees. */
+	const numericOption = (
+		value: number | string | undefined,
+		displayName: string,
+	): number | undefined => {
+		if (value === undefined || value === '') return undefined;
+		const parsed = Number(value);
 		if (Number.isNaN(parsed)) {
-			throw new NodeOperationError(this.getNode(), `Parameter "${name}" must be a number`, {
+			throw new NodeOperationError(this.getNode(), `Parameter "${displayName}" must be a number`, {
 				itemIndex: i,
 			});
 		}
@@ -167,9 +252,9 @@ export async function executeColumnOperation(
 		return parsed;
 	};
 
-	const spatialDefault = (): unknown[] | undefined => {
+	const spatialDefault = (): GenericValue[] | undefined => {
 		if (defaultRaw === '') return undefined;
-		return parseJsonArrayParameter.call(this, defaultRaw, 'defaultValue', i);
+		return parseJsonArrayParameter.call(this, defaultRaw, 'Default Value', i) as GenericValue[];
 	};
 
 	const getElements = (): string[] => {
@@ -187,278 +272,182 @@ export async function executeColumnOperation(
 
 	switch (columnType) {
 		case 'boolean':
-			response = (
-				isCreate
-					? await tablesDB.createBooleanColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: booleanDefault(),
-							array,
-						})
-					: await tablesDB.updateBooleanColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: booleanDefault(),
-							newKey,
-						})
-			) as unknown as IDataObject;
+			response = isCreate
+				? await createColumn('boolean', {
+						key,
+						required,
+						default: booleanDefault(),
+						array,
+					})
+				: await updateColumn('boolean', {
+						required,
+						default: booleanDefault(),
+						newKey,
+					});
 			break;
 		case 'datetime':
-			response = (
-				isCreate
-					? await tablesDB.createDatetimeColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: stringDefault,
-							array,
-						})
-					: await tablesDB.updateDatetimeColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: stringDefault,
-							newKey,
-						})
-			) as unknown as IDataObject;
+			response = isCreate
+				? await createColumn('datetime', {
+						key,
+						required,
+						default: stringDefault,
+						array,
+					})
+				: await updateColumn('datetime', {
+						required,
+						default: stringDefault,
+						newKey,
+					});
 			break;
 		case 'email':
-			response = (
-				isCreate
-					? await tablesDB.createEmailColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: stringDefault,
-							array,
-						})
-					: await tablesDB.updateEmailColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: stringDefault,
-							newKey,
-						})
-			) as unknown as IDataObject;
+			response = isCreate
+				? await createColumn('email', {
+						key,
+						required,
+						default: stringDefault,
+						array,
+					})
+				: await updateColumn('email', {
+						required,
+						default: stringDefault,
+						newKey,
+					});
 			break;
 		case 'enum':
-			response = (
-				isCreate
-					? await tablesDB.createEnumColumn({
-							databaseId,
-							tableId,
-							key,
-							elements: getElements(),
-							required,
-							xdefault: stringDefault,
-							array,
-						})
-					: await tablesDB.updateEnumColumn({
-							databaseId,
-							tableId,
-							key,
-							elements: getElements(),
-							required,
-							xdefault: stringDefault,
-							newKey,
-						})
-			) as unknown as IDataObject;
+			response = isCreate
+				? await createColumn('enum', {
+						key,
+						elements: getElements(),
+						required,
+						default: stringDefault,
+						array,
+					})
+				: await updateColumn('enum', {
+						elements: getElements(),
+						required,
+						default: stringDefault,
+						newKey,
+					});
 			break;
 		case 'float':
-			response = (
-				isCreate
-					? await tablesDB.createFloatColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							min: parseNumericBound('min'),
-							max: parseNumericBound('max'),
-							xdefault: numberDefault(),
-							array,
-						})
-					: await tablesDB.updateFloatColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: numberDefault(),
-							min: parseNumericBound('min'),
-							max: parseNumericBound('max'),
-							newKey,
-						})
-			) as unknown as IDataObject;
+			response = isCreate
+				? await createColumn('float', {
+						key,
+						required,
+						min: numericOption(options.min, 'Minimum'),
+						max: numericOption(options.max, 'Maximum'),
+						default: numberDefault(),
+						array,
+					})
+				: await updateColumn('float', {
+						required,
+						default: numberDefault(),
+						min: numericOption(options.min, 'Minimum'),
+						max: numericOption(options.max, 'Maximum'),
+						newKey,
+					});
 			break;
 		case 'integer':
-			response = (
-				isCreate
-					? await tablesDB.createIntegerColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							min: parseNumericBound('min'),
-							max: parseNumericBound('max'),
-							xdefault: numberDefault(),
-							array,
-						})
-					: await tablesDB.updateIntegerColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: numberDefault(),
-							min: parseNumericBound('min'),
-							max: parseNumericBound('max'),
-							newKey,
-						})
-			) as unknown as IDataObject;
+			response = isCreate
+				? await createColumn('integer', {
+						key,
+						required,
+						min: numericOption(options.min, 'Minimum'),
+						max: numericOption(options.max, 'Maximum'),
+						default: numberDefault(),
+						array,
+					})
+				: await updateColumn('integer', {
+						required,
+						default: numberDefault(),
+						min: numericOption(options.min, 'Minimum'),
+						max: numericOption(options.max, 'Maximum'),
+						newKey,
+					});
 			break;
 		case 'ip':
-			response = (
-				isCreate
-					? await tablesDB.createIpColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: stringDefault,
-							array,
-						})
-					: await tablesDB.updateIpColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: stringDefault,
-							newKey,
-						})
-			) as unknown as IDataObject;
+			response = isCreate
+				? await createColumn('ip', {
+						key,
+						required,
+						default: stringDefault,
+						array,
+					})
+				: await updateColumn('ip', {
+						required,
+						default: stringDefault,
+						newKey,
+					});
 			break;
 		case 'line':
-			response = (
-				isCreate
-					? await tablesDB.createLineColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: spatialDefault(),
-						})
-					: await tablesDB.updateLineColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: spatialDefault(),
-							newKey,
-						})
-			) as unknown as IDataObject;
+			response = isCreate
+				? await createColumn('line', {
+						key,
+						required,
+						default: spatialDefault(),
+					})
+				: await updateColumn('line', {
+						required,
+						default: spatialDefault(),
+						newKey,
+					});
 			break;
 		case 'point':
-			response = (
-				isCreate
-					? await tablesDB.createPointColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: spatialDefault(),
-						})
-					: await tablesDB.updatePointColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: spatialDefault(),
-							newKey,
-						})
-			) as unknown as IDataObject;
+			response = isCreate
+				? await createColumn('point', {
+						key,
+						required,
+						default: spatialDefault(),
+					})
+				: await updateColumn('point', {
+						required,
+						default: spatialDefault(),
+						newKey,
+					});
 			break;
 		case 'polygon':
-			response = (
-				isCreate
-					? await tablesDB.createPolygonColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: spatialDefault(),
-						})
-					: await tablesDB.updatePolygonColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: spatialDefault(),
-							newKey,
-						})
-			) as unknown as IDataObject;
+			response = isCreate
+				? await createColumn('polygon', {
+						key,
+						required,
+						default: spatialDefault(),
+					})
+				: await updateColumn('polygon', {
+						required,
+						default: spatialDefault(),
+						newKey,
+					});
 			break;
 		case 'string':
-			response = (
-				isCreate
-					? await tablesDB.createStringColumn({
-							databaseId,
-							tableId,
-							key,
-							size: this.getNodeParameter('size', i, 255) as number,
-							required,
-							xdefault: stringDefault,
-							array,
-							encrypt: this.getNodeParameter('encrypt', i, false) as boolean,
-						})
-					: await tablesDB.updateStringColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: stringDefault,
-							size: (() => {
-								const raw = this.getNodeParameter('newSize', i, '') as string;
-								if (raw === '') return undefined;
-								const parsed = Number(raw);
-								if (Number.isNaN(parsed)) {
-									throw new NodeOperationError(
-										this.getNode(),
-										'Parameter "New Size" must be a number',
-										{ itemIndex: i },
-									);
-								}
-								return parsed;
-							})(),
-							newKey,
-						})
-			) as unknown as IDataObject;
+			response = isCreate
+				? await createColumn('string', {
+						key,
+						size: this.getNodeParameter('size', i, 255) as number,
+						required,
+						default: stringDefault,
+						array,
+						encrypt: options.encrypt ?? false,
+					})
+				: await updateColumn('string', {
+						required,
+						default: stringDefault,
+						size: numericOption(options.newSize, 'New Size'),
+						newKey,
+					});
 			break;
 		case 'url':
-			response = (
-				isCreate
-					? await tablesDB.createUrlColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: stringDefault,
-							array,
-						})
-					: await tablesDB.updateUrlColumn({
-							databaseId,
-							tableId,
-							key,
-							required,
-							xdefault: stringDefault,
-							newKey,
-						})
-			) as unknown as IDataObject;
+			response = isCreate
+				? await createColumn('url', {
+						key,
+						required,
+						default: stringDefault,
+						array,
+					})
+				: await updateColumn('url', {
+						required,
+						default: stringDefault,
+						newKey,
+					});
 			break;
 		default:
 			throw new NodeOperationError(this.getNode(), `Unknown column type "${columnType}"`, {

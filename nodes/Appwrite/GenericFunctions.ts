@@ -1,19 +1,7 @@
 import type { IDataObject, IExecuteFunctions } from 'n8n-workflow';
 import { NodeOperationError, jsonParse } from 'n8n-workflow';
-import { Client, Query } from 'node-appwrite';
 
-/**
- * Build an authenticated Appwrite client from the node credentials.
- */
-export async function getAppwriteClient(this: IExecuteFunctions): Promise<Client> {
-	const credentials = await this.getCredentials('appwriteApi');
-
-	const endpoint = (credentials.endpoint as string).replace(/\/+$/, '');
-	const projectId = credentials.projectId as string;
-	const apiKey = credentials.apiKey as string;
-
-	return new Client().setEndpoint(endpoint).setProject(projectId).setKey(apiKey);
-}
+import { Query } from './helpers/appwrite';
 
 /**
  * Parse a parameter that n8n may hand over either as a JSON string or as an
@@ -28,24 +16,28 @@ export function parseJsonParameter(
 	if (value === undefined || value === null || value === '') return {};
 	if (typeof value === 'object') return value as IDataObject;
 
+	let parsed: IDataObject;
 	try {
-		const parsed = jsonParse<IDataObject>(value as string);
-		if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-			throw new NodeOperationError(
-				this.getNode(),
-				`Parameter "${parameterName}" must be a JSON object`,
-				{ itemIndex },
-			);
-		}
-		return parsed;
+		parsed = jsonParse<IDataObject>(value as string);
 	} catch (error) {
-		if (error instanceof NodeOperationError) throw error;
+		throw new NodeOperationError(this.getNode(), `Parameter "${parameterName}" is not valid JSON`, {
+			description: (error as Error).message,
+			itemIndex,
+		});
+	}
+
+	if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
 		throw new NodeOperationError(
 			this.getNode(),
-			`Parameter "${parameterName}" contains invalid JSON: ${(error as Error).message}`,
-			{ itemIndex },
+			`Parameter "${parameterName}" must be a JSON object`,
+			{
+				description: 'Provide an object like {"key": "value"}, not a list or a plain value.',
+				itemIndex,
+			},
 		);
 	}
+
+	return parsed;
 }
 
 /**
@@ -61,24 +53,29 @@ export function parseJsonArrayParameter(
 	if (Array.isArray(value)) return value;
 
 	if (typeof value === 'string') {
+		let parsed: unknown;
 		try {
-			const parsed = jsonParse<unknown>(value);
-			if (!Array.isArray(parsed)) {
-				throw new NodeOperationError(
-					this.getNode(),
-					`Parameter "${parameterName}" must be a JSON array`,
-					{ itemIndex },
-				);
-			}
-			return parsed;
+			parsed = jsonParse<unknown>(value);
 		} catch (error) {
-			if (error instanceof NodeOperationError) throw error;
 			throw new NodeOperationError(
 				this.getNode(),
-				`Parameter "${parameterName}" contains invalid JSON: ${(error as Error).message}`,
-				{ itemIndex },
+				`Parameter "${parameterName}" is not valid JSON`,
+				{ description: (error as Error).message, itemIndex },
 			);
 		}
+
+		if (!Array.isArray(parsed)) {
+			throw new NodeOperationError(
+				this.getNode(),
+				`Parameter "${parameterName}" must be a JSON array`,
+				{
+					description: 'Provide a list like ["a", "b"], not an object or a plain value.',
+					itemIndex,
+				},
+			);
+		}
+
+		return parsed;
 	}
 
 	throw new NodeOperationError(this.getNode(), `Parameter "${parameterName}" must be an array`, {
@@ -204,7 +201,15 @@ function buildSingleQuery(
 			const isLimit = type === 'limit';
 			const raw = condition.value;
 			if (raw === undefined || raw === null || String(raw).trim() === '') {
-				return isLimit ? Query.limit(25) : Query.offset(0);
+				throw new NodeOperationError(
+					this.getNode(),
+					`Query "${isLimit ? 'Limit' : 'Offset'}" needs a value`,
+					{
+						itemIndex,
+						description:
+							'Appwrite keeps the first Limit or Offset query it is given and ignores the rest, so an empty one here would silently override the Limit field rather than do nothing. Give it a number, or remove the query.',
+					},
+				);
 			}
 			const parsed = Number(raw);
 			if (Number.isNaN(parsed)) {
@@ -288,6 +293,7 @@ export function getRowData(this: IExecuteFunctions, itemIndex: number): IDataObj
  * Return All overrides any Limit query.
  */
 export async function fetchAllPages<T extends { $id?: string }>(
+	this: IExecuteFunctions,
 	baseQueries: string[],
 	fetchPage: (queries: string[]) => Promise<{ rows?: T[]; total: number } | IDataObject>,
 	listKey: string,
@@ -310,8 +316,13 @@ export async function fetchAllPages<T extends { $id?: string }>(
 		}
 		if (method === 'limit') continue;
 		if (method === 'cursorBefore') {
-			throw new Error(
-				'A Cursor Before query cannot be combined with Return All. Use Cursor After, or disable Return All.',
+			throw new NodeOperationError(
+				this.getNode(),
+				'A Cursor Before query cannot be combined with Return All',
+				{
+					description:
+						'Return All pages forward from the start, so it can only follow a Cursor After. Use Cursor After instead, or turn Return All off.',
+				},
 			);
 		}
 		if (method === 'cursorAfter' || method === 'offset') {

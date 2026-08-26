@@ -1,16 +1,17 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { ID, Query, type TablesDB } from 'node-appwrite';
 
 import { buildQueries, fetchAllPages, getPermissions } from '../GenericFunctions';
+import { Query, extractId, resolveId } from '../helpers/appwrite';
+import { appwriteApiRequest } from '../transport';
 
 export async function executeTableOperation(
 	this: IExecuteFunctions,
-	tablesDB: TablesDB,
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const databaseId = this.getNodeParameter('databaseId', i) as string;
+	const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
+	const tablesPath = `/tablesdb/${encodeURIComponent(databaseId)}/tables`;
 
 	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
 		const list = Array.isArray(data) ? data : [data];
@@ -18,78 +19,101 @@ export async function executeTableOperation(
 	};
 
 	if (operation === 'create') {
-		const rawId = this.getNodeParameter('tableId', i, '') as string;
-		const tableId = rawId === '' || rawId === 'unique()' ? ID.unique() : rawId;
+		const tableId = resolveId(this.getNodeParameter('tableId', i, '') as string);
 		const name = this.getNodeParameter('name', i) as string;
 		const permissions = getPermissions.call(this, i);
 		const rowSecurity = this.getNodeParameter('rowSecurity', i, false) as boolean;
 		const enabled = this.getNodeParameter('enabled', i, true) as boolean;
-		const response = await tablesDB.createTable({
-			databaseId,
-			tableId,
-			name,
-			permissions,
-			rowSecurity,
-			enabled,
-		});
-		return toItems(response as unknown as IDataObject);
+		const response = await appwriteApiRequest.call(
+			this,
+			'POST',
+			tablesPath,
+			{ body: { tableId, name, permissions, rowSecurity, enabled } },
+			i,
+		);
+		return toItems(response);
 	}
 
 	if (operation === 'get') {
-		const tableId = this.getNodeParameter('tableId', i) as string;
-		const response = await tablesDB.getTable({ databaseId, tableId });
-		return toItems(response as unknown as IDataObject);
+		const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
+		const response = await appwriteApiRequest.call(
+			this,
+			'GET',
+			`${tablesPath}/${encodeURIComponent(tableId)}`,
+			{},
+			i,
+		);
+		return toItems(response);
 	}
 
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = this.getNodeParameter('search', i, '') as string;
+		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
 		if (returnAll) {
-			const tables = await fetchAllPages(
+			const tables = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
-					(await tablesDB.listTables({
-						databaseId,
-						queries: pageQueries,
-						search: searchArg,
-					})) as unknown as IDataObject,
+					await appwriteApiRequest.call(
+						this,
+						'GET',
+						tablesPath,
+						{ qs: { queries: pageQueries, search: searchArg } },
+						i,
+					),
 				'tables',
 			);
-			return toItems(tables as unknown as IDataObject[]);
+			return toItems(tables as IDataObject[]);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = await tablesDB.listTables({
-			databaseId,
-			queries: [...queries, Query.limit(limit)],
-			search: searchArg,
-		});
-		return toItems(response.tables as unknown as IDataObject[]);
+		const response = await appwriteApiRequest.call(
+			this,
+			'GET',
+			tablesPath,
+			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			i,
+		);
+		return toItems(response.tables as IDataObject[]);
 	}
 
 	if (operation === 'update') {
-		const tableId = this.getNodeParameter('tableId', i) as string;
+		const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
 		const name = this.getNodeParameter('name', i) as string;
 		const permissions = getPermissions.call(this, i);
-		const rowSecurity = this.getNodeParameter('rowSecurity', i, false) as boolean;
-		const enabled = this.getNodeParameter('enabled', i, true) as boolean;
-		const response = await tablesDB.updateTable({
-			databaseId,
-			tableId,
-			name,
-			permissions,
-			rowSecurity,
-			enabled,
-		});
-		return toItems(response as unknown as IDataObject);
+		const updateFields = this.getNodeParameter('updateFields', i, {}) as {
+			enabled?: boolean;
+			rowSecurity?: boolean;
+		};
+		const response = await appwriteApiRequest.call(
+			this,
+			'PUT',
+			`${tablesPath}/${encodeURIComponent(tableId)}`,
+			{
+				body: {
+					name,
+					permissions,
+					rowSecurity: updateFields.rowSecurity,
+					enabled: updateFields.enabled,
+				},
+			},
+			i,
+		);
+		return toItems(response);
 	}
 
 	if (operation === 'delete') {
-		const tableId = this.getNodeParameter('tableId', i) as string;
-		await tablesDB.deleteTable({ databaseId, tableId });
+		const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
+		await appwriteApiRequest.call(
+			this,
+			'DELETE',
+			`${tablesPath}/${encodeURIComponent(tableId)}`,
+			{},
+			i,
+		);
 		return toItems({ success: true, databaseId, tableId });
 	}
 

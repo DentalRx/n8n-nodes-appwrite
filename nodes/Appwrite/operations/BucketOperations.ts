@@ -1,6 +1,5 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { Compression, ID, Query, type Storage } from 'node-appwrite';
 
 import {
 	buildQueries,
@@ -8,11 +7,14 @@ import {
 	getPermissions,
 	parseJsonArrayParameter,
 } from '../GenericFunctions';
+import { Query, extractId, resolveId } from '../helpers/appwrite';
+import { appwriteApiRequest } from '../transport';
 
-const COMPRESSION_MAP: Record<string, Compression> = {
-	gzip: Compression.Gzip,
-	none: Compression.None,
-	zstd: Compression.Zstd,
+/** The compression algorithms Appwrite accepts, keyed by the value the UI stores. */
+const COMPRESSION_MAP: Record<string, string> = {
+	gzip: 'gzip',
+	none: 'none',
+	zstd: 'zstd',
 };
 
 interface BucketOptions {
@@ -27,7 +29,6 @@ interface BucketOptions {
 
 export async function executeBucketOperation(
 	this: IExecuteFunctions,
-	storage: Storage,
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
@@ -47,7 +48,7 @@ export async function executeBucketOperation(
 			.filter((e) => e !== '');
 	};
 
-	const getBucketOptionArgs = () => {
+	const getBucketOptionArgs = (): IDataObject => {
 		const options = this.getNodeParameter('options', i, {}) as BucketOptions;
 		const allowedFileExtensions = parseList(
 			options.allowedFileExtensions ?? '',
@@ -65,68 +66,88 @@ export async function executeBucketOperation(
 	};
 
 	if (operation === 'create') {
-		const rawBucketId = this.getNodeParameter('bucketId', i, '') as string;
-		const bucketId = rawBucketId === '' || rawBucketId === 'unique()' ? ID.unique() : rawBucketId;
+		const bucketId = resolveId(this.getNodeParameter('bucketId', i, '') as string);
 		const name = this.getNodeParameter('name', i) as string;
 		const permissions = getPermissions.call(this, i);
-		const response = await storage.createBucket({
-			bucketId,
-			name,
-			permissions,
-			...getBucketOptionArgs(),
-		});
-		return toItems(response as unknown as IDataObject);
+		const response = await appwriteApiRequest.call(
+			this,
+			'POST',
+			'/storage/buckets',
+			{ body: { bucketId, name, permissions, ...getBucketOptionArgs() } },
+			i,
+		);
+		return toItems(response);
 	}
 
 	if (operation === 'get') {
-		const bucketId = this.getNodeParameter('bucketId', i) as string;
-		const response = await storage.getBucket({ bucketId });
-		return toItems(response as unknown as IDataObject);
+		const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
+		const response = await appwriteApiRequest.call(
+			this,
+			'GET',
+			`/storage/buckets/${encodeURIComponent(bucketId)}`,
+			{},
+			i,
+		);
+		return toItems(response);
 	}
 
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = this.getNodeParameter('search', i, '') as string;
+		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
 		if (returnAll) {
-			const buckets = await fetchAllPages(
+			const buckets = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
-					(await storage.listBuckets({
-						queries: pageQueries,
-						search: searchArg,
-					})) as unknown as IDataObject,
+					await appwriteApiRequest.call(
+						this,
+						'GET',
+						'/storage/buckets',
+						{ qs: { queries: pageQueries, search: searchArg } },
+						i,
+					),
 				'buckets',
 			);
-			return toItems(buckets as unknown as IDataObject[]);
+			return toItems(buckets as IDataObject[]);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = await storage.listBuckets({
-			queries: [...queries, Query.limit(limit)],
-			search: searchArg,
-		});
-		return toItems(response.buckets as unknown as IDataObject[]);
+		const response = await appwriteApiRequest.call(
+			this,
+			'GET',
+			'/storage/buckets',
+			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			i,
+		);
+		return toItems(response.buckets as IDataObject[]);
 	}
 
 	if (operation === 'update') {
-		const bucketId = this.getNodeParameter('bucketId', i) as string;
+		const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
 		const name = this.getNodeParameter('name', i) as string;
 		const permissions = getPermissions.call(this, i);
-		const response = await storage.updateBucket({
-			bucketId,
-			name,
-			permissions,
-			...getBucketOptionArgs(),
-		});
-		return toItems(response as unknown as IDataObject);
+		const response = await appwriteApiRequest.call(
+			this,
+			'PUT',
+			`/storage/buckets/${encodeURIComponent(bucketId)}`,
+			{ body: { name, permissions, ...getBucketOptionArgs() } },
+			i,
+		);
+		return toItems(response);
 	}
 
 	if (operation === 'delete') {
-		const bucketId = this.getNodeParameter('bucketId', i) as string;
-		await storage.deleteBucket({ bucketId });
+		const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
+		await appwriteApiRequest.call(
+			this,
+			'DELETE',
+			`/storage/buckets/${encodeURIComponent(bucketId)}`,
+			{},
+			i,
+		);
 		return toItems({ success: true, bucketId });
 	}
 

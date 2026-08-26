@@ -62,7 +62,7 @@ export const avatarOperations: INodeProperties[] = [
 export const avatarFields: INodeProperties[] = [
 	{
 		displayName: 'Browser Code',
-		name: 'code',
+		name: 'browserCode',
 		type: 'options',
 		options: [
 			{ name: 'Android WebView Beta', value: 'an' },
@@ -91,7 +91,7 @@ export const avatarFields: INodeProperties[] = [
 	},
 	{
 		displayName: 'Credit Card Code',
-		name: 'code',
+		name: 'creditCardCode',
 		type: 'options',
 		options: [
 			{ name: 'American Express', value: 'amex' },
@@ -138,7 +138,7 @@ export const avatarFields: INodeProperties[] = [
 	},
 	{
 		displayName: 'Country Code',
-		name: 'code',
+		name: 'countryCode',
 		type: 'string',
 		required: true,
 		default: '',
@@ -164,6 +164,21 @@ export const avatarFields: INodeProperties[] = [
 			show: {
 				resource: ['avatar'],
 				operation: ['getImage'],
+			},
+		},
+	},
+	{
+		displayName: 'Name',
+		name: 'name',
+		type: 'string',
+		required: true,
+		default: '',
+		placeholder: 'John Doe',
+		description: 'The full name to build the initials from, up to 128 characters',
+		displayOptions: {
+			show: {
+				resource: ['avatar'],
+				operation: ['getInitials'],
 			},
 		},
 	},
@@ -208,7 +223,8 @@ export const avatarFields: INodeProperties[] = [
 				type: 'number',
 				typeOptions: { minValue: 0, maxValue: 100 },
 				default: 100,
-				description: 'Image quality, between 0 and 100',
+				description:
+					'Image quality, between 0 and 100. Leave this option out to keep the source image quality.',
 			},
 			{
 				displayName: 'Width',
@@ -270,7 +286,8 @@ export const avatarFields: INodeProperties[] = [
 				type: 'string',
 				default: '',
 				placeholder: 'fd366e',
-				description: 'Background color as a hex value. Leave empty for a random color that stays persistent for the given name.',
+				description:
+					'Background color as a hex value. Leave empty for a random color that stays persistent for the given name.',
 			},
 			{
 				displayName: 'Height',
@@ -279,14 +296,6 @@ export const avatarFields: INodeProperties[] = [
 				typeOptions: { minValue: 0, maxValue: 2000 },
 				default: 100,
 				description: 'Image height in pixels, between 0 and 2000. Pass 0 to keep the aspect ratio.',
-			},
-			{
-				displayName: 'Name',
-				name: 'name',
-				type: 'string',
-				default: '',
-				placeholder: 'John Doe',
-				description: 'The full name to build the initials from, up to 128 characters',
 			},
 			{
 				displayName: 'Width',
@@ -312,14 +321,6 @@ export const avatarFields: INodeProperties[] = [
 		},
 		options: [
 			{
-				displayName: 'Download',
-				name: 'download',
-				type: 'boolean',
-				default: false,
-				description:
-					'Whether to return the image with Content-Disposition attachment headers so browsers start downloading it',
-			},
-			{
 				displayName: 'Margin',
 				name: 'margin',
 				type: 'number',
@@ -338,11 +339,12 @@ export const avatarFields: INodeProperties[] = [
 		],
 	},
 	{
-		displayName: 'Put Output in Field',
+		displayName: 'Output Data Field Name',
 		name: 'outputBinaryField',
 		type: 'string',
+		required: true,
 		default: 'data',
-		hint: 'The name of the output binary field to put the image in',
+		hint: 'The name of the output field to put the image in',
 		displayOptions: {
 			show: {
 				resource: ['avatar'],

@@ -3,24 +3,21 @@ import type {
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
-	JsonObject,
 } from 'n8n-workflow';
-import { NodeApiError, NodeOperationError } from 'n8n-workflow';
-import {
-	Avatars,
-	Functions,
-	Health,
-	Locale,
-	Messaging,
-	Storage,
-	TablesDB,
-	Teams,
-	Tokens,
-	Users,
-} from 'node-appwrite';
+import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
-import { getAppwriteClient } from './GenericFunctions';
 import { properties } from './descriptions';
+import {
+	getBuckets,
+	getColumns,
+	getDatabases,
+	getFunctions,
+	getRuntimes,
+	getTables,
+	getTeams,
+	getTopics,
+	getUsers,
+} from './methods/loadOptions';
 import { executeAvatarOperation } from './operations/AvatarOperations';
 import { executeBucketOperation } from './operations/BucketOperations';
 import { executeColumnOperation } from './operations/ColumnOperations';
@@ -50,11 +47,21 @@ export class Appwrite implements INodeType {
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
 		description:
 			'Interact with the Appwrite API: databases with tables and rows, storage, functions, users, teams, and messaging',
+		// Declared here rather than in a sibling Appwrite.node.json: the n8n CLI's
+		// build step only copies images into dist/, so a codex file would never
+		// reach the published package, and n8n prefers this field over the file.
+		codex: {
+			categories: ['Development'],
+			resources: {
+				credentialDocumentation: [{ url: 'https://appwrite.io/docs/advanced/platform/api-keys' }],
+				primaryDocumentation: [{ url: 'https://appwrite.io/docs' }],
+			},
+		},
 		defaults: {
 			name: 'Appwrite',
 		},
-		inputs: ['main'],
-		outputs: ['main'],
+		inputs: [NodeConnectionTypes.Main],
+		outputs: [NodeConnectionTypes.Main],
 		usableAsTool: true,
 		credentials: [
 			{
@@ -65,118 +72,97 @@ export class Appwrite implements INodeType {
 		properties,
 	};
 
+	methods = {
+		loadOptions: {
+			getBuckets,
+			getColumns,
+			getDatabases,
+			getFunctions,
+			getRuntimes,
+			getTables,
+			getTeams,
+			getTopics,
+			getUsers,
+		},
+	};
+
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 
-		const client = await getAppwriteClient.call(this);
 		const resource = this.getNodeParameter('resource', 0) as string;
-
-		const tablesDB = new TablesDB(client);
-		const storage = new Storage(client);
-		const functions = new Functions(client);
-		const users = new Users(client);
-		const teams = new Teams(client);
-		const messaging = new Messaging(client);
-		const locale = new Locale(client);
-		const health = new Health(client);
-		const avatars = new Avatars(client);
-		const tokens = new Tokens(client);
+		const continueOnFail = this.continueOnFail();
 
 		for (let i = 0; i < items.length; i++) {
+			if (!continueOnFail) {
+				returnData.push(...(await runOperation.call(this, resource, i)));
+				continue;
+			}
+
 			try {
-				const operation = this.getNodeParameter('operation', i) as string;
-
-				let results: INodeExecutionData[];
-				switch (resource) {
-					case 'avatar':
-						results = await executeAvatarOperation.call(this, avatars, operation, i);
-						break;
-					case 'bucket':
-						results = await executeBucketOperation.call(this, storage, operation, i);
-						break;
-					case 'column':
-						results = await executeColumnOperation.call(this, tablesDB, operation, i);
-						break;
-					case 'database':
-						results = await executeDatabaseOperation.call(this, tablesDB, operation, i);
-						break;
-					case 'execution':
-						results = await executeExecutionOperation.call(this, functions, operation, i);
-						break;
-					case 'file':
-						results = await executeFileOperation.call(this, storage, operation, i);
-						break;
-					case 'function':
-						results = await executeFunctionOperation.call(this, functions, operation, i);
-						break;
-					case 'health':
-						results = await executeHealthOperation.call(this, health, operation, i);
-						break;
-					case 'index':
-						results = await executeIndexOperation.call(this, tablesDB, operation, i);
-						break;
-					case 'locale':
-						results = await executeLocaleOperation.call(this, locale, operation, i);
-						break;
-					case 'message':
-						results = await executeMessageOperation.call(this, messaging, operation, i);
-						break;
-					case 'row':
-						results = await executeRowOperation.call(this, tablesDB, operation, i);
-						break;
-					case 'table':
-						results = await executeTableOperation.call(this, tablesDB, operation, i);
-						break;
-					case 'team':
-						results = await executeTeamOperation.call(this, teams, operation, i);
-						break;
-					case 'token':
-						results = await executeTokenOperation.call(this, tokens, operation, i);
-						break;
-					case 'topic':
-						results = await executeTopicOperation.call(this, messaging, operation, i);
-						break;
-					case 'transaction':
-						results = await executeTransactionOperation.call(this, tablesDB, operation, i);
-						break;
-					case 'user':
-						results = await executeUserOperation.call(this, users, operation, i);
-						break;
-					default:
-						throw new NodeOperationError(this.getNode(), `Unknown resource "${resource}"`, {
-							itemIndex: i,
-						});
-				}
-
-				returnData.push(...results);
+				returnData.push(...(await runOperation.call(this, resource, i)));
 			} catch (error) {
-				if (this.continueOnFail()) {
-					const message = error instanceof Error ? error.message : String(error);
-					returnData.push({
-						json: { error: message },
-						pairedItem: { item: i },
-					});
-					continue;
-				}
-
-				if (error instanceof NodeOperationError || error instanceof NodeApiError) {
-					throw error;
-				}
-
-				const apiError = error as { message?: string; code?: number; type?: string };
-				throw new NodeApiError(
-					this.getNode(),
-					{
-						message: apiError.message ?? String(error),
-						code: apiError.code,
-						type: apiError.type,
-					} as JsonObject,
-					{ itemIndex: i },
-				);
+				returnData.push({
+					json: { error: error instanceof Error ? error.message : String(error) },
+					pairedItem: { item: i },
+				});
 			}
 		}
 
 		return [returnData];
+	}
+}
+
+/**
+ * Dispatch one input item to the operations module for the selected resource.
+ */
+async function runOperation(
+	this: IExecuteFunctions,
+	resource: string,
+	i: number,
+): Promise<INodeExecutionData[]> {
+	const operation = this.getNodeParameter('operation', i) as string;
+
+	switch (resource) {
+		case 'avatar':
+			return await executeAvatarOperation.call(this, operation, i);
+		case 'bucket':
+			return await executeBucketOperation.call(this, operation, i);
+		case 'column':
+			return await executeColumnOperation.call(this, operation, i);
+		case 'database':
+			return await executeDatabaseOperation.call(this, operation, i);
+		case 'execution':
+			return await executeExecutionOperation.call(this, operation, i);
+		case 'file':
+			return await executeFileOperation.call(this, operation, i);
+		case 'function':
+			return await executeFunctionOperation.call(this, operation, i);
+		case 'health':
+			return await executeHealthOperation.call(this, operation, i);
+		case 'index':
+			return await executeIndexOperation.call(this, operation, i);
+		case 'locale':
+			return await executeLocaleOperation.call(this, operation, i);
+		case 'message':
+			return await executeMessageOperation.call(this, operation, i);
+		case 'row':
+			return await executeRowOperation.call(this, operation, i);
+		case 'table':
+			return await executeTableOperation.call(this, operation, i);
+		case 'team':
+			return await executeTeamOperation.call(this, operation, i);
+		case 'token':
+			return await executeTokenOperation.call(this, operation, i);
+		case 'topic':
+			return await executeTopicOperation.call(this, operation, i);
+		case 'transaction':
+			return await executeTransactionOperation.call(this, operation, i);
+		case 'user':
+			return await executeUserOperation.call(this, operation, i);
+		default:
+			throw new NodeOperationError(this.getNode(), `Unknown resource "${resource}"`, {
+				itemIndex: i,
+			});
 	}
 }

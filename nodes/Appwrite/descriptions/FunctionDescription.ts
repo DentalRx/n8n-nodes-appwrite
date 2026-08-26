@@ -1,6 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-import { queriesProperties, returnAllAndLimitProperties } from './shared';
+import { listOptionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
 
 export const functionOperations: INodeProperties[] = [
 	{
@@ -105,7 +105,7 @@ export const functionOperations: INodeProperties[] = [
 
 const functionConfigOptions: INodeProperties[] = [
 	{
-		displayName: 'Commands',
+		displayName: 'Build Commands',
 		name: 'commands',
 		type: 'string',
 		default: '',
@@ -138,13 +138,13 @@ const functionConfigOptions: INodeProperties[] = [
 			'Events that trigger the function, as a comma-separated list or a JSON array. Maximum of 100 events.',
 	},
 	{
-		displayName: 'Execute Roles',
+		displayName: 'Execute Access',
 		name: 'execute',
 		type: 'string',
 		default: '',
 		placeholder: 'any, users, team:abc',
 		description:
-			'Role strings granted permission to execute the function, as a comma-separated list or a JSON array. By default no user can execute it. Maximum of 100 roles.',
+			'Roles allowed to execute the function, as a comma-separated list or a JSON array. By default no user can execute it. Maximum of 100 roles.',
 	},
 	{
 		displayName: 'Logging',
@@ -155,13 +155,13 @@ const functionConfigOptions: INodeProperties[] = [
 			'Whether executions keep logs and errors. When disabled, executions will be slightly faster.',
 	},
 	{
-		displayName: 'Runtime',
+		displayName: 'Runtime Name or ID',
 		name: 'runtime',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getRuntimes' },
 		default: '',
-		placeholder: 'node-22',
 		description:
-			'The new execution runtime ID, e.g. node-22 or python-3.12. See the Appwrite runtimes documentation for the IDs available on your instance. Leave empty to keep the current runtime.',
+			'The new execution runtime, e.g. node-22 or python-3.12. Leave this option out to keep the current runtime. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
 		displayName: 'Schedule',
@@ -186,18 +186,21 @@ const functionConfigOptions: INodeProperties[] = [
 		type: 'number',
 		typeOptions: { minValue: 1 },
 		default: 15,
-		description: 'Maximum execution time in seconds',
+		description:
+			'Maximum execution time in seconds. Defaults to 15, and the ceiling is whatever the Appwrite deployment allows (900 on Appwrite Cloud).',
 	},
 ];
 
 export const functionFields: INodeProperties[] = [
 	{
-		displayName: 'Function ID',
+		displayName: 'Function Name or ID',
 		name: 'functionId',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getFunctions' },
 		required: true,
 		default: '',
-		description: 'The ID of the function',
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: ['function'],
@@ -215,21 +218,6 @@ export const functionFields: INodeProperties[] = [
 					'update',
 					'updateVariable',
 				],
-			},
-		},
-	},
-	{
-		displayName: 'Function ID',
-		name: 'functionId',
-		type: 'string',
-		default: '',
-		placeholder: 'unique()',
-		description:
-			'The ID for the function. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
-		displayOptions: {
-			show: {
-				resource: ['function'],
-				operation: ['create'],
 			},
 		},
 	},
@@ -267,7 +255,7 @@ export const functionFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		description: 'The function name. Max length: 128 chars.',
+		description: 'The function name. Max length: 128 characters.',
 		displayOptions: {
 			show: {
 				resource: ['function'],
@@ -276,14 +264,29 @@ export const functionFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Runtime',
+		displayName: 'Runtime Name or ID',
 		name: 'runtime',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getRuntimes' },
 		required: true,
 		default: '',
-		placeholder: 'node-22',
 		description:
-			'The execution runtime ID, e.g. node-22, python-3.12, php-8.3. See the Appwrite runtimes documentation for the IDs available on your instance.',
+			'The execution runtime for the function, e.g. node-22 or python-3.12. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+		displayOptions: {
+			show: {
+				resource: ['function'],
+				operation: ['create'],
+			},
+		},
+	},
+	{
+		displayName: 'Function ID',
+		name: 'functionId',
+		type: 'string',
+		default: '',
+		placeholder: 'unique()',
+		description:
+			'The ID for the function. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {
 			show: {
 				resource: ['function'],
@@ -297,7 +300,7 @@ export const functionFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		description: 'The variable key (environment variable name). Max length: 255 chars.',
+		description: 'The variable key (environment variable name). Max length: 255 characters.',
 		displayOptions: {
 			show: {
 				resource: ['function'],
@@ -311,7 +314,7 @@ export const functionFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		description: 'The variable value. Max length: 8192 chars.',
+		description: 'The variable value. Max length: 8192 characters.',
 		displayOptions: {
 			show: {
 				resource: ['function'],
@@ -325,7 +328,7 @@ export const functionFields: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		description:
-			'The new variable value. Leave empty to keep the current value. Max length: 8192 chars.',
+			'The new variable value. Leave empty to keep the current value. Max length: 8192 characters.',
 		displayOptions: {
 			show: {
 				resource: ['function'],
@@ -339,24 +342,11 @@ export const functionFields: INodeProperties[] = [
 		type: 'boolean',
 		default: false,
 		description:
-			'Whether the variable is secret. Secret variables can be updated or deleted, but only functions can read them during build and runtime.',
+			'Whether the variable is secret. Secret variables can be updated or deleted, but only functions can read them during build and runtime. When updating, leaving this off keeps the existing setting.',
 		displayOptions: {
 			show: {
 				resource: ['function'],
 				operation: ['createVariable', 'updateVariable'],
-			},
-		},
-	},
-	{
-		displayName: 'Search',
-		name: 'search',
-		type: 'string',
-		default: '',
-		description: 'Search term to filter the list results',
-		displayOptions: {
-			show: {
-				resource: ['function'],
-				operation: ['getMany', 'getManyDeployments'],
 			},
 		},
 	},
@@ -390,4 +380,5 @@ export const functionFields: INodeProperties[] = [
 		},
 		options: functionConfigOptions,
 	},
+	listOptionsProperty('function', ['getMany', 'getManyDeployments']),
 ];
