@@ -5,6 +5,7 @@ import { ID, MessagePriority, Query, type Messaging } from 'node-appwrite';
 import {
 	buildQueries,
 	fetchAllPages,
+	fetchAllPagesByOffset,
 	parseJsonArrayParameter,
 	parseJsonParameter,
 } from '../GenericFunctions';
@@ -130,6 +131,13 @@ export async function executeMessageOperation(
 		const title = this.getNodeParameter('title', i, '') as string;
 		const body = this.getNodeParameter('body', i, '') as string;
 		const { topics, users, targets } = getRecipients();
+		if (!topics && !users && !targets) {
+			throw new NodeOperationError(
+				this.getNode(),
+				'At least one of Topic IDs, User IDs, or Target IDs must be provided',
+				{ itemIndex: i },
+			);
+		}
 		const options = this.getNodeParameter('options', i, {}) as PushMessageFields;
 		const response = await messaging.createPush({
 			messageId,
@@ -162,6 +170,13 @@ export async function executeMessageOperation(
 		const messageId = resolveMessageId(this.getNodeParameter('messageId', i, '') as string);
 		const content = this.getNodeParameter('content', i) as string;
 		const { topics, users, targets } = getRecipients();
+		if (!topics && !users && !targets) {
+			throw new NodeOperationError(
+				this.getNode(),
+				'At least one of Topic IDs, User IDs, or Target IDs must be provided',
+				{ itemIndex: i },
+			);
+		}
 		const options = this.getNodeParameter('options', i, {}) as SmsMessageFields;
 		const response = await messaging.createSMS({
 			messageId,
@@ -221,11 +236,16 @@ export async function executeMessageOperation(
 		const queries = buildQueries.call(this, i);
 
 		if (returnAll) {
-			const response = await messaging.listMessageLogs({
-				messageId,
-				queries: queries.length > 0 ? queries : undefined,
-			});
-			return toItems(response.logs as unknown as IDataObject[]);
+			const logs = await fetchAllPagesByOffset(
+				queries,
+				async (pageQueries) =>
+					(await messaging.listMessageLogs({
+						messageId,
+						queries: pageQueries,
+					})) as unknown as IDataObject,
+				'logs',
+			);
+			return toItems(logs as unknown as IDataObject[]);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;

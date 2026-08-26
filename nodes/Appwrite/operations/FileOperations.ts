@@ -38,7 +38,13 @@ interface PreviewOptions {
 	output?: string;
 	quality?: number;
 	rotation?: number;
+	token?: string;
 	width?: number;
+}
+
+function stripHexHash(value?: string): string | undefined {
+	if (value === undefined || value === '') return undefined;
+	return value.replace(/^#/, '');
 }
 
 export async function executeFileOperation(
@@ -58,12 +64,16 @@ export async function executeFileOperation(
 		arrayBuffer: ArrayBuffer,
 		fileId: string,
 		mimeTypeOverride?: string,
+		fileExtensionOverride?: string,
 	): Promise<INodeExecutionData[]> => {
 		const meta = await storage.getFile({ bucketId, fileId });
 		const outputBinaryField = this.getNodeParameter('outputBinaryField', i, 'data') as string;
+		const fileName = fileExtensionOverride
+			? `${meta.name.replace(/\.[^.]+$/, '')}.${fileExtensionOverride}`
+			: meta.name;
 		const binary = await this.helpers.prepareBinaryData(
 			Buffer.from(arrayBuffer),
-			meta.name,
+			fileName,
 			mimeTypeOverride ?? meta.mimeType,
 		);
 		return [
@@ -166,17 +176,18 @@ export async function executeFileOperation(
 			gravity: options.gravity ? IMAGE_GRAVITY_MAP[options.gravity] : undefined,
 			quality: options.quality,
 			borderWidth: options.borderWidth,
-			borderColor: options.borderColor === '' ? undefined : options.borderColor,
+			borderColor: stripHexHash(options.borderColor),
 			borderRadius: options.borderRadius,
 			opacity: options.opacity,
 			rotation: options.rotation,
-			background: options.background === '' ? undefined : options.background,
+			background: stripHexHash(options.background),
 			output,
+			token: options.token === '' ? undefined : options.token,
 		});
 		const mimeType = output
 			? `image/${output === ImageFormat.Jpg ? 'jpeg' : output}`
 			: undefined;
-		return await toBinaryItem(arrayBuffer, fileId, mimeType);
+		return await toBinaryItem(arrayBuffer, fileId, mimeType, output);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown file operation "${operation}"`, {

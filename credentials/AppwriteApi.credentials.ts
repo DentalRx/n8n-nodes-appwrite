@@ -57,8 +57,8 @@ export class AppwriteApi implements ICredentialType {
 
 	test: ICredentialTestRequest = {
 		request: {
-			baseURL: '={{$credentials.endpoint.replace(new RegExp("/$"), "")}}',
-			url: '/tablesdb',
+			baseURL: '={{$credentials.endpoint.replace(new RegExp("/+$"), "")}}',
+			url: '/ping',
 			method: 'GET',
 		},
 	};

@@ -284,7 +284,7 @@ export const rowFields: INodeProperties[] = [
 				type: 'number',
 				default: 0,
 				description:
-					'Maximum the column may reach when incrementing. Only used by Increment Column; 0 means no maximum.',
+					'Maximum the column may reach when incrementing. Only used by Increment Column; leave the option out for no maximum.',
 			},
 			{
 				displayName: 'Min Value',
@@ -292,7 +292,7 @@ export const rowFields: INodeProperties[] = [
 				type: 'number',
 				default: 0,
 				description:
-					'Minimum the column may reach when decrementing. Only used by Decrement Column; 0 means no minimum.',
+					'Minimum the column may reach when decrementing. Only used by Decrement Column; leave the option out for no minimum.',
 			},
 			{
 				displayName: 'Transaction ID',
