@@ -135,10 +135,3 @@ export async function getRuntimes(this: ILoadOptionsFunctions): Promise<INodePro
 	const runtimes = (response.runtimes ?? []) as AppwriteListItem[];
 	return toOptions(runtimes, (runtime) => (runtime.name as string) ?? '');
 }
-
-export async function getMessagingProviders(
-	this: ILoadOptionsFunctions,
-): Promise<INodePropertyOptions[]> {
-	const providers = await listAll(this, '/messaging/providers', 'providers');
-	return toOptions(providers, (provider) => provider.name ?? '');
-}

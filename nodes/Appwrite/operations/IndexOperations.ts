@@ -95,7 +95,8 @@ export async function executeIndexOperation(
 		const queries = buildQueries.call(this, i);
 
 		if (returnAll) {
-			const indexes = await fetchAllPages(
+			const indexes = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					await appwriteApiRequest.call(

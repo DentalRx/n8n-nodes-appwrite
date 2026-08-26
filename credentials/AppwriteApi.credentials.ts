@@ -57,10 +57,15 @@ export class AppwriteApi implements ICredentialType {
 		},
 	};
 
+	// /ping answers at Appwrite's `global` scope, which the Guests role already
+	// holds, and an unrecognised API key is downgraded to a guest key rather
+	// than rejected - so pinging reports success for any key at all. Listing
+	// databases needs a scope no guest has, which makes the test prove the key
+	// works. It is also the first call the node's own Database picker makes.
 	test: ICredentialTestRequest = {
 		request: {
 			baseURL: '={{$credentials.endpoint.replace(new RegExp("/+$"), "")}}',
-			url: '/ping',
+			url: '/tablesdb',
 			method: 'GET',
 		},
 	};

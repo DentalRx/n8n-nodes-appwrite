@@ -48,7 +48,8 @@ export async function executeDatabaseOperation(
 		const searchArg = search === '' ? undefined : search;
 
 		if (returnAll) {
-			const databases = await fetchAllPages(
+			const databases = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					await appwriteApiRequest.call(

@@ -104,7 +104,8 @@ export async function executeTopicOperation(
 		const searchArg = search === '' ? undefined : search;
 
 		if (returnAll) {
-			const topics = await fetchAllPages(
+			const topics = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					await appwriteApiRequest.call(
@@ -138,7 +139,8 @@ export async function executeTopicOperation(
 		const searchArg = search === '' ? undefined : search;
 
 		if (returnAll) {
-			const subscribers = await fetchAllPages(
+			const subscribers = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					await appwriteApiRequest.call(

@@ -242,7 +242,8 @@ export async function executeMessageOperation(
 		const searchArg = search === '' ? undefined : search;
 
 		if (returnAll) {
-			const messages = await fetchAllPages(
+			const messages = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					(await appwriteApiRequest.call(
@@ -307,7 +308,8 @@ export async function executeMessageOperation(
 		const queries = buildQueries.call(this, i);
 
 		if (returnAll) {
-			const targets = await fetchAllPages(
+			const targets = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					(await appwriteApiRequest.call(

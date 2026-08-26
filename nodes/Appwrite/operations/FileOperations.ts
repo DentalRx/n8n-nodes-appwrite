@@ -133,7 +133,8 @@ export async function executeFileOperation(
 		const searchArg = search === '' ? undefined : search;
 
 		if (returnAll) {
-			const files = await fetchAllPages(
+			const files = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					await appwriteApiRequest.call(

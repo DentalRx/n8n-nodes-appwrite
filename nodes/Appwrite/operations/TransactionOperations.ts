@@ -44,7 +44,8 @@ export async function executeTransactionOperation(
 		const queries = buildQueries.call(this, i);
 
 		if (returnAll) {
-			const transactions = await fetchAllPages(
+			const transactions = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					await appwriteApiRequest.call(

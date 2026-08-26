@@ -37,11 +37,14 @@ Create an **Appwrite API** credential with:
 | **Row** | Create, Create Many, Create or Update (upsert), Create or Update Many, Delete, Delete Many, Get, Get Many, Update, Update Many, Increment Column, Decrement Column |
 | **Transaction** | Create, Commit, Rollback, Create Operations, Delete, Get, Get Many |
 
-Row operations support:
+Every **Get Many** operation in the node — not just rows — supports:
 
 - **Query builder** — visual builder for Appwrite queries (equal, contains, search, between, order, cursor pagination, select, …) or raw JSON query strings.
+- **Return All** — automatic pagination when you want every result.
+
+Row operations additionally support:
+
 - **Data modes** — define row data as individual fields (with automatic typing of numbers, booleans, and JSON) or as raw JSON.
-- **Return All** — automatic cursor pagination when you want every row.
 - **Transactions** — every row operation accepts an optional Transaction ID, so multi-step writes can commit or roll back atomically.
 
 ### Storage
@@ -63,7 +66,7 @@ Row operations support:
 
 | Resource | Operations |
 | --- | --- |
-| **User** | Create, Delete, Get, Get Many, Update Email/Name/Password/Phone/Status/Labels/Preferences, Email & Phone Verification, Sessions (list/create/delete), Tokens & JWTs, Identities, Logs, Memberships |
+| **User** | Create, Delete, Get, Get Many, Get/Update Preferences, Update Email/Name/Password/Phone/Status/Labels, Email & Phone Verification, Sessions (list/create/delete one/delete all), Tokens & JWTs, Identities, Logs, Memberships |
 | **Team** | Create, Delete, Get, Get Many, Update Name, Preferences, Memberships (create/get/get many/update/delete) |
 
 ### Messaging
@@ -90,7 +93,7 @@ Row operations support:
 3. Set **Resource** to `Row` and **Operation** to `Create`.
 4. Choose your **Database Name or ID** and **Table Name or ID** from the dropdowns.
 5. Leave **Row ID** empty so Appwrite generates one.
-6. Set **Data Mode** to `Fields` and add a field per column, or switch to `JSON` and pass an
+6. Set **Data Mode** to `Define Fields Below` and add a field per column, or switch to `JSON` and pass an
    expression such as `={{ $json }}`.
 
 ### Look up rows and act on them
@@ -118,20 +121,24 @@ read from or write to your Appwrite project.
 - **Pick from a list or type an ID**: fields such as **Database Name or ID** and
   **Table Name or ID** load the real values from your project. You can always switch the field
   to an expression to supply an ID computed at runtime.
-- **Pasting console URLs**: ID fields also accept a URL copied out of the Appwrite Console —
-  the ID is extracted for you.
+- **Pasting console URLs**: the **Database**, **Table** (and **Related Table**), **Row**,
+  **Bucket**, **File**, **Function**, **Team** and **Topic** ID fields also accept a URL copied
+  out of the Appwrite Console — the ID is extracted for you. Every other ID field (users,
+  deployments, executions, messages, sessions, memberships and the rest) wants the bare ID.
 - **Auto-generated IDs**: leave any ID field empty (or type `unique()`) on create operations to
   have a unique ID generated.
 - **Permissions**: enter one permission string per line (or a JSON array), e.g. `read("any")`,
   `update("user:abc")`, `delete("team:abc/owner")`.
 - **API key scopes**: each operation needs the matching scope on your Appwrite API key. A
-  `401`/`403` from Appwrite almost always means a missing scope rather than a bad key.
+  `401`/`403` from Appwrite usually means a missing scope rather than a bad key. The credential
+  test lists databases, so it needs `databases.read`; it deliberately does not use `/ping`, which
+  Appwrite answers for unauthenticated callers and which would therefore pass for any key.
 - **Legacy Databases API**: this node intentionally targets the TablesDB API. If you still run an
   Appwrite version without TablesDB (< 1.8), use a legacy community node instead.
 
 ## Compatibility
 
-- Requires n8n 1.x and Node.js ≥ 18.17.
+- Requires n8n 1.85 or newer (including 2.x) and Node.js ≥ 18.17. The node uses `NodeConnectionTypes`, which n8n-workflow only exports from 1.83.0 onwards.
 - Tested against Appwrite Cloud and self-hosted Appwrite 1.8+ (TablesDB).
 
 ## Development

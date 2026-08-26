@@ -239,12 +239,17 @@ export const rowFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Column',
+		displayName: 'Column Name or ID',
 		name: 'column',
-		type: 'string',
+		type: 'options',
+		typeOptions: {
+			loadOptionsDependsOn: ['databaseId', 'tableId'],
+			loadOptionsMethod: 'getColumns',
+		},
 		required: true,
 		default: '',
-		description: 'The name of the numeric column to change',
+		description:
+			'The numeric column to change. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 		displayOptions: {
 			show: {
 				resource: ['row'],

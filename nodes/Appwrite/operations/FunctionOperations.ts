@@ -2,7 +2,7 @@ import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-wor
 import { NodeOperationError } from 'n8n-workflow';
 
 import { buildQueries, fetchAllPages, parseJsonArrayParameter } from '../GenericFunctions';
-import { Query, resolveId } from '../helpers/appwrite';
+import { Query, extractId, resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 interface FunctionConfigOptions {
@@ -23,7 +23,7 @@ export async function executeFunctionOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const functionId = this.getNodeParameter('functionId', i, '') as string;
+	const functionId = extractId(this.getNodeParameter('functionId', i, '') as string, 'function');
 
 	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
 		const list = Array.isArray(data) ? data : [data];
@@ -167,7 +167,8 @@ export async function executeFunctionOperation(
 		const searchArg = search === '' ? undefined : search;
 
 		if (returnAll) {
-			const functionList = await fetchAllPages(
+			const functionList = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					(await appwriteApiRequest.call(
@@ -200,7 +201,8 @@ export async function executeFunctionOperation(
 		const searchArg = search === '' ? undefined : search;
 
 		if (returnAll) {
-			const deployments = await fetchAllPages(
+			const deployments = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					(await appwriteApiRequest.call(

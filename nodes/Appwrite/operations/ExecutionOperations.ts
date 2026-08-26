@@ -94,7 +94,8 @@ export async function executeExecutionOperation(
 		const queries = buildQueries.call(this, i);
 
 		if (returnAll) {
-			const executions = await fetchAllPages(
+			const executions = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					await appwriteApiRequest.call(

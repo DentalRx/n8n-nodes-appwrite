@@ -266,7 +266,7 @@ export const columnFields: INodeProperties[] = [
 				type: 'string',
 				default: '',
 				description:
-					'The default value for the column. It is parsed according to the column type (e.g. true/false for booleans, numbers for integer/float, a JSON array of coordinates for spatial types). It cannot be set when Required is enabled.',
+					'The default value for the column. It is parsed according to the column type (e.g. true/false for booleans, numbers for integer/float, a JSON array of coordinates for spatial types). It cannot be set when Required is enabled. Appwrite makes this part of the column definition rather than a patch, so leaving it out on Update clears any default the column already had.',
 				displayOptions: {
 					hide: {
 						'/columnType': ['relationship'],
@@ -361,7 +361,8 @@ export const columnFields: INodeProperties[] = [
 					},
 				],
 				default: 'restrict',
-				description: 'What happens to related rows when a row is deleted. Defaults to Restrict.',
+				description:
+					"What happens to related rows when a row is deleted. A new column defaults to Restrict; leaving this option out on Update keeps the column's current setting.",
 				displayOptions: {
 					show: {
 						'/columnType': ['relationship'],

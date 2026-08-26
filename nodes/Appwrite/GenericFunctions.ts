@@ -201,7 +201,15 @@ function buildSingleQuery(
 			const isLimit = type === 'limit';
 			const raw = condition.value;
 			if (raw === undefined || raw === null || String(raw).trim() === '') {
-				return isLimit ? Query.limit(25) : Query.offset(0);
+				throw new NodeOperationError(
+					this.getNode(),
+					`Query "${isLimit ? 'Limit' : 'Offset'}" needs a value`,
+					{
+						itemIndex,
+						description:
+							'Appwrite keeps the first Limit or Offset query it is given and ignores the rest, so an empty one here would silently override the Limit field rather than do nothing. Give it a number, or remove the query.',
+					},
+				);
 			}
 			const parsed = Number(raw);
 			if (Number.isNaN(parsed)) {
@@ -285,6 +293,7 @@ export function getRowData(this: IExecuteFunctions, itemIndex: number): IDataObj
  * Return All overrides any Limit query.
  */
 export async function fetchAllPages<T extends { $id?: string }>(
+	this: IExecuteFunctions,
 	baseQueries: string[],
 	fetchPage: (queries: string[]) => Promise<{ rows?: T[]; total: number } | IDataObject>,
 	listKey: string,
@@ -307,8 +316,13 @@ export async function fetchAllPages<T extends { $id?: string }>(
 		}
 		if (method === 'limit') continue;
 		if (method === 'cursorBefore') {
-			throw new Error(
-				'A Cursor Before query cannot be combined with Return All. Use Cursor After, or disable Return All.',
+			throw new NodeOperationError(
+				this.getNode(),
+				'A Cursor Before query cannot be combined with Return All',
+				{
+					description:
+						'Return All pages forward from the start, so it can only follow a Cursor After. Use Cursor After instead, or turn Return All off.',
+				},
 			);
 		}
 		if (method === 'cursorAfter' || method === 'offset') {

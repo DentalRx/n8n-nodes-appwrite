@@ -52,7 +52,8 @@ export async function executeTokenOperation(
 		const queries = buildQueries.call(this, i);
 
 		if (returnAll) {
-			const results = await fetchAllPages(
+			const results = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					await appwriteApiRequest.call(this, 'GET', path, { qs: { queries: pageQueries } }, i),

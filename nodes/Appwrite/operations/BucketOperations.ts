@@ -98,7 +98,8 @@ export async function executeBucketOperation(
 		const searchArg = search === '' ? undefined : search;
 
 		if (returnAll) {
-			const buckets = await fetchAllPages(
+			const buckets = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					await appwriteApiRequest.call(

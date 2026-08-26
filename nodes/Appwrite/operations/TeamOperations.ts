@@ -108,7 +108,8 @@ export async function executeTeamOperation(
 		const queries = buildQueries.call(this, i);
 
 		if (returnAll) {
-			const allTeams = await fetchAllPages(
+			const allTeams = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					await appwriteApiRequest.call(
@@ -142,7 +143,8 @@ export async function executeTeamOperation(
 		const queries = buildQueries.call(this, i);
 
 		if (returnAll) {
-			const memberships = await fetchAllPages(
+			const memberships = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					await appwriteApiRequest.call(

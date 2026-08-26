@@ -86,7 +86,8 @@ export async function executeRowOperation(
 		const queries = buildQueries.call(this, i);
 
 		if (returnAll) {
-			const rows = await fetchAllPages(
+			const rows = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					(await appwriteApiRequest.call(

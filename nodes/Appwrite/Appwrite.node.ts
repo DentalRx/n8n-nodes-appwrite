@@ -12,7 +12,6 @@ import {
 	getColumns,
 	getDatabases,
 	getFunctions,
-	getMessagingProviders,
 	getRuntimes,
 	getTables,
 	getTeams,
@@ -48,6 +47,16 @@ export class Appwrite implements INodeType {
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
 		description:
 			'Interact with the Appwrite API: databases with tables and rows, storage, functions, users, teams, and messaging',
+		// Declared here rather than in a sibling Appwrite.node.json: the n8n CLI's
+		// build step only copies images into dist/, so a codex file would never
+		// reach the published package, and n8n prefers this field over the file.
+		codex: {
+			categories: ['Development'],
+			resources: {
+				credentialDocumentation: [{ url: 'https://appwrite.io/docs/advanced/platform/api-keys' }],
+				primaryDocumentation: [{ url: 'https://appwrite.io/docs' }],
+			},
+		},
 		defaults: {
 			name: 'Appwrite',
 		},
@@ -69,7 +78,6 @@ export class Appwrite implements INodeType {
 			getColumns,
 			getDatabases,
 			getFunctions,
-			getMessagingProviders,
 			getRuntimes,
 			getTables,
 			getTeams,

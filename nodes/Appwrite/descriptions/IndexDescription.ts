@@ -92,6 +92,8 @@ export const indexFields: INodeProperties[] = [
 			},
 		],
 		default: 'key',
+		description:
+			'The kind of index to create, which decides how the indexed columns can be queried',
 		displayOptions: {
 			show: {
 				resource: ['index'],

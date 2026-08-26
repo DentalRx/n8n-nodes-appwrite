@@ -16,6 +16,9 @@ const RELATION_MUTATE_MAP: Record<string, string> = {
 	setNull: 'setNull',
 };
 
+/** The column types whose update endpoint does not take a `default`. */
+const SPATIAL_COLUMN_TYPES = new Set(['point', 'line', 'polygon']);
+
 const RELATIONSHIP_TYPE_MAP: Record<string, string> = {
 	oneToOne: 'oneToOne',
 	oneToMany: 'oneToMany',
@@ -68,7 +71,8 @@ export async function executeColumnOperation(
 		const queries = buildQueries.call(this, i);
 
 		if (returnAll) {
-			const columns = await fetchAllPages(
+			const columns = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					(await appwriteApiRequest.call(
@@ -117,10 +121,8 @@ export async function executeColumnOperation(
 
 	// Relationship columns have their own parameter set.
 	if (columnType === 'relationship') {
-		const onDeleteRaw = options.onDelete ?? 'restrict';
-		const onDelete = RELATION_MUTATE_MAP[onDeleteRaw];
-
 		if (isCreate) {
+			const onDelete = RELATION_MUTATE_MAP[options.onDelete ?? 'restrict'];
 			const relatedTableId = extractId(
 				this.getNodeParameter('relatedTableId', i) as string,
 				'table',
@@ -156,7 +158,11 @@ export async function executeColumnOperation(
 			`${columnsPath}/${encodeURIComponent(key)}/relationship`,
 			{
 				body: {
-					onDelete,
+					// Appwrite treats onDelete as optional here, so leaving the option
+					// out has to omit it rather than restate a default that would
+					// overwrite the column's existing referential action.
+					onDelete:
+						options.onDelete === undefined ? undefined : RELATION_MUTATE_MAP[options.onDelete],
 					newKey: newKeyRaw === '' ? undefined : newKeyRaw,
 				},
 			},
@@ -183,15 +189,26 @@ export async function executeColumnOperation(
 			i,
 		)) as IDataObject;
 
-	/** PATCH /tablesdb/{databaseId}/tables/{tableId}/columns/{type}/{key} */
-	const updateColumn = async (type: string, body: IDataObject): Promise<IDataObject> =>
-		(await appwriteApiRequest.call(
+	/**
+	 * PATCH /tablesdb/{databaseId}/tables/{tableId}/columns/{type}/{key}
+	 *
+	 * Appwrite marks `default` required-but-nullable on every scalar column
+	 * update, so an absent Default Value has to be sent as an explicit null;
+	 * omitting the key is rejected. The spatial types do not require it.
+	 */
+	const updateColumn = async (type: string, body: IDataObject): Promise<IDataObject> => {
+		const payload =
+			SPATIAL_COLUMN_TYPES.has(type) || body.default !== undefined
+				? body
+				: { ...body, default: null };
+		return (await appwriteApiRequest.call(
 			this,
 			'PATCH',
 			`${columnsPath}/${type}/${encodeURIComponent(key)}`,
-			{ body },
+			{ body: payload },
 			i,
 		)) as IDataObject;
+	};
 
 	/** Read a numeric option, reporting problems under the name the user sees. */
 	const numericOption = (

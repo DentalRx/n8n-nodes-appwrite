@@ -149,7 +149,8 @@ export async function executeUserOperation(
 		const searchArg = search === '' ? undefined : search;
 
 		if (returnAll) {
-			const result = await fetchAllPages(
+			const result = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					(await appwriteApiRequest.call(
@@ -182,7 +183,8 @@ export async function executeUserOperation(
 		const searchArg = search === '' ? undefined : search;
 
 		if (returnAll) {
-			const result = await fetchAllPages(
+			const result = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					(await appwriteApiRequest.call(
@@ -247,7 +249,8 @@ export async function executeUserOperation(
 		const searchArg = search === '' ? undefined : search;
 
 		if (returnAll) {
-			const result = await fetchAllPages(
+			const result = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					(await appwriteApiRequest.call(

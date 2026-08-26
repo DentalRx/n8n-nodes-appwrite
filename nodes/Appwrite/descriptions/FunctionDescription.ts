@@ -155,13 +155,13 @@ const functionConfigOptions: INodeProperties[] = [
 			'Whether executions keep logs and errors. When disabled, executions will be slightly faster.',
 	},
 	{
-		displayName: 'Runtime',
+		displayName: 'Runtime Name or ID',
 		name: 'runtime',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getRuntimes' },
 		default: '',
-		placeholder: 'node-22',
 		description:
-			'The new execution runtime ID, e.g. node-22 or python-3.12. See the Appwrite runtimes documentation for the IDs available on your instance. Leave empty to keep the current runtime.',
+			'The new execution runtime, e.g. node-22 or python-3.12. Leave this option out to keep the current runtime. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
 		displayName: 'Schedule',
@@ -264,14 +264,14 @@ export const functionFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Runtime',
+		displayName: 'Runtime Name or ID',
 		name: 'runtime',
-		type: 'string',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getRuntimes' },
 		required: true,
 		default: '',
-		placeholder: 'node-22',
 		description:
-			'The execution runtime ID, e.g. node-22, python-3.12, php-8.3. See the Appwrite runtimes documentation for the IDs available on your instance.',
+			'The execution runtime for the function, e.g. node-22 or python-3.12. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 		displayOptions: {
 			show: {
 				resource: ['function'],

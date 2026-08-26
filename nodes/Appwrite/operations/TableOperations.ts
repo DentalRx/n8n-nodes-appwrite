@@ -53,7 +53,8 @@ export async function executeTableOperation(
 		const searchArg = search === '' ? undefined : search;
 
 		if (returnAll) {
-			const tables = await fetchAllPages(
+			const tables = await fetchAllPages.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					await appwriteApiRequest.call(

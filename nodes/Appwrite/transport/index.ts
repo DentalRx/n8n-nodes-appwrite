@@ -72,21 +72,55 @@ function compact(body: IDataObject): IDataObject {
  * message in the title and the rest of the payload in the details.
  */
 function toNodeApiError(context: AppwriteContext, error: unknown, itemIndex?: number): never {
+	// NodeApiError's constructor hands back an existing NodeApiError untouched,
+	// so re-wrapping one would silently drop the message and item index we pass.
+	if (error instanceof NodeApiError) {
+		if (itemIndex !== undefined) error.context.itemIndex = itemIndex;
+		throw error;
+	}
+
 	const candidate = error as {
 		message?: string;
 		error?: { message?: string; code?: number; type?: string };
 		response?: { body?: { message?: string; code?: number; type?: string } };
 		cause?: { error?: { message?: string; code?: number; type?: string } };
+		context?: { data?: unknown };
 		httpCode?: string | number;
 	};
 
+	// A binary request asks for an arraybuffer, which applies to the error
+	// response too: Appwrite's JSON body arrives as raw bytes and its message
+	// would be lost unless we decode it back.
+	const buffered = candidate.context?.data;
+	const decoded =
+		buffered instanceof Buffer || buffered instanceof Uint8Array
+			? parseErrorBuffer(Buffer.from(buffered))
+			: undefined;
+
 	const payload =
-		candidate.response?.body ?? candidate.cause?.error ?? candidate.error ?? (error as JsonObject);
+		decoded ??
+		candidate.response?.body ??
+		candidate.cause?.error ??
+		candidate.error ??
+		(error as JsonObject);
 
 	throw new NodeApiError(context.getNode(), payload as JsonObject, {
 		message: (payload as { message?: string })?.message ?? candidate.message,
 		itemIndex,
 	});
+}
+
+/** Decode an Appwrite JSON error body that came back as bytes, if it is one. */
+function parseErrorBuffer(buffer: Buffer): JsonObject | undefined {
+	try {
+		const parsed: unknown = JSON.parse(buffer.toString('utf8'));
+		if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+			return parsed as JsonObject;
+		}
+	} catch {
+		// Not JSON - fall back to whatever the error itself carried.
+	}
+	return undefined;
 }
 
 /**
@@ -187,11 +221,15 @@ function buildMultipartBody(
 	const parts: Buffer[] = [];
 
 	for (const [name, value] of fields) {
+		// A field value lands in the part's body, where a CRLF is only content
+		// and could not forge a part without also guessing the boundary. Strip
+		// it anyway: none of these values (IDs, permission strings) may span
+		// lines, so there is nothing to lose and one less thing to reason about.
 		parts.push(
 			Buffer.from(
 				`--${boundary}\r\nContent-Disposition: form-data; name="${escapeHeaderParameter(
 					name,
-				)}"\r\n\r\n${value}\r\n`,
+				)}"\r\n\r\n${value.replace(/[\r\n]/g, '')}\r\n`,
 			),
 		);
 	}

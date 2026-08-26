@@ -224,7 +224,7 @@ export const avatarFields: INodeProperties[] = [
 				typeOptions: { minValue: 0, maxValue: 100 },
 				default: 100,
 				description:
-					'Image quality, between 0 and 100. Defaults to 100; remove this option to keep the source image quality.',
+					'Image quality, between 0 and 100. Leave this option out to keep the source image quality.',
 			},
 			{
 				displayName: 'Width',
