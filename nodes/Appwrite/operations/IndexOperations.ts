@@ -1,24 +1,28 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { IndexType, Query, type TablesDB } from 'node-appwrite';
 
 import { buildQueries, fetchAllPages, parseJsonArrayParameter } from '../GenericFunctions';
+import { Query } from '../helpers/appwrite';
+import { appwriteApiRequest } from '../transport';
 
-const INDEX_TYPE_MAP: Record<string, IndexType> = {
-	key: IndexType.Key,
-	fulltext: IndexType.Fulltext,
-	unique: IndexType.Unique,
-	spatial: IndexType.Spatial,
+/** The index types Appwrite accepts, keyed by the value the UI stores. */
+const INDEX_TYPE_MAP: Record<string, string> = {
+	key: 'key',
+	fulltext: 'fulltext',
+	unique: 'unique',
+	spatial: 'spatial',
 };
 
 export async function executeIndexOperation(
 	this: IExecuteFunctions,
-	tablesDB: TablesDB,
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
 	const databaseId = this.getNodeParameter('databaseId', i) as string;
 	const tableId = this.getNodeParameter('tableId', i) as string;
+	const indexesPath = `/tablesdb/${encodeURIComponent(databaseId)}/tables/${encodeURIComponent(
+		tableId,
+	)}/indexes`;
 
 	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
 		const list = Array.isArray(data) ? data : [data];
@@ -52,22 +56,34 @@ export async function executeIndexOperation(
 			return parsed;
 		});
 
-		const response = await tablesDB.createIndex({
-			databaseId,
-			tableId,
-			key,
-			type: INDEX_TYPE_MAP[typeRaw],
-			columns,
-			orders: orders.length > 0 ? orders : undefined,
-			lengths: lengths.length > 0 ? lengths : undefined,
-		});
-		return toItems(response as unknown as IDataObject);
+		const response = await appwriteApiRequest.call(
+			this,
+			'POST',
+			indexesPath,
+			{
+				body: {
+					key,
+					type: INDEX_TYPE_MAP[typeRaw],
+					columns,
+					orders: orders.length > 0 ? orders : undefined,
+					lengths: lengths.length > 0 ? lengths : undefined,
+				},
+			},
+			i,
+		);
+		return toItems(response);
 	}
 
 	if (operation === 'get') {
 		const key = this.getNodeParameter('key', i) as string;
-		const response = await tablesDB.getIndex({ databaseId, tableId, key });
-		return toItems(response as unknown as IDataObject);
+		const response = await appwriteApiRequest.call(
+			this,
+			'GET',
+			`${indexesPath}/${encodeURIComponent(key)}`,
+			{},
+			i,
+		);
+		return toItems(response);
 	}
 
 	if (operation === 'getMany') {
@@ -78,28 +94,38 @@ export async function executeIndexOperation(
 			const indexes = await fetchAllPages(
 				queries,
 				async (pageQueries) =>
-					(await tablesDB.listIndexes({
-						databaseId,
-						tableId,
-						queries: pageQueries,
-					})) as unknown as IDataObject,
+					await appwriteApiRequest.call(
+						this,
+						'GET',
+						indexesPath,
+						{ qs: { queries: pageQueries } },
+						i,
+					),
 				'indexes',
 			);
-			return toItems(indexes as unknown as IDataObject[]);
+			return toItems(indexes as IDataObject[]);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = await tablesDB.listIndexes({
-			databaseId,
-			tableId,
-			queries: [...queries, Query.limit(limit)],
-		});
-		return toItems(response.indexes as unknown as IDataObject[]);
+		const response = await appwriteApiRequest.call(
+			this,
+			'GET',
+			indexesPath,
+			{ qs: { queries: [...queries, Query.limit(limit)] } },
+			i,
+		);
+		return toItems(response.indexes as IDataObject[]);
 	}
 
 	if (operation === 'delete') {
 		const key = this.getNodeParameter('key', i) as string;
-		await tablesDB.deleteIndex({ databaseId, tableId, key });
+		await appwriteApiRequest.call(
+			this,
+			'DELETE',
+			`${indexesPath}/${encodeURIComponent(key)}`,
+			{},
+			i,
+		);
 		return toItems({ success: true, databaseId, tableId, key });
 	}
 

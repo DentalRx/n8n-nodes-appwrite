@@ -1,6 +1,5 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { ID, Query, type Teams } from 'node-appwrite';
 
 import {
 	buildQueries,
@@ -8,10 +7,11 @@ import {
 	parseJsonArrayParameter,
 	parseJsonParameter,
 } from '../GenericFunctions';
+import { Query, resolveId } from '../helpers/appwrite';
+import { appwriteApiRequest } from '../transport';
 
 export async function executeTeamOperation(
 	this: IExecuteFunctions,
-	teams: Teams,
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
@@ -32,56 +32,72 @@ export async function executeTeamOperation(
 			.filter((e) => e !== '');
 	};
 
+	const teamPath = (): string =>
+		`/teams/${encodeURIComponent(this.getNodeParameter('teamId', i) as string)}`;
+
 	if (operation === 'create') {
-		const rawTeamId = this.getNodeParameter('teamId', i, '') as string;
-		const teamId = rawTeamId === '' || rawTeamId === 'unique()' ? ID.unique() : rawTeamId;
+		const teamId = resolveId(this.getNodeParameter('teamId', i, '') as string);
 		const name = this.getNodeParameter('name', i) as string;
 		const roles = parseList('roles');
-		const response = await teams.create({
-			teamId,
-			name,
-			roles: roles.length > 0 ? roles : undefined,
-		});
-		return toItems(response as unknown as IDataObject);
+		const response = await appwriteApiRequest.call(
+			this,
+			'POST',
+			'/teams',
+			{ body: { teamId, name, roles: roles.length > 0 ? roles : undefined } },
+			i,
+		);
+		return toItems(response);
 	}
 
 	if (operation === 'createMembership') {
-		const teamId = this.getNodeParameter('teamId', i) as string;
+		const path = `${teamPath()}/memberships`;
 		const roles = parseList('roles');
 		const email = this.getNodeParameter('email', i, '') as string;
 		const userId = this.getNodeParameter('userId', i, '') as string;
 		const phone = this.getNodeParameter('phone', i, '') as string;
 		const url = this.getNodeParameter('url', i, '') as string;
 		const name = this.getNodeParameter('name', i, '') as string;
-		const response = await teams.createMembership({
-			teamId,
-			roles,
-			email: email === '' ? undefined : email,
-			userId: userId === '' ? undefined : userId,
-			phone: phone === '' ? undefined : phone,
-			url: url === '' ? undefined : url,
-			name: name === '' ? undefined : name,
-		});
-		return toItems(response as unknown as IDataObject);
+		const response = await appwriteApiRequest.call(
+			this,
+			'POST',
+			path,
+			{
+				body: {
+					email: email === '' ? undefined : email,
+					userId: userId === '' ? undefined : userId,
+					phone: phone === '' ? undefined : phone,
+					roles,
+					url: url === '' ? undefined : url,
+					name: name === '' ? undefined : name,
+				},
+			},
+			i,
+		);
+		return toItems(response);
 	}
 
 	if (operation === 'delete') {
 		const teamId = this.getNodeParameter('teamId', i) as string;
-		await teams.delete({ teamId });
+		await appwriteApiRequest.call(this, 'DELETE', `/teams/${encodeURIComponent(teamId)}`, {}, i);
 		return toItems({ success: true, teamId });
 	}
 
 	if (operation === 'deleteMembership') {
 		const teamId = this.getNodeParameter('teamId', i) as string;
 		const membershipId = this.getNodeParameter('membershipId', i) as string;
-		await teams.deleteMembership({ teamId, membershipId });
+		await appwriteApiRequest.call(
+			this,
+			'DELETE',
+			`/teams/${encodeURIComponent(teamId)}/memberships/${encodeURIComponent(membershipId)}`,
+			{},
+			i,
+		);
 		return toItems({ success: true, teamId, membershipId });
 	}
 
 	if (operation === 'get') {
-		const teamId = this.getNodeParameter('teamId', i) as string;
-		const response = await teams.get({ teamId });
-		return toItems(response as unknown as IDataObject);
+		const response = await appwriteApiRequest.call(this, 'GET', teamPath(), {}, i);
+		return toItems(response);
 	}
 
 	if (operation === 'getMany') {
@@ -94,22 +110,31 @@ export async function executeTeamOperation(
 			const allTeams = await fetchAllPages(
 				queries,
 				async (pageQueries) =>
-					(await teams.list({ queries: pageQueries, search: searchArg })) as unknown as IDataObject,
+					await appwriteApiRequest.call(
+						this,
+						'GET',
+						'/teams',
+						{ qs: { queries: pageQueries, search: searchArg } },
+						i,
+					),
 				'teams',
 			);
-			return toItems(allTeams as unknown as IDataObject[]);
+			return toItems(allTeams as IDataObject[]);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = await teams.list({
-			queries: [...queries, Query.limit(limit)],
-			search: searchArg,
-		});
-		return toItems(response.teams as unknown as IDataObject[]);
+		const response = await appwriteApiRequest.call(
+			this,
+			'GET',
+			'/teams',
+			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			i,
+		);
+		return toItems(response.teams as IDataObject[]);
 	}
 
 	if (operation === 'getManyMemberships') {
-		const teamId = this.getNodeParameter('teamId', i) as string;
+		const path = `${teamPath()}/memberships`;
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
 		const search = this.getNodeParameter('search', i, '') as string;
 		const searchArg = search === '' ? undefined : search;
@@ -119,58 +144,66 @@ export async function executeTeamOperation(
 			const memberships = await fetchAllPages(
 				queries,
 				async (pageQueries) =>
-					(await teams.listMemberships({
-						teamId,
-						queries: pageQueries,
-						search: searchArg,
-					})) as unknown as IDataObject,
+					await appwriteApiRequest.call(
+						this,
+						'GET',
+						path,
+						{ qs: { queries: pageQueries, search: searchArg } },
+						i,
+					),
 				'memberships',
 			);
-			return toItems(memberships as unknown as IDataObject[]);
+			return toItems(memberships as IDataObject[]);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = await teams.listMemberships({
-			teamId,
-			queries: [...queries, Query.limit(limit)],
-			search: searchArg,
-		});
-		return toItems(response.memberships as unknown as IDataObject[]);
+		const response = await appwriteApiRequest.call(
+			this,
+			'GET',
+			path,
+			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			i,
+		);
+		return toItems(response.memberships as IDataObject[]);
 	}
 
 	if (operation === 'getMembership') {
-		const teamId = this.getNodeParameter('teamId', i) as string;
 		const membershipId = this.getNodeParameter('membershipId', i) as string;
-		const response = await teams.getMembership({ teamId, membershipId });
-		return toItems(response as unknown as IDataObject);
+		const response = await appwriteApiRequest.call(
+			this,
+			'GET',
+			`${teamPath()}/memberships/${encodeURIComponent(membershipId)}`,
+			{},
+			i,
+		);
+		return toItems(response);
 	}
 
 	if (operation === 'getPrefs') {
-		const teamId = this.getNodeParameter('teamId', i) as string;
-		const response = await teams.getPrefs({ teamId });
-		return toItems(response as unknown as IDataObject);
+		const response = await appwriteApiRequest.call(this, 'GET', `${teamPath()}/prefs`, {}, i);
+		return toItems(response);
 	}
 
 	if (operation === 'updateMembership') {
-		const teamId = this.getNodeParameter('teamId', i) as string;
 		const membershipId = this.getNodeParameter('membershipId', i) as string;
+		const path = `${teamPath()}/memberships/${encodeURIComponent(membershipId)}`;
 		const roles = parseList('roles');
-		const response = await teams.updateMembership({ teamId, membershipId, roles });
-		return toItems(response as unknown as IDataObject);
+		const response = await appwriteApiRequest.call(this, 'PATCH', path, { body: { roles } }, i);
+		return toItems(response);
 	}
 
 	if (operation === 'updateName') {
-		const teamId = this.getNodeParameter('teamId', i) as string;
+		const path = teamPath();
 		const name = this.getNodeParameter('name', i) as string;
-		const response = await teams.updateName({ teamId, name });
-		return toItems(response as unknown as IDataObject);
+		const response = await appwriteApiRequest.call(this, 'PUT', path, { body: { name } }, i);
+		return toItems(response);
 	}
 
 	if (operation === 'updatePrefs') {
-		const teamId = this.getNodeParameter('teamId', i) as string;
+		const path = `${teamPath()}/prefs`;
 		const prefs = parseJsonParameter.call(this, this.getNodeParameter('prefs', i), 'prefs', i);
-		const response = await teams.updatePrefs({ teamId, prefs });
-		return toItems(response as unknown as IDataObject);
+		const response = await appwriteApiRequest.call(this, 'PUT', path, { body: { prefs } }, i);
+		return toItems(response);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown team operation "${operation}"`, {

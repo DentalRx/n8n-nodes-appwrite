@@ -18,8 +18,6 @@ interface AppwriteRequestOptions {
 	qs?: IDataObject;
 	/** JSON request body. Keys with an `undefined` value are dropped. */
 	body?: IDataObject;
-	/** Return the raw response body as a Buffer instead of parsed JSON. */
-	binary?: boolean;
 	/** Extra headers to merge into the request. */
 	headers?: IDataObject;
 }
@@ -97,14 +95,15 @@ function toNodeApiError(context: AppwriteContext, error: unknown, itemIndex?: nu
  * than through the Appwrite SDK, because n8n community nodes must ship without
  * runtime dependencies.
  */
-export async function appwriteApiRequest<T = IDataObject>(
-	this: AppwriteContext,
+async function request(
+	context: AppwriteContext,
 	method: IHttpRequestMethods,
 	path: string,
-	options: AppwriteRequestOptions = {},
+	options: AppwriteRequestOptions,
+	binary: boolean,
 	itemIndex?: number,
-): Promise<T> {
-	const baseUrl = await getBaseUrl.call(this);
+): Promise<unknown> {
+	const baseUrl = await getBaseUrl.call(context);
 
 	const requestOptions: IHttpRequestOptions = {
 		method,
@@ -124,20 +123,47 @@ export async function appwriteApiRequest<T = IDataObject>(
 		requestOptions.body = compact(options.body);
 	}
 
-	if (options.binary) {
+	if (binary) {
 		requestOptions.encoding = 'arraybuffer';
 		requestOptions.json = false;
 	}
 
 	try {
-		return (await this.helpers.httpRequestWithAuthentication.call(
-			this,
+		return await context.helpers.httpRequestWithAuthentication.call(
+			context,
 			'appwriteApi',
 			requestOptions,
-		)) as T;
+		);
 	} catch (error) {
-		toNodeApiError(this, error, itemIndex);
+		toNodeApiError(context, error, itemIndex);
 	}
+}
+
+/**
+ * Make an authenticated request that returns a JSON object.
+ */
+export async function appwriteApiRequest(
+	this: AppwriteContext,
+	method: IHttpRequestMethods,
+	path: string,
+	options: AppwriteRequestOptions = {},
+	itemIndex?: number,
+): Promise<IDataObject> {
+	return (await request(this, method, path, options, false, itemIndex)) as IDataObject;
+}
+
+/**
+ * Make an authenticated request that returns the raw response body, for the
+ * endpoints that serve files and images.
+ */
+export async function appwriteApiRequestBinary(
+	this: AppwriteContext,
+	method: IHttpRequestMethods,
+	path: string,
+	options: AppwriteRequestOptions = {},
+	itemIndex?: number,
+): Promise<Buffer> {
+	return (await request(this, method, path, options, true, itemIndex)) as Buffer;
 }
 
 /**
@@ -178,18 +204,18 @@ function buildMultipartBody(
  * Upload a file to Appwrite, splitting it into 5 MB chunks when needed. Every
  * chunk after the first carries the ID Appwrite assigned to the upload.
  */
-export async function appwriteFileUpload<T = IDataObject>(
+export async function appwriteFileUpload(
 	this: IExecuteFunctions,
 	path: string,
 	file: { content: Buffer; filename: string; contentType: string },
 	fields: Array<[string, string]>,
 	itemIndex: number,
-): Promise<T> {
+): Promise<IDataObject> {
 	const baseUrl = await getBaseUrl.call(this);
 	const url = `${baseUrl}${path}`;
 	const total = file.content.length;
 
-	let response: T | undefined;
+	let response: IDataObject | undefined;
 	let uploadId: string | undefined;
 
 	for (let start = 0; start < total || total === 0; start += CHUNK_SIZE) {
@@ -220,21 +246,21 @@ export async function appwriteFileUpload<T = IDataObject>(
 				body,
 				json: false,
 				returnFullResponse: false,
-			})) as T;
+			})) as IDataObject;
 		} catch (error) {
 			toNodeApiError(this, error, itemIndex);
 		}
 
 		if (typeof response === 'string') {
-			response = JSON.parse(response) as T;
+			response = JSON.parse(response) as IDataObject;
 		}
 
-		uploadId = (response as { $id?: string })?.$id ?? uploadId;
+		uploadId = (response?.$id as string | undefined) ?? uploadId;
 
 		if (total === 0) break;
 	}
 
-	return response as T;
+	return response as IDataObject;
 }
 
 let boundaryCounter = 0;

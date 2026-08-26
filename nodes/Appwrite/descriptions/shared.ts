@@ -142,29 +142,12 @@ export function queriesProperties(
 					displayName: 'Query',
 					values: [
 						{
-							displayName: 'Type',
-							name: 'type',
-							type: 'options',
-							options: QUERY_TYPE_OPTIONS,
-							default: 'equal',
-							description: 'The query method to apply',
-						},
-						{
 							displayName: 'Column',
 							name: 'column',
 							type: 'string',
 							default: '',
 							description: 'The column (attribute) to query on',
 							displayOptions: { hide: { type: NO_COLUMN_TYPES } },
-						},
-						{
-							displayName: 'Value',
-							name: 'value',
-							type: 'string',
-							default: '',
-							description:
-								'The comparison value. Numbers, booleans, and JSON arrays are parsed automatically; use "Treat Value as String" to disable that. For Select, provide a JSON array of column names. For Limit/Offset, provide a number. For cursors, provide a row ID.',
-							displayOptions: { hide: { type: NO_VALUE_TYPES } },
 						},
 						{
 							displayName: 'Second Value',
@@ -196,6 +179,23 @@ export function queriesProperties(
 									],
 								},
 							},
+						},
+						{
+							displayName: 'Type',
+							name: 'type',
+							type: 'options',
+							options: QUERY_TYPE_OPTIONS,
+							default: 'equal',
+							description: 'The query method to apply',
+						},
+						{
+							displayName: 'Value',
+							name: 'value',
+							type: 'string',
+							default: '',
+							description:
+								'The comparison value. Numbers, booleans, and JSON arrays are parsed automatically; use "Treat Value as String" to disable that. For Select, provide a JSON array of column names. For Limit/Offset, provide a number. For cursors, provide a row ID.',
+							displayOptions: { hide: { type: NO_VALUE_TYPES } },
 						},
 					],
 				},

@@ -225,9 +225,10 @@ export const rowFields: INodeProperties[] = [
 		name: 'rowsJson',
 		type: 'json',
 		default: '[]',
-		// eslint-disable-next-line n8n-nodes-base/node-param-description-miscased-id -- $id is Appwrite's literal field name
+		placeholder: '[{"title": "Hello", "status": "draft"}]',
+		hint: 'Add "$id" to set a row\'s own ID (omit it to auto-generate one) and "$permissions" to set its permissions',
 		description:
-			'A JSON array of row objects to create or upsert. Each object holds the column values; optionally include $id (omit it to auto-generate) and $permissions.',
+			"A JSON array of row objects to create or upsert. Each object holds the column values, and may also carry Appwrite's reserved keys for the row ID and its permissions.",
 		displayOptions: {
 			show: {
 				resource: ['row'],
