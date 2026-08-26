@@ -62,7 +62,7 @@ export function permissionsProperty(
 		placeholder: 'read("any")\nupdate("users")\ndelete("team:abc/owner")',
 		description:
 			description ??
-			'Permission strings, one per line (or a JSON array). E.g. read("any"), create("users"), update("user:abc"), delete("team:abc"). Leave empty to use the default permissions.',
+			'Permission strings, one per line (or a JSON array). E.g. read("any"), create("users"), update("user:abc"), delete("team:abc"). Leave empty to apply Appwrite\'s defaults on create, or to keep the existing permissions on update. Enter [] to clear all permissions.',
 		displayOptions: {
 			show: {
 				resource: [resource],
@@ -197,7 +197,7 @@ export function queriesProperties(
 							type: 'string',
 							default: '',
 							description:
-								'The comparison value. Numbers, booleans, and JSON arrays are parsed automatically; use "Treat Value as String" to disable that. For Select, provide a JSON array of column names. For Limit/Offset, provide a number. For cursors, provide a row ID.',
+								'The comparison value. Numbers, booleans, and JSON arrays are parsed automatically; use "Treat Value as String" to disable that. For Select, provide column names separated by commas (or a JSON array). For Limit/Offset, provide a number. For cursors, provide a row ID.',
 							displayOptions: { hide: { type: NO_VALUE_TYPES } },
 						},
 					],

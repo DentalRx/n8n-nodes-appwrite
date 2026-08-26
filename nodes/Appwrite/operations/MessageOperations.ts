@@ -5,10 +5,13 @@ import {
 	buildQueries,
 	fetchAllPages,
 	fetchAllPagesByOffset,
-	parseJsonArrayParameter,
+	lookupEnum,
 	parseJsonParameter,
+	parseStringList,
+	toItems,
+	withLimit,
 } from '../GenericFunctions';
-import { Query, resolveId } from '../helpers/appwrite';
+import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 const PRIORITY_MAP: Record<string, string> = {
@@ -65,24 +68,8 @@ export async function executeMessageOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
-	const parseList = (raw: string, name: string): string[] => {
-		if (raw.trim() === '') return [];
-		if (raw.trim().startsWith('[')) {
-			return parseJsonArrayParameter.call(this, raw, name, i).map((e) => String(e));
-		}
-		return raw
-			.split(',')
-			.map((e) => e.trim())
-			.filter((e) => e !== '');
-	};
-
 	const listOrUndefined = (raw: string | undefined, name: string): string[] | undefined => {
-		const list = parseList(raw ?? '', name);
+		const list = parseStringList.call(this, raw ?? '', name, i);
 		return list.length > 0 ? list : undefined;
 	};
 
@@ -128,7 +115,7 @@ export async function executeMessageOperation(
 			},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'createPush') {
@@ -171,12 +158,15 @@ export async function executeMessageOperation(
 					scheduledAt: options.scheduledAt || undefined,
 					contentAvailable: options.contentAvailable,
 					critical: options.critical,
-					priority: options.priority === undefined ? undefined : PRIORITY_MAP[options.priority],
+					priority:
+						options.priority === undefined
+							? undefined
+							: lookupEnum(this, PRIORITY_MAP, options.priority, 'priority', i),
 				},
 			},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'createSMS') {
@@ -208,7 +198,7 @@ export async function executeMessageOperation(
 			},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'delete') {
@@ -220,7 +210,7 @@ export async function executeMessageOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, messageId });
+		return toItems({ success: true, messageId }, i);
 	}
 
 	if (operation === 'get') {
@@ -232,7 +222,7 @@ export async function executeMessageOperation(
 			{},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -255,7 +245,7 @@ export async function executeMessageOperation(
 					)) as IDataObject,
 				'messages',
 			);
-			return toItems(messages as IDataObject[]);
+			return toItems(messages as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -263,10 +253,10 @@ export async function executeMessageOperation(
 			this,
 			'GET',
 			'/messaging/messages',
-			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		)) as IDataObject;
-		return toItems(response.messages as IDataObject[]);
+		return toItems(response.messages as IDataObject[], i);
 	}
 
 	if (operation === 'getManyLogs') {
@@ -276,7 +266,8 @@ export async function executeMessageOperation(
 		const queries = buildQueries.call(this, i);
 
 		if (returnAll) {
-			const logs = await fetchAllPagesByOffset(
+			const logs = await fetchAllPagesByOffset.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					(await appwriteApiRequest.call(
@@ -288,7 +279,7 @@ export async function executeMessageOperation(
 					)) as IDataObject,
 				'logs',
 			);
-			return toItems(logs as IDataObject[]);
+			return toItems(logs as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -296,10 +287,10 @@ export async function executeMessageOperation(
 			this,
 			'GET',
 			`/messaging/messages/${encodeURIComponent(messageId)}/logs`,
-			{ qs: { queries: [...queries, Query.limit(limit)] } },
+			{ qs: { queries: withLimit(queries, limit) } },
 			i,
 		)) as IDataObject;
-		return toItems(response.logs as IDataObject[]);
+		return toItems(response.logs as IDataObject[], i);
 	}
 
 	if (operation === 'getManyTargets') {
@@ -321,7 +312,7 @@ export async function executeMessageOperation(
 					)) as IDataObject,
 				'targets',
 			);
-			return toItems(targets as IDataObject[]);
+			return toItems(targets as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -329,10 +320,10 @@ export async function executeMessageOperation(
 			this,
 			'GET',
 			`/messaging/messages/${encodeURIComponent(messageId)}/targets`,
-			{ qs: { queries: [...queries, Query.limit(limit)] } },
+			{ qs: { queries: withLimit(queries, limit) } },
 			i,
 		)) as IDataObject;
-		return toItems(response.targets as IDataObject[]);
+		return toItems(response.targets as IDataObject[], i);
 	}
 
 	if (operation === 'updateEmail') {
@@ -359,7 +350,7 @@ export async function executeMessageOperation(
 			},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'updatePush') {
@@ -392,12 +383,14 @@ export async function executeMessageOperation(
 					contentAvailable: updateFields.contentAvailable,
 					critical: updateFields.critical,
 					priority:
-						updateFields.priority === undefined ? undefined : PRIORITY_MAP[updateFields.priority],
+						updateFields.priority === undefined
+							? undefined
+							: lookupEnum(this, PRIORITY_MAP, updateFields.priority, 'priority', i),
 				},
 			},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'updateSMS') {
@@ -419,7 +412,7 @@ export async function executeMessageOperation(
 			},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown message operation "${operation}"`, {

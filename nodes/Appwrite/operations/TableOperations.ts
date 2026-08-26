@@ -1,8 +1,14 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { buildQueries, fetchAllPages, getPermissions } from '../GenericFunctions';
-import { Query, extractId, resolveId } from '../helpers/appwrite';
+import {
+	buildQueries,
+	fetchAllPages,
+	getPermissions,
+	toItems,
+	withLimit,
+} from '../GenericFunctions';
+import { extractId, resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeTableOperation(
@@ -12,11 +18,6 @@ export async function executeTableOperation(
 ): Promise<INodeExecutionData[]> {
 	const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
 	const tablesPath = `/tablesdb/${encodeURIComponent(databaseId)}/tables`;
-
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
 
 	if (operation === 'create') {
 		const tableId = resolveId(this.getNodeParameter('tableId', i, '') as string);
@@ -31,7 +32,7 @@ export async function executeTableOperation(
 			{ body: { tableId, name, permissions, rowSecurity, enabled } },
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'get') {
@@ -43,7 +44,7 @@ export async function executeTableOperation(
 			{},
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -66,7 +67,7 @@ export async function executeTableOperation(
 					),
 				'tables',
 			);
-			return toItems(tables as IDataObject[]);
+			return toItems(tables as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -74,10 +75,10 @@ export async function executeTableOperation(
 			this,
 			'GET',
 			tablesPath,
-			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		);
-		return toItems(response.tables as IDataObject[]);
+		return toItems(response.tables as IDataObject[], i);
 	}
 
 	if (operation === 'update') {
@@ -102,7 +103,7 @@ export async function executeTableOperation(
 			},
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'delete') {
@@ -114,7 +115,7 @@ export async function executeTableOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, databaseId, tableId });
+		return toItems({ success: true, databaseId, tableId }, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown table operation "${operation}"`, {

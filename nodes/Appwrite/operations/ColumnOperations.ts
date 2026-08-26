@@ -6,8 +6,16 @@ import type {
 } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { buildQueries, fetchAllPages, parseJsonArrayParameter } from '../GenericFunctions';
-import { Query, extractId } from '../helpers/appwrite';
+import {
+	buildQueries,
+	fetchAllPages,
+	getStringListParameter,
+	lookupEnum,
+	parseJsonArrayParameter,
+	toItems,
+	withLimit,
+} from '../GenericFunctions';
+import { extractId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 const RELATION_MUTATE_MAP: Record<string, string> = {
@@ -37,11 +45,6 @@ export async function executeColumnOperation(
 		tableId,
 	)}/columns`;
 
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
 	if (operation === 'get') {
 		const key = this.getNodeParameter('key', i) as string;
 		const response = (await appwriteApiRequest.call(
@@ -51,7 +54,7 @@ export async function executeColumnOperation(
 			{},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'delete') {
@@ -63,7 +66,7 @@ export async function executeColumnOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, databaseId, tableId, key });
+		return toItems({ success: true, databaseId, tableId, key }, i);
 	}
 
 	if (operation === 'getMany') {
@@ -84,7 +87,7 @@ export async function executeColumnOperation(
 					)) as IDataObject,
 				'columns',
 			);
-			return toItems(columns as IDataObject[]);
+			return toItems(columns as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -92,10 +95,10 @@ export async function executeColumnOperation(
 			this,
 			'GET',
 			columnsPath,
-			{ qs: { queries: [...queries, Query.limit(limit)] } },
+			{ qs: { queries: withLimit(queries, limit) } },
 			i,
 		)) as IDataObject;
-		return toItems(response.columns as IDataObject[]);
+		return toItems(response.columns as IDataObject[], i);
 	}
 
 	if (operation !== 'create' && operation !== 'update') {
@@ -122,7 +125,13 @@ export async function executeColumnOperation(
 	// Relationship columns have their own parameter set.
 	if (columnType === 'relationship') {
 		if (isCreate) {
-			const onDelete = RELATION_MUTATE_MAP[options.onDelete ?? 'restrict'];
+			const onDelete = lookupEnum(
+				this,
+				RELATION_MUTATE_MAP,
+				options.onDelete ?? 'restrict',
+				'on-delete action',
+				i,
+			);
 			const relatedTableId = extractId(
 				this.getNodeParameter('relatedTableId', i) as string,
 				'table',
@@ -138,7 +147,7 @@ export async function executeColumnOperation(
 				{
 					body: {
 						relatedTableId,
-						type: RELATIONSHIP_TYPE_MAP[typeRaw],
+						type: lookupEnum(this, RELATIONSHIP_TYPE_MAP, typeRaw, 'relationship type', i),
 						twoWay,
 						key: relationshipKey === '' ? undefined : relationshipKey,
 						twoWayKey: twoWayKey === '' ? undefined : twoWayKey,
@@ -147,7 +156,7 @@ export async function executeColumnOperation(
 				},
 				i,
 			)) as IDataObject;
-			return toItems(response);
+			return toItems(response, i);
 		}
 
 		const key = this.getNodeParameter('key', i) as string;
@@ -162,13 +171,15 @@ export async function executeColumnOperation(
 					// out has to omit it rather than restate a default that would
 					// overwrite the column's existing referential action.
 					onDelete:
-						options.onDelete === undefined ? undefined : RELATION_MUTATE_MAP[options.onDelete],
+						options.onDelete === undefined
+							? undefined
+							: lookupEnum(this, RELATION_MUTATE_MAP, options.onDelete, 'on-delete action', i),
 					newKey: newKeyRaw === '' ? undefined : newKeyRaw,
 				},
 			},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	// All other column types share a common parameter set.
@@ -257,17 +268,6 @@ export async function executeColumnOperation(
 		return parseJsonArrayParameter.call(this, defaultRaw, 'Default Value', i) as GenericValue[];
 	};
 
-	const getElements = (): string[] => {
-		const raw = this.getNodeParameter('elements', i) as string;
-		if (raw.trim().startsWith('[')) {
-			return parseJsonArrayParameter.call(this, raw, 'elements', i).map((e) => String(e));
-		}
-		return raw
-			.split(',')
-			.map((e) => e.trim())
-			.filter((e) => e !== '');
-	};
-
 	let response: IDataObject;
 
 	switch (columnType) {
@@ -317,13 +317,13 @@ export async function executeColumnOperation(
 			response = isCreate
 				? await createColumn('enum', {
 						key,
-						elements: getElements(),
+						elements: getStringListParameter.call(this, 'elements', i),
 						required,
 						default: stringDefault,
 						array,
 					})
 				: await updateColumn('enum', {
-						elements: getElements(),
+						elements: getStringListParameter.call(this, 'elements', i),
 						required,
 						default: stringDefault,
 						newKey,
@@ -455,5 +455,5 @@ export async function executeColumnOperation(
 			});
 	}
 
-	return toItems(response);
+	return toItems(response, i);
 }

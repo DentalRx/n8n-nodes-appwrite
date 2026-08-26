@@ -1,8 +1,8 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { buildQueries, fetchAllPages } from '../GenericFunctions';
-import { Query, extractId } from '../helpers/appwrite';
+import { buildQueries, fetchAllPages, toItems, withLimit } from '../GenericFunctions';
+import { extractId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeTokenOperation(
@@ -10,11 +10,6 @@ export async function executeTokenOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
 	/** Tokens are scoped to a file: /tokens/buckets/{bucketId}/files/{fileId} */
 	const filePath = (): string => {
 		const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
@@ -31,7 +26,7 @@ export async function executeTokenOperation(
 			{ body: { expire: expire === '' ? undefined : expire } },
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'get') {
@@ -43,7 +38,7 @@ export async function executeTokenOperation(
 			{},
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -59,7 +54,7 @@ export async function executeTokenOperation(
 					await appwriteApiRequest.call(this, 'GET', path, { qs: { queries: pageQueries } }, i),
 				'tokens',
 			);
-			return toItems(results as IDataObject[]);
+			return toItems(results as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -67,10 +62,10 @@ export async function executeTokenOperation(
 			this,
 			'GET',
 			path,
-			{ qs: { queries: [...queries, Query.limit(limit)] } },
+			{ qs: { queries: withLimit(queries, limit) } },
 			i,
 		);
-		return toItems(response.tokens as IDataObject[]);
+		return toItems(response.tokens as IDataObject[], i);
 	}
 
 	if (operation === 'update') {
@@ -83,13 +78,13 @@ export async function executeTokenOperation(
 			{ body: { expire: expire === '' ? undefined : expire } },
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'delete') {
 		const tokenId = this.getNodeParameter('tokenId', i) as string;
 		await appwriteApiRequest.call(this, 'DELETE', `/tokens/${encodeURIComponent(tokenId)}`, {}, i);
-		return toItems({ success: true, tokenId });
+		return toItems({ success: true, tokenId }, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown token operation "${operation}"`, {

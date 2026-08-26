@@ -5,10 +5,12 @@ import {
 	buildQueries,
 	fetchAllPages,
 	fetchAllPagesByOffset,
-	parseJsonArrayParameter,
+	getStringListParameter,
 	parseJsonParameter,
+	toItems,
+	withLimit,
 } from '../GenericFunctions';
-import { Query, resolveId } from '../helpers/appwrite';
+import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeUserOperation(
@@ -18,23 +20,6 @@ export async function executeUserOperation(
 ): Promise<INodeExecutionData[]> {
 	const userId = this.getNodeParameter('userId', i, '') as string;
 	const userPath = `/users/${encodeURIComponent(userId)}`;
-
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
-	const parseList = (name: string): string[] => {
-		const raw = this.getNodeParameter(name, i, '') as string;
-		if (raw.trim() === '') return [];
-		if (raw.trim().startsWith('[')) {
-			return parseJsonArrayParameter.call(this, raw, name, i).map((e) => String(e));
-		}
-		return raw
-			.split(',')
-			.map((e) => e.trim())
-			.filter((e) => e !== '');
-	};
 
 	if (operation === 'create') {
 		const createUserId = resolveId(userId);
@@ -59,7 +44,7 @@ export async function executeUserOperation(
 			},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'createJWT') {
@@ -74,7 +59,7 @@ export async function executeUserOperation(
 			{ body: { sessionId: options.sessionId || undefined, duration: options.duration ?? 900 } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'createSession') {
@@ -85,7 +70,7 @@ export async function executeUserOperation(
 			{},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'createToken') {
@@ -100,12 +85,12 @@ export async function executeUserOperation(
 			{ body: { length: options.length ?? 6, expire: options.expire ?? 900 } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'delete') {
 		await appwriteApiRequest.call(this, 'DELETE', userPath, {}, i);
-		return toItems({ success: true, userId });
+		return toItems({ success: true, userId }, i);
 	}
 
 	if (operation === 'deleteIdentity') {
@@ -117,7 +102,7 @@ export async function executeUserOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, identityId });
+		return toItems({ success: true, identityId }, i);
 	}
 
 	if (operation === 'deleteSession') {
@@ -129,17 +114,17 @@ export async function executeUserOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, userId, sessionId });
+		return toItems({ success: true, userId, sessionId }, i);
 	}
 
 	if (operation === 'deleteSessions') {
 		await appwriteApiRequest.call(this, 'DELETE', `${userPath}/sessions`, {}, i);
-		return toItems({ success: true, userId });
+		return toItems({ success: true, userId }, i);
 	}
 
 	if (operation === 'get') {
 		const response = (await appwriteApiRequest.call(this, 'GET', userPath, {}, i)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -162,7 +147,7 @@ export async function executeUserOperation(
 					)) as IDataObject,
 				'users',
 			);
-			return toItems(result as IDataObject[]);
+			return toItems(result as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -170,10 +155,10 @@ export async function executeUserOperation(
 			this,
 			'GET',
 			'/users',
-			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		)) as IDataObject;
-		return toItems(response.users as IDataObject[]);
+		return toItems(response.users as IDataObject[], i);
 	}
 
 	if (operation === 'getManyIdentities') {
@@ -196,7 +181,7 @@ export async function executeUserOperation(
 					)) as IDataObject,
 				'identities',
 			);
-			return toItems(result as IDataObject[]);
+			return toItems(result as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -204,10 +189,10 @@ export async function executeUserOperation(
 			this,
 			'GET',
 			'/users/identities',
-			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		)) as IDataObject;
-		return toItems(response.identities as IDataObject[]);
+		return toItems(response.identities as IDataObject[], i);
 	}
 
 	if (operation === 'getManyLogs') {
@@ -216,7 +201,8 @@ export async function executeUserOperation(
 		const queries = buildQueries.call(this, i);
 
 		if (returnAll) {
-			const logs = await fetchAllPagesByOffset(
+			const logs = await fetchAllPagesByOffset.call(
+				this,
 				queries,
 				async (pageQueries) =>
 					(await appwriteApiRequest.call(
@@ -228,7 +214,7 @@ export async function executeUserOperation(
 					)) as IDataObject,
 				'logs',
 			);
-			return toItems(logs as IDataObject[]);
+			return toItems(logs as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -236,10 +222,10 @@ export async function executeUserOperation(
 			this,
 			'GET',
 			`${userPath}/logs`,
-			{ qs: { queries: [...queries, Query.limit(limit)] } },
+			{ qs: { queries: withLimit(queries, limit) } },
 			i,
 		)) as IDataObject;
-		return toItems(response.logs as IDataObject[]);
+		return toItems(response.logs as IDataObject[], i);
 	}
 
 	if (operation === 'getManyMemberships') {
@@ -262,7 +248,7 @@ export async function executeUserOperation(
 					)) as IDataObject,
 				'memberships',
 			);
-			return toItems(result as IDataObject[]);
+			return toItems(result as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -270,10 +256,10 @@ export async function executeUserOperation(
 			this,
 			'GET',
 			`${userPath}/memberships`,
-			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		)) as IDataObject;
-		return toItems(response.memberships as IDataObject[]);
+		return toItems(response.memberships as IDataObject[], i);
 	}
 
 	if (operation === 'getManySessions') {
@@ -284,7 +270,7 @@ export async function executeUserOperation(
 			{},
 			i,
 		)) as IDataObject;
-		return toItems(response.sessions as IDataObject[]);
+		return toItems(response.sessions as IDataObject[], i);
 	}
 
 	if (operation === 'getPrefs') {
@@ -295,7 +281,7 @@ export async function executeUserOperation(
 			{},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'updateEmail') {
@@ -307,7 +293,7 @@ export async function executeUserOperation(
 			{ body: { email } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'updateEmailVerification') {
@@ -319,11 +305,11 @@ export async function executeUserOperation(
 			{ body: { emailVerification } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'updateLabels') {
-		const labels = parseList('labels');
+		const labels = getStringListParameter.call(this, 'labels', i);
 		const response = (await appwriteApiRequest.call(
 			this,
 			'PUT',
@@ -331,7 +317,7 @@ export async function executeUserOperation(
 			{ body: { labels } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'updateName') {
@@ -343,7 +329,7 @@ export async function executeUserOperation(
 			{ body: { name } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'updatePassword') {
@@ -355,7 +341,7 @@ export async function executeUserOperation(
 			{ body: { password } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'updatePhone') {
@@ -367,7 +353,7 @@ export async function executeUserOperation(
 			{ body: { number: phone } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'updatePhoneVerification') {
@@ -379,7 +365,7 @@ export async function executeUserOperation(
 			{ body: { phoneVerification } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'updatePrefs') {
@@ -391,7 +377,7 @@ export async function executeUserOperation(
 			{ body: { prefs } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'updateStatus') {
@@ -403,7 +389,7 @@ export async function executeUserOperation(
 			{ body: { status } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown user operation "${operation}"`, {

@@ -1,8 +1,13 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { buildQueries, fetchAllPages, parseJsonArrayParameter } from '../GenericFunctions';
-import { Query } from '../helpers/appwrite';
+import {
+	buildQueries,
+	fetchAllPages,
+	parseJsonArrayParameter,
+	toItems,
+	withLimit,
+} from '../GenericFunctions';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeTransactionOperation(
@@ -10,11 +15,6 @@ export async function executeTransactionOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
 	if (operation === 'create') {
 		const ttl = this.getNodeParameter('ttl', i, 300) as number;
 		const response = await appwriteApiRequest.call(
@@ -24,7 +24,7 @@ export async function executeTransactionOperation(
 			{ body: { ttl } },
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'get') {
@@ -36,7 +36,7 @@ export async function executeTransactionOperation(
 			{},
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -57,7 +57,7 @@ export async function executeTransactionOperation(
 					),
 				'transactions',
 			);
-			return toItems(transactions as IDataObject[]);
+			return toItems(transactions as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -65,10 +65,10 @@ export async function executeTransactionOperation(
 			this,
 			'GET',
 			'/tablesdb/transactions',
-			{ qs: { queries: [...queries, Query.limit(limit)] } },
+			{ qs: { queries: withLimit(queries, limit) } },
 			i,
 		);
-		return toItems(response.transactions as IDataObject[]);
+		return toItems(response.transactions as IDataObject[], i);
 	}
 
 	if (operation === 'commit' || operation === 'rollback') {
@@ -85,7 +85,7 @@ export async function executeTransactionOperation(
 			},
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'createOperations') {
@@ -103,7 +103,7 @@ export async function executeTransactionOperation(
 			{ body: { operations } },
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'delete') {
@@ -115,7 +115,7 @@ export async function executeTransactionOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, transactionId });
+		return toItems({ success: true, transactionId }, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown transaction operation "${operation}"`, {

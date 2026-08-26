@@ -128,7 +128,14 @@ read from or write to your Appwrite project.
 - **Auto-generated IDs**: leave any ID field empty (or type `unique()`) on create operations to
   have a unique ID generated.
 - **Permissions**: enter one permission string per line (or a JSON array), e.g. `read("any")`,
-  `update("user:abc")`, `delete("team:abc/owner")`.
+  `update("user:abc")`, `delete("team:abc/owner")`. Leaving the field blank on an update keeps the
+  resource's existing permissions; enter `[]` to clear them.
+- **Updates are non-destructive**: Appwrite's bucket and function update endpoints replace the
+  whole configuration, so the node reads the current bucket/function first and resends any setting
+  you did not change. Renaming a bucket will not clear its extension allowlist, and renaming a
+  function will not drop its schedule, event triggers or linked repository.
+- **Lists**: fields that take several values (file extensions, execute roles, events, scopes,
+  index columns, `Select` queries) accept either a comma-separated string or a JSON array.
 - **API key scopes**: each operation needs the matching scope on your Appwrite API key. A
   `401`/`403` from Appwrite usually means a missing scope rather than a bad key. The credential
   test lists databases, so it needs `databases.read`; it deliberately does not use `/ping`, which

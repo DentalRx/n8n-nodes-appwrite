@@ -3,6 +3,8 @@ import { NodeOperationError } from 'n8n-workflow';
 
 import { appwriteApiRequest } from '../transport';
 
+import { toItems } from '../GenericFunctions';
+
 /** Every health check is a plain GET; only the certificate check takes a parameter. */
 function healthPath(operation: string): string | undefined {
 	switch (operation) {
@@ -34,11 +36,6 @@ export async function executeHealthOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
 	const path = healthPath(operation);
 	if (path === undefined) {
 		throw new NodeOperationError(this.getNode(), `Unknown health operation "${operation}"`, {
@@ -53,5 +50,5 @@ export async function executeHealthOperation(
 	}
 
 	const response = await appwriteApiRequest.call(this, 'GET', path, { qs }, i);
-	return toItems(response);
+	return toItems(response, i);
 }

@@ -4,10 +4,12 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
-	parseJsonArrayParameter,
+	getStringListParameter,
 	parseJsonParameter,
+	toItems,
+	withLimit,
 } from '../GenericFunctions';
-import { Query, extractId, resolveId } from '../helpers/appwrite';
+import { extractId, resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeTeamOperation(
@@ -15,30 +17,13 @@ export async function executeTeamOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
-	const parseList = (name: string): string[] => {
-		const raw = this.getNodeParameter(name, i, '') as string;
-		if (raw.trim() === '') return [];
-		if (raw.trim().startsWith('[')) {
-			return parseJsonArrayParameter.call(this, raw, name, i).map((e) => String(e));
-		}
-		return raw
-			.split(',')
-			.map((e) => e.trim())
-			.filter((e) => e !== '');
-	};
-
 	const teamPath = (): string =>
 		`/teams/${encodeURIComponent(extractId(this.getNodeParameter('teamId', i) as string, 'team'))}`;
 
 	if (operation === 'create') {
 		const teamId = resolveId(this.getNodeParameter('teamId', i, '') as string);
 		const name = this.getNodeParameter('name', i) as string;
-		const roles = parseList('roles');
+		const roles = getStringListParameter.call(this, 'roles', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
@@ -46,12 +31,12 @@ export async function executeTeamOperation(
 			{ body: { teamId, name, roles: roles.length > 0 ? roles : undefined } },
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'createMembership') {
 		const path = `${teamPath()}/memberships`;
-		const roles = parseList('roles');
+		const roles = getStringListParameter.call(this, 'roles', i);
 		const email = this.getNodeParameter('email', i, '') as string;
 		const userId = this.getNodeParameter('userId', i, '') as string;
 		const phone = this.getNodeParameter('phone', i, '') as string;
@@ -74,13 +59,13 @@ export async function executeTeamOperation(
 			},
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'delete') {
 		const teamId = extractId(this.getNodeParameter('teamId', i) as string, 'team');
 		await appwriteApiRequest.call(this, 'DELETE', `/teams/${encodeURIComponent(teamId)}`, {}, i);
-		return toItems({ success: true, teamId });
+		return toItems({ success: true, teamId }, i);
 	}
 
 	if (operation === 'deleteMembership') {
@@ -93,12 +78,12 @@ export async function executeTeamOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, teamId, membershipId });
+		return toItems({ success: true, teamId, membershipId }, i);
 	}
 
 	if (operation === 'get') {
 		const response = await appwriteApiRequest.call(this, 'GET', teamPath(), {}, i);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -121,7 +106,7 @@ export async function executeTeamOperation(
 					),
 				'teams',
 			);
-			return toItems(allTeams as IDataObject[]);
+			return toItems(allTeams as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -129,10 +114,10 @@ export async function executeTeamOperation(
 			this,
 			'GET',
 			'/teams',
-			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		);
-		return toItems(response.teams as IDataObject[]);
+		return toItems(response.teams as IDataObject[], i);
 	}
 
 	if (operation === 'getManyMemberships') {
@@ -156,7 +141,7 @@ export async function executeTeamOperation(
 					),
 				'memberships',
 			);
-			return toItems(memberships as IDataObject[]);
+			return toItems(memberships as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -164,10 +149,10 @@ export async function executeTeamOperation(
 			this,
 			'GET',
 			path,
-			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		);
-		return toItems(response.memberships as IDataObject[]);
+		return toItems(response.memberships as IDataObject[], i);
 	}
 
 	if (operation === 'getMembership') {
@@ -179,34 +164,34 @@ export async function executeTeamOperation(
 			{},
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'getPrefs') {
 		const response = await appwriteApiRequest.call(this, 'GET', `${teamPath()}/prefs`, {}, i);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'updateMembership') {
 		const membershipId = this.getNodeParameter('membershipId', i) as string;
 		const path = `${teamPath()}/memberships/${encodeURIComponent(membershipId)}`;
-		const roles = parseList('roles');
+		const roles = getStringListParameter.call(this, 'roles', i);
 		const response = await appwriteApiRequest.call(this, 'PATCH', path, { body: { roles } }, i);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'updateName') {
 		const path = teamPath();
 		const name = this.getNodeParameter('name', i) as string;
 		const response = await appwriteApiRequest.call(this, 'PUT', path, { body: { name } }, i);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'updatePrefs') {
 		const path = `${teamPath()}/prefs`;
 		const prefs = parseJsonParameter.call(this, this.getNodeParameter('prefs', i), 'prefs', i);
 		const response = await appwriteApiRequest.call(this, 'PUT', path, { body: { prefs } }, i);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown team operation "${operation}"`, {

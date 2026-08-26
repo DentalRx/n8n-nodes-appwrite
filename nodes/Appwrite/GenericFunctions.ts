@@ -1,7 +1,49 @@
-import type { IDataObject, IExecuteFunctions } from 'n8n-workflow';
+import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError, jsonParse } from 'n8n-workflow';
 
 import { Query } from './helpers/appwrite';
+
+/**
+ * Wrap one or more API results as n8n output items paired to the input item
+ * they were produced from.
+ */
+export function toItems(
+	data: IDataObject | IDataObject[],
+	itemIndex: number,
+): INodeExecutionData[] {
+	const list = Array.isArray(data) ? data : [data];
+	return list.map((json) => ({ json, pairedItem: { item: itemIndex } }));
+}
+
+/**
+ * Strip a leading `#` from a hex colour: Appwrite's colour parameters expect
+ * bare hex digits, but colour pickers and humans both write `#fd366e`.
+ */
+export function stripHexHash(value?: string): string | undefined {
+	if (value === undefined || value === '') return undefined;
+	return value.replace(/^#/, '');
+}
+
+/**
+ * Look an Appwrite enum value up by its UI value, failing with a node-level
+ * error rather than silently sending `undefined` for an unmapped key.
+ */
+export function lookupEnum<T>(
+	ctx: IExecuteFunctions,
+	map: Record<string, T>,
+	key: string,
+	label: string,
+	itemIndex: number,
+): T {
+	const value = map[key];
+	if (value === undefined) {
+		throw new NodeOperationError(ctx.getNode(), `Unknown ${label} "${key}"`, {
+			description: `Expected one of: ${Object.keys(map).sort().join(', ')}.`,
+			itemIndex,
+		});
+	}
+	return value;
+}
 
 /**
  * Parse a parameter that n8n may hand over either as a JSON string or as an
@@ -14,7 +56,22 @@ export function parseJsonParameter(
 	itemIndex: number,
 ): IDataObject {
 	if (value === undefined || value === null || value === '') return {};
-	if (typeof value === 'object') return value as IDataObject;
+
+	if (typeof value === 'object') {
+		// An expression can resolve a `json` parameter to an already-parsed
+		// value; arrays must fail here exactly as they do on the string path.
+		if (Array.isArray(value)) {
+			throw new NodeOperationError(
+				this.getNode(),
+				`Parameter "${parameterName}" must be a JSON object`,
+				{
+					description: 'Provide an object like {"key": "value"}, not a list or a plain value.',
+					itemIndex,
+				},
+			);
+		}
+		return value as IDataObject;
+	}
 
 	let parsed: IDataObject;
 	try {
@@ -81,6 +138,67 @@ export function parseJsonArrayParameter(
 	throw new NodeOperationError(this.getNode(), `Parameter "${parameterName}" must be an array`, {
 		itemIndex,
 	});
+}
+
+/**
+ * Parse a list-valued UI field that accepts either a comma-separated string or
+ * a JSON array, e.g. `pdf, docx` or `["pdf","docx"]`.
+ */
+export function parseStringList(
+	this: IExecuteFunctions,
+	raw: string | string[] | undefined,
+	parameterName: string,
+	itemIndex: number,
+): string[] {
+	if (raw === undefined || raw === null) return [];
+	if (Array.isArray(raw)) return raw.map((entry) => String(entry));
+
+	const trimmed = raw.trim();
+	if (trimmed === '') return [];
+	if (trimmed.startsWith('[')) {
+		return parseJsonArrayParameter
+			.call(this, trimmed, parameterName, itemIndex)
+			.map((entry) => String(entry));
+	}
+	return trimmed
+		.split(',')
+		.map((entry) => entry.trim())
+		.filter((entry) => entry !== '');
+}
+
+/**
+ * Read a list-valued node parameter that accepts a comma-separated string or a
+ * JSON array.
+ */
+export function getStringListParameter(
+	this: IExecuteFunctions,
+	parameterName: string,
+	itemIndex: number,
+): string[] {
+	const raw = this.getNodeParameter(parameterName, itemIndex, '') as string | string[];
+	return parseStringList.call(this, raw, parameterName, itemIndex);
+}
+
+/**
+ * Read the `method` of an encoded Appwrite query string, or '' when the query
+ * is not a JSON-encoded query.
+ */
+function queryMethod(query: string): string {
+	try {
+		return (JSON.parse(query) as { method?: string }).method ?? '';
+	} catch {
+		return '';
+	}
+}
+
+/**
+ * Append the node's Limit to a query list, unless the user already supplied a
+ * Limit query of their own. Appwrite keeps the first Limit it is given, so
+ * appending a second one would silently override the user's.
+ */
+export function withLimit(queries: string[], limit: number): string[] {
+	if (queries.some((q) => queryMethod(q) === 'limit')) return queries;
+	return [...queries, Query.limit(limit)];
 }
 
 /**
@@ -157,11 +275,10 @@ function buildSingleQuery(
 	const value = () => smartParseValue(condition.value ?? '', treatAsString);
 	const value2 = () => smartParseValue(condition.value2 ?? '', treatAsString);
 	const scalar = (v: unknown) => v as string | number;
-	const listValues = (): unknown[] => {
-		const raw = condition.values ?? condition.value ?? '';
-		const parsed = smartParseValue(raw, false);
-		return Array.isArray(parsed) ? parsed : [parsed];
-	};
+	// Column lists (Select) accept the same comma-separated form as every other
+	// list-valued field in this node, as well as a JSON array.
+	const columnList = (): string[] =>
+		parseStringList.call(this, condition.values ?? condition.value ?? '', 'Select', itemIndex);
 
 	switch (type) {
 		case 'equal':
@@ -191,7 +308,7 @@ function buildSingleQuery(
 		case 'contains':
 			return Query.contains(column, value() as string);
 		case 'select':
-			return Query.select(listValues() as string[]);
+			return Query.select(columnList());
 		case 'orderAsc':
 			return Query.orderAsc(column);
 		case 'orderDesc':
@@ -233,6 +350,10 @@ function buildSingleQuery(
 /**
  * Parse the permissions parameter into an array of Appwrite permission
  * strings, e.g. ['read("any")', 'update("team:abc")'].
+ *
+ * Returns `undefined` when the field is left blank, which Appwrite reads as
+ * "inherit the current permissions" on update operations. An explicit empty
+ * JSON array (`[]`) is passed through, so permissions can be cleared.
  */
 export function getPermissions(
 	this: IExecuteFunctions,
@@ -240,30 +361,34 @@ export function getPermissions(
 	parameterName = 'permissions',
 ): string[] | undefined {
 	const raw = this.getNodeParameter(parameterName, itemIndex, '') as string | string[];
-	if (raw === '' || raw === undefined || raw === null) return undefined;
+	if (raw === undefined || raw === null) return undefined;
 
-	let permissions: unknown[];
-	if (Array.isArray(raw)) {
-		permissions = raw;
-	} else if (typeof raw === 'string' && raw.trim().startsWith('[')) {
-		permissions = parseJsonArrayParameter.call(this, raw, parameterName, itemIndex);
-	} else {
-		permissions = raw
-			.split('\n')
-			.map((line) => line.trim())
-			.filter((line) => line !== '');
+	if (Array.isArray(raw)) return raw.map((p) => String(p));
+
+	const trimmed = raw.trim();
+	if (trimmed === '') return undefined;
+
+	if (trimmed.startsWith('[')) {
+		return parseJsonArrayParameter
+			.call(this, trimmed, parameterName, itemIndex)
+			.map((p) => String(p));
 	}
 
-	const result = permissions.map((p) => String(p));
-	return result.length > 0 ? result : undefined;
+	const permissions = trimmed
+		.split('\n')
+		.map((line) => line.trim())
+		.filter((line) => line !== '');
+
+	return permissions.length > 0 ? permissions : undefined;
 }
 
 /**
  * Fetch the row data for create/update/upsert operations, supporting both the
- * key-value UI mode and the raw JSON mode.
+ * key-value UI mode and the raw JSON mode. The fallback mirrors the UI default
+ * of the `dataMode` parameter.
  */
 export function getRowData(this: IExecuteFunctions, itemIndex: number): IDataObject {
-	const mode = this.getNodeParameter('dataMode', itemIndex, 'json') as string;
+	const mode = this.getNodeParameter('dataMode', itemIndex, 'fields') as string;
 
 	if (mode === 'json') {
 		const raw = this.getNodeParameter('dataJson', itemIndex, '{}');
@@ -297,6 +422,7 @@ export async function fetchAllPages<T extends { $id?: string }>(
 	baseQueries: string[],
 	fetchPage: (queries: string[]) => Promise<{ rows?: T[]; total: number } | IDataObject>,
 	listKey: string,
+	itemIndex?: number,
 ): Promise<T[]> {
 	const results: T[] = [];
 	const cleanQueries: string[] = [];
@@ -322,6 +448,7 @@ export async function fetchAllPages<T extends { $id?: string }>(
 				{
 					description:
 						'Return All pages forward from the start, so it can only follow a Cursor After. Use Cursor After instead, or turn Return All off.',
+					itemIndex,
 				},
 			);
 		}
@@ -357,28 +484,57 @@ export async function fetchAllPages<T extends { $id?: string }>(
 
 /**
  * Paginate a list endpoint that only supports limit/offset queries (e.g. the
- * audit log endpoints, whose entries carry no usable cursor).
+ * audit log endpoints, whose entries carry no usable cursor). A user-supplied
+ * Offset query sets the starting point, as it does for cursor pagination.
  */
 export async function fetchAllPagesByOffset<T>(
+	this: IExecuteFunctions,
 	baseQueries: string[],
 	fetchPage: (queries: string[]) => Promise<IDataObject>,
 	listKey: string,
+	itemIndex?: number,
 ): Promise<T[]> {
-	const cleanQueries = baseQueries.filter((q) => {
+	const cleanQueries: string[] = [];
+	let startOffset = 0;
+
+	for (const q of baseQueries) {
+		let method = '';
+		let values: unknown[] = [];
 		try {
-			const parsed = JSON.parse(q) as { method?: string };
-			return !['limit', 'offset', 'cursorAfter', 'cursorBefore'].includes(parsed.method ?? '');
+			const parsed = JSON.parse(q) as { method?: string; values?: unknown[] };
+			method = parsed.method ?? '';
+			values = parsed.values ?? [];
 		} catch {
-			return true;
+			cleanQueries.push(q);
+			continue;
 		}
-	});
+		if (method === 'limit') continue;
+		if (method === 'offset') {
+			// Honour the user's Offset as the first page's starting point rather
+			// than silently restarting from zero.
+			if (typeof values[0] === 'number') startOffset = values[0];
+			continue;
+		}
+		if (method === 'cursorAfter' || method === 'cursorBefore') {
+			throw new NodeOperationError(
+				this.getNode(),
+				'Cursor queries are not supported by this endpoint',
+				{
+					description:
+						'This endpoint paginates by offset only, because its entries carry no cursor. Use a Limit or Offset query instead.',
+					itemIndex,
+				},
+			);
+		}
+		cleanQueries.push(q);
+	}
 
 	const results: T[] = [];
 	for (;;) {
 		const response = (await fetchPage([
 			...cleanQueries,
 			Query.limit(100),
-			Query.offset(results.length),
+			Query.offset(startOffset + results.length),
 		])) as unknown as Record<string, T[]>;
 		const list = response[listKey] ?? [];
 		results.push(...list);

@@ -90,17 +90,20 @@ export class Appwrite implements INodeType {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 
-		const resource = this.getNodeParameter('resource', 0) as string;
 		const continueOnFail = this.continueOnFail();
 
 		for (let i = 0; i < items.length; i++) {
+			// Read per item: resource may be driven by an expression, just as
+			// operation already is.
+			const resource = this.getNodeParameter('resource', i) as string;
+
 			if (!continueOnFail) {
-				returnData.push(...(await runOperation.call(this, resource, i)));
+				push(returnData, await runOperation.call(this, resource, i));
 				continue;
 			}
 
 			try {
-				returnData.push(...(await runOperation.call(this, resource, i)));
+				push(returnData, await runOperation.call(this, resource, i));
 			} catch (error) {
 				returnData.push({
 					json: { error: error instanceof Error ? error.message : String(error) },
@@ -111,6 +114,14 @@ export class Appwrite implements INodeType {
 
 		return [returnData];
 	}
+}
+
+/**
+ * Append results in place. Spreading them as arguments instead would throw a
+ * RangeError once a Return All result set exceeds the engine's argument limit.
+ */
+function push(target: INodeExecutionData[], results: INodeExecutionData[]): void {
+	for (const result of results) target.push(result);
 }
 
 /**

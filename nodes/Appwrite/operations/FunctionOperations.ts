@@ -1,8 +1,14 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { buildQueries, fetchAllPages, parseJsonArrayParameter } from '../GenericFunctions';
-import { Query, extractId, resolveId } from '../helpers/appwrite';
+import {
+	buildQueries,
+	fetchAllPages,
+	parseStringList,
+	toItems,
+	withLimit,
+} from '../GenericFunctions';
+import { extractId, resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 interface FunctionConfigOptions {
@@ -25,37 +31,27 @@ export async function executeFunctionOperation(
 ): Promise<INodeExecutionData[]> {
 	const functionId = extractId(this.getNodeParameter('functionId', i, '') as string, 'function');
 
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
-	const parseList = (raw: string, name: string): string[] => {
-		if (raw.trim() === '') return [];
-		if (raw.trim().startsWith('[')) {
-			return parseJsonArrayParameter.call(this, raw, name, i).map((e) => String(e));
-		}
-		return raw
-			.split(',')
-			.map((e) => e.trim())
-			.filter((e) => e !== '');
-	};
-
-	const getConfigOptionArgs = () => {
+	const getConfigOptionArgs = (current?: IDataObject): IDataObject => {
 		const options = this.getNodeParameter('options', i, {}) as FunctionConfigOptions;
-		const execute = parseList(options.execute ?? '', 'execute');
-		const events = parseList(options.events ?? '', 'events');
-		const scopes = parseList(options.scopes ?? '', 'scopes');
+		// An option the user never added keeps whatever the function already has
+		// (`current` is set on update only); an option added and left blank clears it.
+		const list = (raw: string | undefined, name: string, key: string) =>
+			raw === undefined
+				? (current?.[key] as string[] | undefined)
+				: parseStringList.call(this, raw, name, i);
+		const text = (raw: string | undefined, key: string) =>
+			raw === undefined ? (current?.[key] as string | undefined) : raw;
+
 		return {
-			execute: execute.length > 0 ? execute : undefined,
-			events: events.length > 0 ? events : undefined,
-			schedule: options.schedule === '' ? undefined : options.schedule,
-			timeout: options.timeout,
-			enabled: options.enabled,
-			logging: options.logging,
-			entrypoint: options.entrypoint === '' ? undefined : options.entrypoint,
-			commands: options.commands === '' ? undefined : options.commands,
-			scopes: scopes.length > 0 ? scopes : undefined,
+			execute: list(options.execute, 'execute', 'execute'),
+			events: list(options.events, 'events', 'events'),
+			schedule: text(options.schedule, 'schedule'),
+			timeout: options.timeout ?? (current?.timeout as number | undefined),
+			enabled: options.enabled ?? (current?.enabled as boolean | undefined),
+			logging: options.logging ?? (current?.logging as boolean | undefined),
+			entrypoint: text(options.entrypoint, 'entrypoint'),
+			commands: text(options.commands, 'commands'),
+			scopes: list(options.scopes, 'scopes', 'scopes'),
 		};
 	};
 
@@ -68,7 +64,7 @@ export async function executeFunctionOperation(
 			{ body: { deploymentId } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'create') {
@@ -85,7 +81,7 @@ export async function executeFunctionOperation(
 			{ body: { functionId: newFunctionId, name, runtime, ...getConfigOptionArgs() } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'createVariable') {
@@ -99,7 +95,7 @@ export async function executeFunctionOperation(
 			{ body: { key, value, secret } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'delete') {
@@ -110,7 +106,7 @@ export async function executeFunctionOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, functionId });
+		return toItems({ success: true, functionId }, i);
 	}
 
 	if (operation === 'deleteDeployment') {
@@ -122,7 +118,7 @@ export async function executeFunctionOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, functionId, deploymentId });
+		return toItems({ success: true, functionId, deploymentId }, i);
 	}
 
 	if (operation === 'deleteVariable') {
@@ -134,7 +130,7 @@ export async function executeFunctionOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, functionId, variableId });
+		return toItems({ success: true, functionId, variableId }, i);
 	}
 
 	if (operation === 'get') {
@@ -145,7 +141,7 @@ export async function executeFunctionOperation(
 			{},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'getDeployment') {
@@ -157,7 +153,7 @@ export async function executeFunctionOperation(
 			{},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -180,7 +176,7 @@ export async function executeFunctionOperation(
 					)) as IDataObject,
 				'functions',
 			);
-			return toItems(functionList as IDataObject[]);
+			return toItems(functionList as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -188,10 +184,10 @@ export async function executeFunctionOperation(
 			this,
 			'GET',
 			'/functions',
-			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		)) as IDataObject;
-		return toItems(response.functions as IDataObject[]);
+		return toItems(response.functions as IDataObject[], i);
 	}
 
 	if (operation === 'getManyDeployments') {
@@ -214,7 +210,7 @@ export async function executeFunctionOperation(
 					)) as IDataObject,
 				'deployments',
 			);
-			return toItems(deployments as IDataObject[]);
+			return toItems(deployments as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -222,10 +218,10 @@ export async function executeFunctionOperation(
 			this,
 			'GET',
 			`/functions/${encodeURIComponent(functionId)}/deployments`,
-			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		)) as IDataObject;
-		return toItems(response.deployments as IDataObject[]);
+		return toItems(response.deployments as IDataObject[], i);
 	}
 
 	if (operation === 'getManyVariables') {
@@ -236,7 +232,7 @@ export async function executeFunctionOperation(
 			{},
 			i,
 		)) as IDataObject;
-		return toItems(response.variables as IDataObject[]);
+		return toItems(response.variables as IDataObject[], i);
 	}
 
 	if (operation === 'getVariable') {
@@ -248,21 +244,49 @@ export async function executeFunctionOperation(
 			{},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'update') {
 		const name = this.getNodeParameter('name', i) as string;
 		const options = this.getNodeParameter('options', i, {}) as FunctionConfigOptions;
-		const runtime = options.runtime === '' ? undefined : options.runtime;
+		// PUT /functions/{id} is a full replace: any field left out of the body is
+		// reset to the API's own default rather than kept, which would silently
+		// clear the schedule, event triggers, execute roles and the linked Git
+		// repository. Read the function first and resend everything unchanged.
+		const current = (await appwriteApiRequest.call(
+			this,
+			'GET',
+			`/functions/${encodeURIComponent(functionId)}`,
+			{},
+			i,
+		)) as IDataObject;
+		const runtime =
+			options.runtime === '' || options.runtime === undefined
+				? (current.runtime as string | undefined)
+				: options.runtime;
 		const response = (await appwriteApiRequest.call(
 			this,
 			'PUT',
 			`/functions/${encodeURIComponent(functionId)}`,
-			{ body: { name, runtime, ...getConfigOptionArgs() } },
+			{
+				body: {
+					name,
+					runtime,
+					...getConfigOptionArgs(current),
+					// Not exposed by the node, but omitting them would disconnect the
+					// function from its repository.
+					installationId: current.installationId,
+					providerRepositoryId: current.providerRepositoryId,
+					providerBranch: current.providerBranch,
+					providerSilentMode: current.providerSilentMode,
+					providerRootDirectory: current.providerRootDirectory,
+					specification: current.specification,
+				},
+			},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'updateVariable') {
@@ -278,12 +302,12 @@ export async function executeFunctionOperation(
 				body: {
 					key,
 					value: value === '' ? undefined : value,
-					secret: secret ? true : undefined,
+					secret,
 				},
 			},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown function operation "${operation}"`, {
