@@ -1,6 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-import { queriesProperties, returnAllAndLimitProperties } from './shared';
+import { listOptionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
 
 export const userOperations: INodeProperties[] = [
 	{
@@ -487,19 +487,6 @@ export const userFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Search',
-		name: 'search',
-		type: 'string',
-		default: '',
-		description: 'Search term to filter the results',
-		displayOptions: {
-			show: {
-				resource: ['user'],
-				operation: ['getMany', 'getManyIdentities', 'getManyMemberships'],
-			},
-		},
-	},
 	...returnAllAndLimitProperties('user', [
 		'getMany',
 		'getManyIdentities',
@@ -510,7 +497,8 @@ export const userFields: INodeProperties[] = [
 		'user',
 		['getMany', 'getManyIdentities', 'getManyLogs', 'getManyMemberships'],
 		{
-			hint: 'Filter, sort, and paginate the results. For Get Many Logs, only Limit and Offset queries are supported.',
+			hint: 'Get Many Logs supports only Limit and Offset queries',
 		},
 	),
+	listOptionsProperty('user', ['getMany', 'getManyIdentities', 'getManyMemberships']),
 ];

@@ -136,7 +136,8 @@ export function queriesProperties(
 			typeOptions: { multipleValues: true, sortable: true },
 			placeholder: 'Add Query',
 			default: {},
-			description: options.hint ?? 'Filter, sort, and paginate the results',
+			description: 'Filter, sort, and paginate the results',
+			...(options.hint ? { hint: options.hint } : {}),
 			displayOptions: { show: { ...show, queriesMode: ['builder'] } },
 			options: [
 				{
@@ -213,6 +214,30 @@ export function queriesProperties(
 			displayOptions: { show: { ...show, queriesMode: ['json'] } },
 		},
 	];
+}
+
+/**
+ * Optional filters for a Get Many operation. The standards keep optional
+ * fields inside a collection rather than on the node's face.
+ */
+export function listOptionsProperty(resource: string, operations: string[]): INodeProperties {
+	return {
+		displayName: 'Options',
+		name: 'options',
+		type: 'collection',
+		placeholder: 'Add option',
+		default: {},
+		displayOptions: { show: { resource: [resource], operation: operations } },
+		options: [
+			{
+				displayName: 'Search',
+				name: 'search',
+				type: 'string',
+				default: '',
+				description: 'Return only results matching this search term',
+			},
+		],
+	};
 }
 
 /**

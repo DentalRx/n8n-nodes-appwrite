@@ -265,7 +265,7 @@ export const rowFields: INodeProperties[] = [
 	},
 	...returnAllAndLimitProperties('row', ['getMany']),
 	...queriesProperties('row', ['getMany', 'get', 'updateMany', 'deleteMany'], {
-		hint: 'Filter, sort, and paginate rows. For Get, only Select queries apply. For Update Many and Delete Many, the queries choose which rows are affected — no queries means ALL rows in the table.',
+		hint: 'Get uses only Select queries. For Update Many and Delete Many the queries choose which rows are affected, and no queries means every row in the table',
 	}),
 	{
 		displayName: 'Options',

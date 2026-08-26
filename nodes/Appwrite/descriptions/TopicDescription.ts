@@ -1,6 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-import { queriesProperties, returnAllAndLimitProperties } from './shared';
+import { listOptionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
 
 export const topicOperations: INodeProperties[] = [
 	{
@@ -185,19 +185,6 @@ export const topicFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Search',
-		name: 'search',
-		type: 'string',
-		default: '',
-		description: 'Search term to filter the results',
-		displayOptions: {
-			show: {
-				resource: ['topic'],
-				operation: ['getMany', 'getManySubscribers'],
-			},
-		},
-	},
 	...returnAllAndLimitProperties('topic', ['getMany', 'getManySubscribers']),
 	...queriesProperties('topic', ['getMany', 'getManySubscribers']),
 	{
@@ -231,4 +218,5 @@ export const topicFields: INodeProperties[] = [
 			},
 		],
 	},
+	listOptionsProperty('topic', ['getMany', 'getManySubscribers']),
 ];

@@ -1,6 +1,11 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-import { permissionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
+import {
+	listOptionsProperty,
+	permissionsProperty,
+	queriesProperties,
+	returnAllAndLimitProperties,
+} from './shared';
 
 export const bucketOperations: INodeProperties[] = [
 	{
@@ -96,19 +101,6 @@ export const bucketFields: INodeProperties[] = [
 		},
 	},
 	permissionsProperty('bucket', ['create', 'update']),
-	{
-		displayName: 'Search',
-		name: 'search',
-		type: 'string',
-		default: '',
-		description: 'Search term to filter the bucket list',
-		displayOptions: {
-			show: {
-				resource: ['bucket'],
-				operation: ['getMany'],
-			},
-		},
-	},
 	...returnAllAndLimitProperties('bucket', ['getMany']),
 	...queriesProperties('bucket', ['getMany']),
 	{
@@ -197,4 +189,5 @@ export const bucketFields: INodeProperties[] = [
 			},
 		],
 	},
+	listOptionsProperty('bucket', ['getMany']),
 ];

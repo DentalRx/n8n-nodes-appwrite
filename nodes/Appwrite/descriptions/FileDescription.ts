@@ -1,6 +1,11 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-import { permissionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
+import {
+	listOptionsProperty,
+	permissionsProperty,
+	queriesProperties,
+	returnAllAndLimitProperties,
+} from './shared';
 
 export const fileOperations: INodeProperties[] = [
 	{
@@ -154,19 +159,6 @@ export const fileFields: INodeProperties[] = [
 		},
 	},
 	permissionsProperty('file', ['upload', 'update']),
-	{
-		displayName: 'Search',
-		name: 'search',
-		type: 'string',
-		default: '',
-		description: 'Search term to filter the file list',
-		displayOptions: {
-			show: {
-				resource: ['file'],
-				operation: ['getMany'],
-			},
-		},
-	},
 	...returnAllAndLimitProperties('file', ['getMany']),
 	...queriesProperties('file', ['getMany']),
 	{
@@ -336,4 +328,5 @@ export const fileFields: INodeProperties[] = [
 			},
 		],
 	},
+	listOptionsProperty('file', ['getMany']),
 ];

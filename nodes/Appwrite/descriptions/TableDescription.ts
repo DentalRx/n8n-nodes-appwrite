@@ -2,6 +2,7 @@ import type { INodeProperties } from 'n8n-workflow';
 
 import {
 	databaseIdProperty,
+	listOptionsProperty,
 	permissionsProperty,
 	queriesProperties,
 	returnAllAndLimitProperties,
@@ -134,19 +135,7 @@ export const tableFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Search',
-		name: 'search',
-		type: 'string',
-		default: '',
-		description: 'Search term to filter the table list',
-		displayOptions: {
-			show: {
-				resource: ['table'],
-				operation: ['getMany'],
-			},
-		},
-	},
 	...returnAllAndLimitProperties('table', ['getMany']),
 	...queriesProperties('table', ['getMany']),
+	listOptionsProperty('table', ['getMany']),
 ];

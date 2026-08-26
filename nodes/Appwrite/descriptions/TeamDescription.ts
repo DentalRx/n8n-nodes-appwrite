@@ -1,6 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-import { queriesProperties, returnAllAndLimitProperties } from './shared';
+import { listOptionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
 
 export const teamOperations: INodeProperties[] = [
 	{
@@ -266,19 +266,6 @@ export const teamFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Search',
-		name: 'search',
-		type: 'string',
-		default: '',
-		description: 'Search term to filter the list results',
-		displayOptions: {
-			show: {
-				resource: ['team'],
-				operation: ['getMany', 'getManyMemberships'],
-			},
-		},
-	},
 	...returnAllAndLimitProperties('team', ['getMany', 'getManyMemberships']),
 	...queriesProperties('team', ['getMany', 'getManyMemberships']),
 	{
@@ -295,4 +282,5 @@ export const teamFields: INodeProperties[] = [
 			},
 		},
 	},
+	listOptionsProperty('team', ['getMany', 'getManyMemberships']),
 ];

@@ -1,6 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-import { queriesProperties, returnAllAndLimitProperties } from './shared';
+import { listOptionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
 
 export const functionOperations: INodeProperties[] = [
 	{
@@ -349,19 +349,6 @@ export const functionFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Search',
-		name: 'search',
-		type: 'string',
-		default: '',
-		description: 'Search term to filter the list results',
-		displayOptions: {
-			show: {
-				resource: ['function'],
-				operation: ['getMany', 'getManyDeployments'],
-			},
-		},
-	},
 	...returnAllAndLimitProperties('function', ['getMany', 'getManyDeployments']),
 	...queriesProperties('function', ['getMany', 'getManyDeployments']),
 	{
@@ -392,4 +379,5 @@ export const functionFields: INodeProperties[] = [
 		},
 		options: functionConfigOptions,
 	},
+	listOptionsProperty('function', ['getMany', 'getManyDeployments']),
 ];

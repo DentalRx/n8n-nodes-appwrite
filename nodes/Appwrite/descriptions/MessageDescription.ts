@@ -1,6 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-import { queriesProperties, returnAllAndLimitProperties } from './shared';
+import { listOptionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
 
 export const messageOperations: INodeProperties[] = [
 	{
@@ -239,22 +239,9 @@ export const messageFields: INodeProperties[] = [
 		},
 	},
 	...recipientProperties,
-	{
-		displayName: 'Search',
-		name: 'search',
-		type: 'string',
-		default: '',
-		description: 'Search term to filter the message list',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['getMany'],
-			},
-		},
-	},
 	...returnAllAndLimitProperties('message', ['getMany', 'getManyLogs', 'getManyTargets']),
 	...queriesProperties('message', ['getMany', 'getManyLogs', 'getManyTargets'], {
-		hint: 'Filter, sort, and paginate the results. For Get Many Logs, only Limit and Offset queries are supported.',
+		hint: 'Get Many Logs supports only Limit and Offset queries',
 	}),
 	{
 		displayName: 'Options',
@@ -777,4 +764,5 @@ export const messageFields: INodeProperties[] = [
 			},
 		],
 	},
+	listOptionsProperty('message', ['getMany']),
 ];
