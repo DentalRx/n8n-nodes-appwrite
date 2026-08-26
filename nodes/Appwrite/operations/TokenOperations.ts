@@ -1,8 +1,8 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { Query, type Tokens } from 'node-appwrite';
+import { type Tokens } from 'node-appwrite';
 
-import { buildQueries, fetchAllPages } from '../GenericFunctions';
+import { buildQueries, fetchAllPages, toItems, withLimit } from '../GenericFunctions';
 
 export async function executeTokenOperation(
 	this: IExecuteFunctions,
@@ -10,27 +10,22 @@ export async function executeTokenOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
 	if (operation === 'create') {
 		const bucketId = this.getNodeParameter('bucketId', i) as string;
 		const fileId = this.getNodeParameter('fileId', i) as string;
-		const expire = this.getNodeParameter('expire', i, '') as string;
+		const expire = this.getNodeParameter('expiresAt', i, '') as string;
 		const response = await tokens.createFileToken({
 			bucketId,
 			fileId,
 			expire: expire === '' ? undefined : expire,
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'get') {
 		const tokenId = this.getNodeParameter('tokenId', i) as string;
 		const response = await tokens.get({ tokenId });
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'getMany') {
@@ -41,6 +36,8 @@ export async function executeTokenOperation(
 
 		if (returnAll) {
 			const results = await fetchAllPages(
+				this,
+				i,
 				queries,
 				async (pageQueries) =>
 					(await tokens.list({
@@ -50,32 +47,32 @@ export async function executeTokenOperation(
 					})) as unknown as IDataObject,
 				'tokens',
 			);
-			return toItems(results as unknown as IDataObject[]);
+			return toItems(results as unknown as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
 		const response = await tokens.list({
 			bucketId,
 			fileId,
-			queries: [...queries, Query.limit(limit)],
+			queries: withLimit(queries, limit),
 		});
-		return toItems(response.tokens as unknown as IDataObject[]);
+		return toItems(response.tokens as unknown as IDataObject[], i);
 	}
 
 	if (operation === 'update') {
 		const tokenId = this.getNodeParameter('tokenId', i) as string;
-		const expire = this.getNodeParameter('expire', i, '') as string;
+		const expire = this.getNodeParameter('expiresAt', i, '') as string;
 		const response = await tokens.update({
 			tokenId,
 			expire: expire === '' ? undefined : expire,
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'delete') {
 		const tokenId = this.getNodeParameter('tokenId', i) as string;
 		await tokens.delete({ tokenId });
-		return toItems({ success: true, tokenId });
+		return toItems({ success: true, tokenId }, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown token operation "${operation}"`, {

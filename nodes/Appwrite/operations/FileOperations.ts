@@ -1,9 +1,18 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { ID, ImageFormat, ImageGravity, Query, type Storage } from 'node-appwrite';
+import { ImageFormat, ImageGravity, type Storage } from 'node-appwrite';
 import { InputFile } from 'node-appwrite/file';
 
-import { buildQueries, fetchAllPages, getPermissions } from '../GenericFunctions';
+import {
+	buildQueries,
+	fetchAllPages,
+	getPermissions,
+	lookupEnum,
+	resolveId,
+	stripHexHash,
+	toItems,
+	withLimit,
+} from '../GenericFunctions';
 
 const IMAGE_GRAVITY_MAP: Record<string, ImageGravity> = {
 	bottom: ImageGravity.Bottom,
@@ -42,11 +51,6 @@ interface PreviewOptions {
 	width?: number;
 }
 
-function stripHexHash(value?: string): string | undefined {
-	if (value === undefined || value === '') return undefined;
-	return value.replace(/^#/, '');
-}
-
 export async function executeFileOperation(
 	this: IExecuteFunctions,
 	storage: Storage,
@@ -54,11 +58,6 @@ export async function executeFileOperation(
 	i: number,
 ): Promise<INodeExecutionData[]> {
 	const bucketId = this.getNodeParameter('bucketId', i) as string;
-
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
 
 	const toBinaryItem = async (
 		arrayBuffer: ArrayBuffer,
@@ -87,7 +86,7 @@ export async function executeFileOperation(
 
 	if (operation === 'upload') {
 		const rawFileId = this.getNodeParameter('fileId', i, '') as string;
-		const fileId = rawFileId === '' || rawFileId === 'unique()' ? ID.unique() : rawFileId;
+		const fileId = resolveId(rawFileId);
 		const binaryPropertyName = this.getNodeParameter('inputBinaryField', i) as string;
 		const binaryData = this.helpers.assertBinaryData(i, binaryPropertyName);
 		const buffer = await this.helpers.getBinaryDataBuffer(i, binaryPropertyName);
@@ -96,13 +95,13 @@ export async function executeFileOperation(
 		const file = InputFile.fromBuffer(buffer, fileName);
 		const permissions = getPermissions.call(this, i);
 		const response = await storage.createFile({ bucketId, fileId, file, permissions });
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'get') {
 		const fileId = this.getNodeParameter('fileId', i) as string;
 		const response = await storage.getFile({ bucketId, fileId });
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'getMany') {
@@ -113,6 +112,8 @@ export async function executeFileOperation(
 
 		if (returnAll) {
 			const files = await fetchAllPages(
+				this,
+				i,
 				queries,
 				async (pageQueries) =>
 					(await storage.listFiles({
@@ -122,16 +123,16 @@ export async function executeFileOperation(
 					})) as unknown as IDataObject,
 				'files',
 			);
-			return toItems(files as unknown as IDataObject[]);
+			return toItems(files as unknown as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
 		const response = await storage.listFiles({
 			bucketId,
-			queries: [...queries, Query.limit(limit)],
+			queries: withLimit(queries, limit),
 			search: searchArg,
 		});
-		return toItems(response.files as unknown as IDataObject[]);
+		return toItems(response.files as unknown as IDataObject[], i);
 	}
 
 	if (operation === 'update') {
@@ -144,13 +145,13 @@ export async function executeFileOperation(
 			name: name === '' ? undefined : name,
 			permissions,
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'delete') {
 		const fileId = this.getNodeParameter('fileId', i) as string;
 		await storage.deleteFile({ bucketId, fileId });
-		return toItems({ success: true, bucketId, fileId });
+		return toItems({ success: true, bucketId, fileId }, i);
 	}
 
 	if (operation === 'download' || operation === 'getView') {
@@ -167,13 +168,17 @@ export async function executeFileOperation(
 	if (operation === 'getPreview') {
 		const fileId = this.getNodeParameter('fileId', i) as string;
 		const options = this.getNodeParameter('options', i, {}) as PreviewOptions;
-		const output = options.output ? IMAGE_FORMAT_MAP[options.output] : undefined;
+		const output = options.output
+			? lookupEnum(this, IMAGE_FORMAT_MAP, options.output, 'image format', i)
+			: undefined;
 		const arrayBuffer = await storage.getFilePreview({
 			bucketId,
 			fileId,
 			width: options.width,
 			height: options.height,
-			gravity: options.gravity ? IMAGE_GRAVITY_MAP[options.gravity] : undefined,
+			gravity: options.gravity
+				? lookupEnum(this, IMAGE_GRAVITY_MAP, options.gravity, 'image gravity', i)
+				: undefined,
 			quality: options.quality,
 			borderWidth: options.borderWidth,
 			borderColor: stripHexHash(options.borderColor),
@@ -184,9 +189,7 @@ export async function executeFileOperation(
 			output,
 			token: options.token === '' ? undefined : options.token,
 		});
-		const mimeType = output
-			? `image/${output === ImageFormat.Jpg ? 'jpeg' : output}`
-			: undefined;
+		const mimeType = output ? `image/${output === ImageFormat.Jpg ? 'jpeg' : output}` : undefined;
 		return await toBinaryItem(arrayBuffer, fileId, mimeType, output);
 	}
 

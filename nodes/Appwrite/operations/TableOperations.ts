@@ -1,8 +1,15 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { ID, Query, type TablesDB } from 'node-appwrite';
+import { type TablesDB } from 'node-appwrite';
 
-import { buildQueries, fetchAllPages, getPermissions } from '../GenericFunctions';
+import {
+	buildQueries,
+	fetchAllPages,
+	getPermissions,
+	resolveId,
+	toItems,
+	withLimit,
+} from '../GenericFunctions';
 
 export async function executeTableOperation(
 	this: IExecuteFunctions,
@@ -12,14 +19,9 @@ export async function executeTableOperation(
 ): Promise<INodeExecutionData[]> {
 	const databaseId = this.getNodeParameter('databaseId', i) as string;
 
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
 	if (operation === 'create') {
 		const rawId = this.getNodeParameter('tableId', i, '') as string;
-		const tableId = rawId === '' || rawId === 'unique()' ? ID.unique() : rawId;
+		const tableId = resolveId(rawId);
 		const name = this.getNodeParameter('name', i) as string;
 		const permissions = getPermissions.call(this, i);
 		const rowSecurity = this.getNodeParameter('rowSecurity', i, false) as boolean;
@@ -32,13 +34,13 @@ export async function executeTableOperation(
 			rowSecurity,
 			enabled,
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'get') {
 		const tableId = this.getNodeParameter('tableId', i) as string;
 		const response = await tablesDB.getTable({ databaseId, tableId });
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'getMany') {
@@ -49,6 +51,8 @@ export async function executeTableOperation(
 
 		if (returnAll) {
 			const tables = await fetchAllPages(
+				this,
+				i,
 				queries,
 				async (pageQueries) =>
 					(await tablesDB.listTables({
@@ -58,16 +62,16 @@ export async function executeTableOperation(
 					})) as unknown as IDataObject,
 				'tables',
 			);
-			return toItems(tables as unknown as IDataObject[]);
+			return toItems(tables as unknown as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
 		const response = await tablesDB.listTables({
 			databaseId,
-			queries: [...queries, Query.limit(limit)],
+			queries: withLimit(queries, limit),
 			search: searchArg,
 		});
-		return toItems(response.tables as unknown as IDataObject[]);
+		return toItems(response.tables as unknown as IDataObject[], i);
 	}
 
 	if (operation === 'update') {
@@ -84,13 +88,13 @@ export async function executeTableOperation(
 			rowSecurity,
 			enabled,
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'delete') {
 		const tableId = this.getNodeParameter('tableId', i) as string;
 		await tablesDB.deleteTable({ databaseId, tableId });
-		return toItems({ success: true, databaseId, tableId });
+		return toItems({ success: true, databaseId, tableId }, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown table operation "${operation}"`, {

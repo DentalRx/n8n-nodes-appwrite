@@ -2,6 +2,8 @@ import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-wor
 import { NodeOperationError } from 'n8n-workflow';
 import { Browser, CreditCard, type Avatars, type Flag } from 'node-appwrite';
 
+import { lookupEnum, stripHexHash } from '../GenericFunctions';
+
 const BROWSER_MAP: Record<string, Browser> = {
 	aa: Browser.AvantBrowser,
 	an: Browser.AndroidWebViewBeta,
@@ -73,14 +75,9 @@ export async function executeAvatarOperation(
 	};
 
 	if (operation === 'getBrowser') {
-		const code = this.getNodeParameter('code', i) as string;
+		const code = this.getNodeParameter('browserCode', i) as string;
 		const options = this.getNodeParameter('options', i, {}) as ImageOptions;
-		const browser = BROWSER_MAP[code];
-		if (!browser) {
-			throw new NodeOperationError(this.getNode(), `Unknown browser code "${code}"`, {
-				itemIndex: i,
-			});
-		}
+		const browser = lookupEnum(this, BROWSER_MAP, code, 'browser code', i);
 		const arrayBuffer = await avatars.getBrowser({
 			code: browser,
 			width: options.width,
@@ -91,14 +88,9 @@ export async function executeAvatarOperation(
 	}
 
 	if (operation === 'getCreditCard') {
-		const code = this.getNodeParameter('code', i) as string;
+		const code = this.getNodeParameter('creditCardCode', i) as string;
 		const options = this.getNodeParameter('options', i, {}) as ImageOptions;
-		const creditCard = CREDIT_CARD_MAP[code];
-		if (!creditCard) {
-			throw new NodeOperationError(this.getNode(), `Unknown credit card code "${code}"`, {
-				itemIndex: i,
-			});
-		}
+		const creditCard = lookupEnum(this, CREDIT_CARD_MAP, code, 'credit card code', i);
 		const arrayBuffer = await avatars.getCreditCard({
 			code: creditCard,
 			width: options.width,
@@ -127,8 +119,14 @@ export async function executeAvatarOperation(
 	}
 
 	if (operation === 'getFlag') {
-		const code = this.getNodeParameter('code', i) as string;
+		const code = (this.getNodeParameter('countryCode', i) as string).trim().toLowerCase();
 		const options = this.getNodeParameter('options', i, {}) as ImageOptions;
+		if (!/^[a-z]{2}$/.test(code)) {
+			throw new NodeOperationError(this.getNode(), `"${code}" is not a two-letter country code`, {
+				itemIndex: i,
+				description: 'Use an ISO 3166-1 alpha-2 code such as us, ca or de.',
+			});
+		}
 		const arrayBuffer = await avatars.getFlag({
 			code: code as Flag,
 			width: options.width,
@@ -160,7 +158,7 @@ export async function executeAvatarOperation(
 			name: options.name === '' ? undefined : options.name,
 			width: options.width,
 			height: options.height,
-			background: options.background === '' ? undefined : options.background,
+			background: stripHexHash(options.background),
 		});
 		return await toBinaryItem(arrayBuffer, 'initials.png', { ...options });
 	}

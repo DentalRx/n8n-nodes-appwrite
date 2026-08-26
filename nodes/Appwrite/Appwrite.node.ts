@@ -40,6 +40,19 @@ import { executeTopicOperation } from './operations/TopicOperations';
 import { executeTransactionOperation } from './operations/TransactionOperations';
 import { executeUserOperation } from './operations/UserOperations';
 
+interface AppwriteServices {
+	avatars: Avatars;
+	functions: Functions;
+	health: Health;
+	locale: Locale;
+	messaging: Messaging;
+	storage: Storage;
+	tablesDB: TablesDB;
+	teams: Teams;
+	tokens: Tokens;
+	users: Users;
+}
+
 export class Appwrite implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Appwrite',
@@ -69,22 +82,42 @@ export class Appwrite implements INodeType {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 
-		const client = await getAppwriteClient.call(this);
-		const resource = this.getNodeParameter('resource', 0) as string;
-
-		const tablesDB = new TablesDB(client);
-		const storage = new Storage(client);
-		const functions = new Functions(client);
-		const users = new Users(client);
-		const teams = new Teams(client);
-		const messaging = new Messaging(client);
-		const locale = new Locale(client);
-		const health = new Health(client);
-		const avatars = new Avatars(client);
-		const tokens = new Tokens(client);
+		// Built on first use so that a credential failure is reported per item and
+		// honours "Continue On Fail" like any other error.
+		let services: AppwriteServices | undefined;
 
 		for (let i = 0; i < items.length; i++) {
 			try {
+				if (services === undefined) {
+					const client = await getAppwriteClient.call(this);
+					services = {
+						avatars: new Avatars(client),
+						functions: new Functions(client),
+						health: new Health(client),
+						locale: new Locale(client),
+						messaging: new Messaging(client),
+						storage: new Storage(client),
+						tablesDB: new TablesDB(client),
+						teams: new Teams(client),
+						tokens: new Tokens(client),
+						users: new Users(client),
+					};
+				}
+				const {
+					avatars,
+					functions,
+					health,
+					locale,
+					messaging,
+					storage,
+					tablesDB,
+					teams,
+					tokens,
+					users,
+				} = services;
+
+				// Read per item: both may be driven by an expression.
+				const resource = this.getNodeParameter('resource', i) as string;
 				const operation = this.getNodeParameter('operation', i) as string;
 
 				let results: INodeExecutionData[];
@@ -149,7 +182,8 @@ export class Appwrite implements INodeType {
 						});
 				}
 
-				returnData.push(...results);
+				// Spreading would blow the argument limit on large Return All results.
+				for (const result of results) returnData.push(result);
 			} catch (error) {
 				if (this.continueOnFail()) {
 					const message = error instanceof Error ? error.message : String(error);

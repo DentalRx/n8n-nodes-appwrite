@@ -95,7 +95,7 @@ export const tokenFields: INodeProperties[] = [
 	},
 	{
 		displayName: 'Expire',
-		name: 'expire',
+		name: 'expiresAt',
 		type: 'string',
 		default: '',
 		placeholder: '2030-01-01T00:00:00.000Z',

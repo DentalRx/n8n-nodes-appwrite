@@ -316,7 +316,7 @@ export const userFields: INodeProperties[] = [
 	},
 	{
 		displayName: 'Expire (Seconds)',
-		name: 'expire',
+		name: 'expireSeconds',
 		type: 'number',
 		typeOptions: { minValue: 1 },
 		default: 900,

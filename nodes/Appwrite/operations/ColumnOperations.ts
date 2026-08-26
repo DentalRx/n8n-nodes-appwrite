@@ -1,13 +1,16 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import {
-	Query,
-	RelationMutate,
-	RelationshipType,
-	type TablesDB,
-} from 'node-appwrite';
+import { RelationMutate, RelationshipType, type TablesDB } from 'node-appwrite';
 
-import { buildQueries, fetchAllPages, parseJsonArrayParameter } from '../GenericFunctions';
+import {
+	buildQueries,
+	fetchAllPages,
+	getStringListParameter,
+	lookupEnum,
+	parseJsonArrayParameter,
+	toItems,
+	withLimit,
+} from '../GenericFunctions';
 
 const RELATION_MUTATE_MAP: Record<string, RelationMutate> = {
 	cascade: RelationMutate.Cascade,
@@ -31,21 +34,16 @@ export async function executeColumnOperation(
 	const databaseId = this.getNodeParameter('databaseId', i) as string;
 	const tableId = this.getNodeParameter('tableId', i) as string;
 
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
 	if (operation === 'get') {
 		const key = this.getNodeParameter('key', i) as string;
 		const response = await tablesDB.getColumn({ databaseId, tableId, key });
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'delete') {
 		const key = this.getNodeParameter('key', i) as string;
 		await tablesDB.deleteColumn({ databaseId, tableId, key });
-		return toItems({ success: true, databaseId, tableId, key });
+		return toItems({ success: true, databaseId, tableId, key }, i);
 	}
 
 	if (operation === 'getMany') {
@@ -54,6 +52,8 @@ export async function executeColumnOperation(
 
 		if (returnAll) {
 			const columns = await fetchAllPages(
+				this,
+				i,
 				queries,
 				async (pageQueries) =>
 					(await tablesDB.listColumns({
@@ -63,16 +63,16 @@ export async function executeColumnOperation(
 					})) as unknown as IDataObject,
 				'columns',
 			);
-			return toItems(columns as unknown as IDataObject[]);
+			return toItems(columns as unknown as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
 		const response = await tablesDB.listColumns({
 			databaseId,
 			tableId,
-			queries: [...queries, Query.limit(limit)],
+			queries: withLimit(queries, limit),
 		});
-		return toItems(response.columns as unknown as IDataObject[]);
+		return toItems(response.columns as unknown as IDataObject[], i);
 	}
 
 	if (operation !== 'create' && operation !== 'update') {
@@ -87,7 +87,7 @@ export async function executeColumnOperation(
 	// Relationship columns have their own parameter set.
 	if (columnType === 'relationship') {
 		const onDeleteRaw = this.getNodeParameter('onDelete', i, 'restrict') as string;
-		const onDelete = RELATION_MUTATE_MAP[onDeleteRaw];
+		const onDelete = lookupEnum(this, RELATION_MUTATE_MAP, onDeleteRaw, 'on-delete action', i);
 
 		if (isCreate) {
 			const relatedTableId = this.getNodeParameter('relatedTableId', i) as string;
@@ -99,13 +99,13 @@ export async function executeColumnOperation(
 				databaseId,
 				tableId,
 				relatedTableId,
-				type: RELATIONSHIP_TYPE_MAP[typeRaw],
+				type: lookupEnum(this, RELATIONSHIP_TYPE_MAP, typeRaw, 'relationship type', i),
 				twoWay,
 				key: relationshipKey === '' ? undefined : relationshipKey,
 				twoWayKey: twoWayKey === '' ? undefined : twoWayKey,
 				onDelete,
 			});
-			return toItems(response as unknown as IDataObject);
+			return toItems(response as unknown as IDataObject, i);
 		}
 
 		const key = this.getNodeParameter('key', i) as string;
@@ -117,7 +117,7 @@ export async function executeColumnOperation(
 			onDelete,
 			newKey: newKeyRaw === '' ? undefined : newKeyRaw,
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	// All other column types share a common parameter set.
@@ -170,17 +170,6 @@ export async function executeColumnOperation(
 	const spatialDefault = (): unknown[] | undefined => {
 		if (defaultRaw === '') return undefined;
 		return parseJsonArrayParameter.call(this, defaultRaw, 'defaultValue', i);
-	};
-
-	const getElements = (): string[] => {
-		const raw = this.getNodeParameter('elements', i) as string;
-		if (raw.trim().startsWith('[')) {
-			return parseJsonArrayParameter.call(this, raw, 'elements', i).map((e) => String(e));
-		}
-		return raw
-			.split(',')
-			.map((e) => e.trim())
-			.filter((e) => e !== '');
 	};
 
 	let response: IDataObject;
@@ -256,7 +245,7 @@ export async function executeColumnOperation(
 							databaseId,
 							tableId,
 							key,
-							elements: getElements(),
+							elements: getStringListParameter.call(this, 'elements', i),
 							required,
 							xdefault: stringDefault,
 							array,
@@ -265,7 +254,7 @@ export async function executeColumnOperation(
 							databaseId,
 							tableId,
 							key,
-							elements: getElements(),
+							elements: getStringListParameter.call(this, 'elements', i),
 							required,
 							xdefault: stringDefault,
 							newKey,
@@ -466,5 +455,5 @@ export async function executeColumnOperation(
 			});
 	}
 
-	return toItems(response);
+	return toItems(response, i);
 }

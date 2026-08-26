@@ -86,7 +86,9 @@ Row operations support:
 ## Usage notes
 
 - **IDs**: leave any ID field empty (or type `unique()`) on create operations to auto-generate a unique ID.
-- **Permissions**: enter one permission string per line (or a JSON array), e.g. `read("any")`, `update("user:abc")`, `delete("team:abc/owner")`.
+- **Permissions**: enter one permission string per line (or a JSON array), e.g. `read("any")`, `update("user:abc")`, `delete("team:abc/owner")`. Leaving the field blank on an update keeps the resource's existing permissions; enter `[]` to clear them.
+- **Updates are non-destructive**: Appwrite's bucket and function update endpoints replace the whole configuration, so the node reads the current bucket/function first and resends any setting you did not change. Renaming a bucket will not reset its file-size limit or extension allowlist, and renaming a function will not clear its schedule, event triggers or linked repository.
+- **Lists**: fields that take several values (file extensions, execute roles, events, scopes, index columns, `Select` queries) accept either a comma-separated string or a JSON array.
 - **AI agents**: the node sets `usableAsTool`, so it can be used as a tool by n8n AI Agent nodes.
 - **Legacy Databases API**: this node intentionally targets the TablesDB API. If you still run an Appwrite version without TablesDB (< 1.8), use a legacy community node instead.
 

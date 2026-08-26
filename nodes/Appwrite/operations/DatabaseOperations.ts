@@ -1,8 +1,8 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { ID, Query, type TablesDB } from 'node-appwrite';
+import { type TablesDB } from 'node-appwrite';
 
-import { buildQueries, fetchAllPages } from '../GenericFunctions';
+import { buildQueries, fetchAllPages, resolveId, toItems, withLimit } from '../GenericFunctions';
 
 export async function executeDatabaseOperation(
 	this: IExecuteFunctions,
@@ -10,24 +10,19 @@ export async function executeDatabaseOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
 	if (operation === 'create') {
 		const rawId = this.getNodeParameter('databaseId', i, '') as string;
-		const databaseId = rawId === '' || rawId === 'unique()' ? ID.unique() : rawId;
+		const databaseId = resolveId(rawId);
 		const name = this.getNodeParameter('name', i) as string;
 		const enabled = this.getNodeParameter('enabled', i, true) as boolean;
 		const response = await tablesDB.create({ databaseId, name, enabled });
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'get') {
 		const databaseId = this.getNodeParameter('databaseId', i) as string;
 		const response = await tablesDB.get({ databaseId });
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'getMany') {
@@ -38,20 +33,25 @@ export async function executeDatabaseOperation(
 
 		if (returnAll) {
 			const databases = await fetchAllPages(
+				this,
+				i,
 				queries,
 				async (pageQueries) =>
-					(await tablesDB.list({ queries: pageQueries, search: searchArg })) as unknown as IDataObject,
+					(await tablesDB.list({
+						queries: pageQueries,
+						search: searchArg,
+					})) as unknown as IDataObject,
 				'databases',
 			);
-			return toItems(databases as unknown as IDataObject[]);
+			return toItems(databases as unknown as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
 		const response = await tablesDB.list({
-			queries: [...queries, Query.limit(limit)],
+			queries: withLimit(queries, limit),
 			search: searchArg,
 		});
-		return toItems(response.databases as unknown as IDataObject[]);
+		return toItems(response.databases as unknown as IDataObject[], i);
 	}
 
 	if (operation === 'update') {
@@ -59,13 +59,13 @@ export async function executeDatabaseOperation(
 		const name = this.getNodeParameter('name', i) as string;
 		const enabled = this.getNodeParameter('enabled', i, true) as boolean;
 		const response = await tablesDB.update({ databaseId, name, enabled });
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'delete') {
 		const databaseId = this.getNodeParameter('databaseId', i) as string;
 		await tablesDB.delete({ databaseId });
-		return toItems({ success: true, databaseId });
+		return toItems({ success: true, databaseId }, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown database operation "${operation}"`, {

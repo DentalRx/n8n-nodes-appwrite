@@ -1,6 +1,6 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { ID, Query, type TablesDB } from 'node-appwrite';
+import { type TablesDB } from 'node-appwrite';
 
 import {
 	buildQueries,
@@ -8,11 +8,10 @@ import {
 	getPermissions,
 	getRowData,
 	parseJsonArrayParameter,
+	resolveId,
+	toItems,
+	withLimit,
 } from '../GenericFunctions';
-
-function resolveRowId(rawId: string): string {
-	return rawId === '' || rawId === 'unique()' ? ID.unique() : rawId;
-}
 
 export async function executeRowOperation(
 	this: IExecuteFunctions,
@@ -29,13 +28,8 @@ export async function executeRowOperation(
 	};
 	const transactionId = options.transactionId || undefined;
 
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
 	if (operation === 'create') {
-		const rowId = resolveRowId(this.getNodeParameter('rowId', i, '') as string);
+		const rowId = resolveId(this.getNodeParameter('rowId', i, '') as string);
 		const data = getRowData.call(this, i);
 		const permissions = getPermissions.call(this, i);
 		const response = await tablesDB.createRow({
@@ -46,7 +40,7 @@ export async function executeRowOperation(
 			permissions,
 			transactionId,
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'createMany') {
@@ -57,7 +51,7 @@ export async function executeRowOperation(
 			i,
 		) as object[];
 		const response = await tablesDB.createRows({ databaseId, tableId, rows, transactionId });
-		return toItems(response.rows as unknown as IDataObject[]);
+		return toItems(response.rows as unknown as IDataObject[], i);
 	}
 
 	if (operation === 'get') {
@@ -70,7 +64,7 @@ export async function executeRowOperation(
 			queries: queries.length > 0 ? queries : undefined,
 			transactionId,
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'getMany') {
@@ -79,6 +73,8 @@ export async function executeRowOperation(
 
 		if (returnAll) {
 			const rows = await fetchAllPages(
+				this,
+				i,
 				queries,
 				async (pageQueries) =>
 					(await tablesDB.listRows({
@@ -89,25 +85,17 @@ export async function executeRowOperation(
 					})) as unknown as IDataObject,
 				'rows',
 			);
-			return toItems(rows as unknown as IDataObject[]);
+			return toItems(rows as unknown as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const hasLimit = queries.some((q) => {
-			try {
-				return (JSON.parse(q) as { method?: string }).method === 'limit';
-			} catch {
-				return false;
-			}
-		});
-		const finalQueries = hasLimit ? queries : [...queries, Query.limit(limit)];
 		const response = await tablesDB.listRows({
 			databaseId,
 			tableId,
-			queries: finalQueries,
+			queries: withLimit(queries, limit),
 			transactionId,
 		});
-		return toItems(response.rows as unknown as IDataObject[]);
+		return toItems(response.rows as unknown as IDataObject[], i);
 	}
 
 	if (operation === 'update') {
@@ -122,7 +110,7 @@ export async function executeRowOperation(
 			permissions,
 			transactionId,
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'updateMany') {
@@ -135,11 +123,11 @@ export async function executeRowOperation(
 			queries: queries.length > 0 ? queries : undefined,
 			transactionId,
 		});
-		return toItems(response.rows as unknown as IDataObject[]);
+		return toItems(response.rows as unknown as IDataObject[], i);
 	}
 
 	if (operation === 'upsert') {
-		const rowId = resolveRowId(this.getNodeParameter('rowId', i, '') as string);
+		const rowId = resolveId(this.getNodeParameter('rowId', i, '') as string);
 		const data = getRowData.call(this, i);
 		const permissions = getPermissions.call(this, i);
 		const response = await tablesDB.upsertRow({
@@ -150,7 +138,7 @@ export async function executeRowOperation(
 			permissions,
 			transactionId,
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'upsertMany') {
@@ -161,13 +149,13 @@ export async function executeRowOperation(
 			i,
 		) as object[];
 		const response = await tablesDB.upsertRows({ databaseId, tableId, rows, transactionId });
-		return toItems(response.rows as unknown as IDataObject[]);
+		return toItems(response.rows as unknown as IDataObject[], i);
 	}
 
 	if (operation === 'delete') {
 		const rowId = this.getNodeParameter('rowId', i) as string;
 		await tablesDB.deleteRow({ databaseId, tableId, rowId, transactionId });
-		return toItems({ success: true, rowId });
+		return toItems({ success: true, rowId }, i);
 	}
 
 	if (operation === 'deleteMany') {
@@ -178,13 +166,14 @@ export async function executeRowOperation(
 			queries: queries.length > 0 ? queries : undefined,
 			transactionId,
 		});
-		return toItems(response as unknown as IDataObject);
+		// One item per deleted row, matching Create/Update/Upsert Many.
+		return toItems(response.rows as unknown as IDataObject[], i);
 	}
 
 	if (operation === 'increment') {
 		const rowId = this.getNodeParameter('rowId', i) as string;
 		const column = this.getNodeParameter('column', i) as string;
-		const value = this.getNodeParameter('value', i, 1) as number;
+		const value = this.getNodeParameter('amount', i, 1) as number;
 		const response = await tablesDB.incrementRowColumn({
 			databaseId,
 			tableId,
@@ -194,13 +183,13 @@ export async function executeRowOperation(
 			max: options.max,
 			transactionId,
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'decrement') {
 		const rowId = this.getNodeParameter('rowId', i) as string;
 		const column = this.getNodeParameter('column', i) as string;
-		const value = this.getNodeParameter('value', i, 1) as number;
+		const value = this.getNodeParameter('amount', i, 1) as number;
 		const response = await tablesDB.decrementRowColumn({
 			databaseId,
 			tableId,
@@ -210,7 +199,7 @@ export async function executeRowOperation(
 			min: options.min,
 			transactionId,
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown row operation "${operation}"`, {

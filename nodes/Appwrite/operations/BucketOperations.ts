@@ -1,12 +1,16 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { Compression, ID, Query, type Storage } from 'node-appwrite';
+import { Compression, type Models, type Storage } from 'node-appwrite';
 
 import {
 	buildQueries,
 	fetchAllPages,
 	getPermissions,
-	parseJsonArrayParameter,
+	lookupEnum,
+	parseStringList,
+	resolveId,
+	toItems,
+	withLimit,
 } from '../GenericFunctions';
 
 const COMPRESSION_MAP: Record<string, Compression> = {
@@ -14,6 +18,8 @@ const COMPRESSION_MAP: Record<string, Compression> = {
 	none: Compression.None,
 	zstd: Compression.Zstd,
 };
+
+type Bucket = Models.Bucket;
 
 interface BucketOptions {
 	allowedFileExtensions?: string;
@@ -31,42 +37,35 @@ export async function executeBucketOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
-	const parseList = (raw: string, name: string): string[] => {
-		if (raw.trim() === '') return [];
-		if (raw.trim().startsWith('[')) {
-			return parseJsonArrayParameter.call(this, raw, name, i).map((e) => String(e));
-		}
-		return raw
-			.split(',')
-			.map((e) => e.trim())
-			.filter((e) => e !== '');
-	};
-
-	const getBucketOptionArgs = () => {
+	const getBucketOptionArgs = (current?: Bucket) => {
 		const options = this.getNodeParameter('options', i, {}) as BucketOptions;
-		const allowedFileExtensions = parseList(
+		const extensions = parseStringList.call(
+			this,
 			options.allowedFileExtensions ?? '',
 			'allowedFileExtensions',
+			i,
 		);
+		const allowedFileExtensions =
+			options.allowedFileExtensions === undefined ? current?.allowedFileExtensions : extensions;
 		return {
-			fileSecurity: options.fileSecurity,
-			enabled: options.enabled,
-			maximumFileSize: options.maximumFileSize,
-			allowedFileExtensions: allowedFileExtensions.length > 0 ? allowedFileExtensions : undefined,
-			compression: options.compression ? COMPRESSION_MAP[options.compression] : undefined,
-			encryption: options.encryption,
-			antivirus: options.antivirus,
+			fileSecurity: options.fileSecurity ?? current?.fileSecurity,
+			enabled: options.enabled ?? current?.enabled,
+			maximumFileSize: options.maximumFileSize ?? current?.maximumFileSize,
+			allowedFileExtensions:
+				allowedFileExtensions !== undefined && allowedFileExtensions.length > 0
+					? allowedFileExtensions
+					: undefined,
+			compression: options.compression
+				? lookupEnum(this, COMPRESSION_MAP, options.compression, 'compression algorithm', i)
+				: (current?.compression as Compression | undefined),
+			encryption: options.encryption ?? current?.encryption,
+			antivirus: options.antivirus ?? current?.antivirus,
 		};
 	};
 
 	if (operation === 'create') {
 		const rawBucketId = this.getNodeParameter('bucketId', i, '') as string;
-		const bucketId = rawBucketId === '' || rawBucketId === 'unique()' ? ID.unique() : rawBucketId;
+		const bucketId = resolveId(rawBucketId);
 		const name = this.getNodeParameter('name', i) as string;
 		const permissions = getPermissions.call(this, i);
 		const response = await storage.createBucket({
@@ -75,13 +74,13 @@ export async function executeBucketOperation(
 			permissions,
 			...getBucketOptionArgs(),
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'get') {
 		const bucketId = this.getNodeParameter('bucketId', i) as string;
 		const response = await storage.getBucket({ bucketId });
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'getMany') {
@@ -92,6 +91,8 @@ export async function executeBucketOperation(
 
 		if (returnAll) {
 			const buckets = await fetchAllPages(
+				this,
+				i,
 				queries,
 				async (pageQueries) =>
 					(await storage.listBuckets({
@@ -100,34 +101,38 @@ export async function executeBucketOperation(
 					})) as unknown as IDataObject,
 				'buckets',
 			);
-			return toItems(buckets as unknown as IDataObject[]);
+			return toItems(buckets as unknown as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
 		const response = await storage.listBuckets({
-			queries: [...queries, Query.limit(limit)],
+			queries: withLimit(queries, limit),
 			search: searchArg,
 		});
-		return toItems(response.buckets as unknown as IDataObject[]);
+		return toItems(response.buckets as unknown as IDataObject[], i);
 	}
 
 	if (operation === 'update') {
 		const bucketId = this.getNodeParameter('bucketId', i) as string;
 		const name = this.getNodeParameter('name', i) as string;
 		const permissions = getPermissions.call(this, i);
+		// Appwrite's bucket update is a full replace: any setting left out of the
+		// request is reset to the API's own default rather than kept. Read the
+		// bucket first so options the user did not touch survive the update.
+		const current = await storage.getBucket({ bucketId });
 		const response = await storage.updateBucket({
 			bucketId,
 			name,
 			permissions,
-			...getBucketOptionArgs(),
+			...getBucketOptionArgs(current),
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'delete') {
 		const bucketId = this.getNodeParameter('bucketId', i) as string;
 		await storage.deleteBucket({ bucketId });
-		return toItems({ success: true, bucketId });
+		return toItems({ success: true, bucketId }, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown bucket operation "${operation}"`, {

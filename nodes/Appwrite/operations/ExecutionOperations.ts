@@ -1,8 +1,15 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { ExecutionMethod, Query, type Functions } from 'node-appwrite';
+import { ExecutionMethod, type Functions } from 'node-appwrite';
 
-import { buildQueries, fetchAllPages, parseJsonParameter } from '../GenericFunctions';
+import {
+	buildQueries,
+	fetchAllPages,
+	lookupEnum,
+	parseJsonParameter,
+	toItems,
+	withLimit,
+} from '../GenericFunctions';
 
 const EXECUTION_METHOD_MAP: Record<string, ExecutionMethod> = {
 	DELETE: ExecutionMethod.DELETE,
@@ -29,11 +36,6 @@ export async function executeExecutionOperation(
 ): Promise<INodeExecutionData[]> {
 	const functionId = this.getNodeParameter('functionId', i) as string;
 
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
 	if (operation === 'create') {
 		const body = this.getNodeParameter('body', i, '') as string;
 		const async = this.getNodeParameter('async', i, false) as boolean;
@@ -47,23 +49,25 @@ export async function executeExecutionOperation(
 			body: body === '' ? undefined : body,
 			async,
 			xpath: options.xpath === '' ? undefined : options.xpath,
-			method: options.method ? EXECUTION_METHOD_MAP[options.method] : undefined,
+			method: options.method
+				? lookupEnum(this, EXECUTION_METHOD_MAP, options.method, 'HTTP method', i)
+				: undefined,
 			headers: headers && Object.keys(headers).length > 0 ? headers : undefined,
 			scheduledAt: options.scheduledAt === '' ? undefined : options.scheduledAt,
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'delete') {
 		const executionId = this.getNodeParameter('executionId', i) as string;
 		await functions.deleteExecution({ functionId, executionId });
-		return toItems({ success: true, functionId, executionId });
+		return toItems({ success: true, functionId, executionId }, i);
 	}
 
 	if (operation === 'get') {
 		const executionId = this.getNodeParameter('executionId', i) as string;
 		const response = await functions.getExecution({ functionId, executionId });
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'getMany') {
@@ -72,6 +76,8 @@ export async function executeExecutionOperation(
 
 		if (returnAll) {
 			const executions = await fetchAllPages(
+				this,
+				i,
 				queries,
 				async (pageQueries) =>
 					(await functions.listExecutions({
@@ -80,15 +86,15 @@ export async function executeExecutionOperation(
 					})) as unknown as IDataObject,
 				'executions',
 			);
-			return toItems(executions as unknown as IDataObject[]);
+			return toItems(executions as unknown as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
 		const response = await functions.listExecutions({
 			functionId,
-			queries: [...queries, Query.limit(limit)],
+			queries: withLimit(queries, limit),
 		});
-		return toItems(response.executions as unknown as IDataObject[]);
+		return toItems(response.executions as unknown as IDataObject[], i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown execution operation "${operation}"`, {

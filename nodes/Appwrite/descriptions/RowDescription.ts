@@ -251,7 +251,7 @@ export const rowFields: INodeProperties[] = [
 	},
 	{
 		displayName: 'Value',
-		name: 'value',
+		name: 'amount',
 		type: 'number',
 		default: 1,
 		description: 'The amount to change the column by',

@@ -62,7 +62,7 @@ export const avatarOperations: INodeProperties[] = [
 export const avatarFields: INodeProperties[] = [
 	{
 		displayName: 'Browser Code',
-		name: 'code',
+		name: 'browserCode',
 		type: 'options',
 		options: [
 			{ name: 'Android WebView Beta', value: 'an' },
@@ -91,7 +91,7 @@ export const avatarFields: INodeProperties[] = [
 	},
 	{
 		displayName: 'Credit Card Code',
-		name: 'code',
+		name: 'creditCardCode',
 		type: 'options',
 		options: [
 			{ name: 'American Express', value: 'amex' },
@@ -138,7 +138,7 @@ export const avatarFields: INodeProperties[] = [
 	},
 	{
 		displayName: 'Country Code',
-		name: 'code',
+		name: 'countryCode',
 		type: 'string',
 		required: true,
 		default: '',
@@ -270,7 +270,8 @@ export const avatarFields: INodeProperties[] = [
 				type: 'string',
 				default: '',
 				placeholder: 'fd366e',
-				description: 'Background color as a hex value. Leave empty for a random color that stays persistent for the given name.',
+				description:
+					'Background color as a hex value. Leave empty for a random color that stays persistent for the given name.',
 			},
 			{
 				displayName: 'Height',

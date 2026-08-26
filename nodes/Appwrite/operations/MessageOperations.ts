@@ -1,13 +1,17 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { ID, MessagePriority, Query, type Messaging } from 'node-appwrite';
+import { MessagePriority, type Messaging } from 'node-appwrite';
 
 import {
 	buildQueries,
 	fetchAllPages,
 	fetchAllPagesByOffset,
-	parseJsonArrayParameter,
+	lookupEnum,
 	parseJsonParameter,
+	parseStringList,
+	resolveId,
+	toItems,
+	withLimit,
 } from '../GenericFunctions';
 
 const PRIORITY_MAP: Record<string, MessagePriority> = {
@@ -65,29 +69,10 @@ export async function executeMessageOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
-	const parseList = (raw: string, name: string): string[] => {
-		if (raw.trim() === '') return [];
-		if (raw.trim().startsWith('[')) {
-			return parseJsonArrayParameter.call(this, raw, name, i).map((e) => String(e));
-		}
-		return raw
-			.split(',')
-			.map((e) => e.trim())
-			.filter((e) => e !== '');
-	};
-
 	const listOrUndefined = (raw: string | undefined, name: string): string[] | undefined => {
-		const list = parseList(raw ?? '', name);
+		const list = parseStringList.call(this, raw ?? '', name, i);
 		return list.length > 0 ? list : undefined;
 	};
-
-	const resolveMessageId = (rawId: string): string =>
-		rawId === '' || rawId === 'unique()' ? ID.unique() : rawId;
 
 	const getRecipients = () => {
 		const topics = listOrUndefined(this.getNodeParameter('topics', i, '') as string, 'topics');
@@ -97,7 +82,7 @@ export async function executeMessageOperation(
 	};
 
 	if (operation === 'createEmail') {
-		const messageId = resolveMessageId(this.getNodeParameter('messageId', i, '') as string);
+		const messageId = resolveId(this.getNodeParameter('messageId', i, '') as string);
 		const subject = this.getNodeParameter('subject', i) as string;
 		const content = this.getNodeParameter('content', i) as string;
 		const { topics, users, targets } = getRecipients();
@@ -123,11 +108,11 @@ export async function executeMessageOperation(
 			html: options.html,
 			scheduledAt: options.scheduledAt || undefined,
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'createPush') {
-		const messageId = resolveMessageId(this.getNodeParameter('messageId', i, '') as string);
+		const messageId = resolveId(this.getNodeParameter('messageId', i, '') as string);
 		const title = this.getNodeParameter('title', i, '') as string;
 		const body = this.getNodeParameter('body', i, '') as string;
 		const { topics, users, targets } = getRecipients();
@@ -161,13 +146,16 @@ export async function executeMessageOperation(
 			scheduledAt: options.scheduledAt || undefined,
 			contentAvailable: options.contentAvailable,
 			critical: options.critical,
-			priority: options.priority === undefined ? undefined : PRIORITY_MAP[options.priority],
+			priority:
+				options.priority === undefined
+					? undefined
+					: lookupEnum(this, PRIORITY_MAP, options.priority, 'priority', i),
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'createSMS') {
-		const messageId = resolveMessageId(this.getNodeParameter('messageId', i, '') as string);
+		const messageId = resolveId(this.getNodeParameter('messageId', i, '') as string);
 		const content = this.getNodeParameter('content', i) as string;
 		const { topics, users, targets } = getRecipients();
 		if (!topics && !users && !targets) {
@@ -187,19 +175,19 @@ export async function executeMessageOperation(
 			draft: options.draft,
 			scheduledAt: options.scheduledAt || undefined,
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'delete') {
 		const messageId = this.getNodeParameter('messageId', i) as string;
 		await messaging.delete({ messageId });
-		return toItems({ success: true, messageId });
+		return toItems({ success: true, messageId }, i);
 	}
 
 	if (operation === 'get') {
 		const messageId = this.getNodeParameter('messageId', i) as string;
 		const response = await messaging.getMessage({ messageId });
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'getMany') {
@@ -210,6 +198,8 @@ export async function executeMessageOperation(
 
 		if (returnAll) {
 			const messages = await fetchAllPages(
+				this,
+				i,
 				queries,
 				async (pageQueries) =>
 					(await messaging.listMessages({
@@ -218,15 +208,15 @@ export async function executeMessageOperation(
 					})) as unknown as IDataObject,
 				'messages',
 			);
-			return toItems(messages as unknown as IDataObject[]);
+			return toItems(messages as unknown as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
 		const response = await messaging.listMessages({
-			queries: [...queries, Query.limit(limit)],
+			queries: withLimit(queries, limit),
 			search: searchArg,
 		});
-		return toItems(response.messages as unknown as IDataObject[]);
+		return toItems(response.messages as unknown as IDataObject[], i);
 	}
 
 	if (operation === 'getManyLogs') {
@@ -237,6 +227,8 @@ export async function executeMessageOperation(
 
 		if (returnAll) {
 			const logs = await fetchAllPagesByOffset(
+				this,
+				i,
 				queries,
 				async (pageQueries) =>
 					(await messaging.listMessageLogs({
@@ -245,15 +237,15 @@ export async function executeMessageOperation(
 					})) as unknown as IDataObject,
 				'logs',
 			);
-			return toItems(logs as unknown as IDataObject[]);
+			return toItems(logs as unknown as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
 		const response = await messaging.listMessageLogs({
 			messageId,
-			queries: [...queries, Query.limit(limit)],
+			queries: withLimit(queries, limit),
 		});
-		return toItems(response.logs as unknown as IDataObject[]);
+		return toItems(response.logs as unknown as IDataObject[], i);
 	}
 
 	if (operation === 'getManyTargets') {
@@ -263,6 +255,8 @@ export async function executeMessageOperation(
 
 		if (returnAll) {
 			const targets = await fetchAllPages(
+				this,
+				i,
 				queries,
 				async (pageQueries) =>
 					(await messaging.listTargets({
@@ -271,15 +265,15 @@ export async function executeMessageOperation(
 					})) as unknown as IDataObject,
 				'targets',
 			);
-			return toItems(targets as unknown as IDataObject[]);
+			return toItems(targets as unknown as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
 		const response = await messaging.listTargets({
 			messageId,
-			queries: [...queries, Query.limit(limit)],
+			queries: withLimit(queries, limit),
 		});
-		return toItems(response.targets as unknown as IDataObject[]);
+		return toItems(response.targets as unknown as IDataObject[], i);
 	}
 
 	if (operation === 'updateEmail') {
@@ -299,7 +293,7 @@ export async function executeMessageOperation(
 			scheduledAt: updateFields.scheduledAt || undefined,
 			attachments: listOrUndefined(updateFields.attachments, 'attachments'),
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'updatePush') {
@@ -328,9 +322,11 @@ export async function executeMessageOperation(
 			contentAvailable: updateFields.contentAvailable,
 			critical: updateFields.critical,
 			priority:
-				updateFields.priority === undefined ? undefined : PRIORITY_MAP[updateFields.priority],
+				updateFields.priority === undefined
+					? undefined
+					: lookupEnum(this, PRIORITY_MAP, updateFields.priority, 'priority', i),
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'updateSMS') {
@@ -345,7 +341,7 @@ export async function executeMessageOperation(
 			draft: updateFields.draft,
 			scheduledAt: updateFields.scheduledAt || undefined,
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown message operation "${operation}"`, {

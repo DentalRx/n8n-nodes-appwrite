@@ -28,7 +28,7 @@
 	},
 	"scripts": {
 		"build": "tsc && npm run copy-assets",
-		"copy-assets": "cp nodes/Appwrite/appwrite.svg dist/nodes/Appwrite/",
+		"copy-assets": "cp nodes/Appwrite/appwrite.svg nodes/Appwrite/Appwrite.node.json dist/nodes/Appwrite/",
 		"dev": "tsc --watch",
 		"lint": "eslint nodes credentials --ext .ts",
 		"lint:fix": "eslint nodes credentials --ext .ts --fix",

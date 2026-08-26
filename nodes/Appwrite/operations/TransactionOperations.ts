@@ -1,8 +1,14 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { Query, type TablesDB } from 'node-appwrite';
+import { type TablesDB } from 'node-appwrite';
 
-import { buildQueries, fetchAllPages, parseJsonArrayParameter } from '../GenericFunctions';
+import {
+	buildQueries,
+	fetchAllPages,
+	parseJsonArrayParameter,
+	toItems,
+	withLimit,
+} from '../GenericFunctions';
 
 export async function executeTransactionOperation(
 	this: IExecuteFunctions,
@@ -10,21 +16,16 @@ export async function executeTransactionOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
 	if (operation === 'create') {
 		const ttl = this.getNodeParameter('ttl', i, 300) as number;
 		const response = await tablesDB.createTransaction({ ttl });
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'get') {
 		const transactionId = this.getNodeParameter('transactionId', i) as string;
 		const response = await tablesDB.getTransaction({ transactionId });
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'getMany') {
@@ -33,19 +34,21 @@ export async function executeTransactionOperation(
 
 		if (returnAll) {
 			const transactions = await fetchAllPages(
+				this,
+				i,
 				queries,
 				async (pageQueries) =>
 					(await tablesDB.listTransactions({ queries: pageQueries })) as unknown as IDataObject,
 				'transactions',
 			);
-			return toItems(transactions as unknown as IDataObject[]);
+			return toItems(transactions as unknown as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
 		const response = await tablesDB.listTransactions({
-			queries: [...queries, Query.limit(limit)],
+			queries: withLimit(queries, limit),
 		});
-		return toItems(response.transactions as unknown as IDataObject[]);
+		return toItems(response.transactions as unknown as IDataObject[], i);
 	}
 
 	if (operation === 'commit' || operation === 'rollback') {
@@ -55,7 +58,7 @@ export async function executeTransactionOperation(
 			commit: operation === 'commit' ? true : undefined,
 			rollback: operation === 'rollback' ? true : undefined,
 		});
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'createOperations') {
@@ -67,13 +70,13 @@ export async function executeTransactionOperation(
 			i,
 		) as object[];
 		const response = await tablesDB.createOperations({ transactionId, operations });
-		return toItems(response as unknown as IDataObject);
+		return toItems(response as unknown as IDataObject, i);
 	}
 
 	if (operation === 'delete') {
 		const transactionId = this.getNodeParameter('transactionId', i) as string;
 		await tablesDB.deleteTransaction({ transactionId });
-		return toItems({ success: true, transactionId });
+		return toItems({ success: true, transactionId }, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown transaction operation "${operation}"`, {
