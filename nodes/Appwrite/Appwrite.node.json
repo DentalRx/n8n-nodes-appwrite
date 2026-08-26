@@ -1,0 +1,18 @@
+{
+	"node": "@dentalrx/n8n-nodes-appwrite.appwrite",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": ["Development"],
+	"resources": {
+		"credentialDocumentation": [
+			{
+				"url": "https://appwrite.io/docs/advanced/platform/api-keys"
+			}
+		],
+		"primaryDocumentation": [
+			{
+				"url": "https://appwrite.io/docs"
+			}
+		]
+	}
+}
