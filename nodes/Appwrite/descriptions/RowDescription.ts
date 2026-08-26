@@ -33,6 +33,18 @@ export const rowOperations: INodeProperties[] = [
 				action: 'Create many rows',
 			},
 			{
+				name: 'Create or Update',
+				value: 'upsert',
+				description: 'Create a new record, or update the current one if it already exists (upsert)',
+				action: 'Create or update a row',
+			},
+			{
+				name: 'Create or Update Many',
+				value: 'upsertMany',
+				description: 'Create or update multiple rows in a single request (upsert)',
+				action: 'Create or update many rows',
+			},
+			{
 				name: 'Decrement Column',
 				value: 'decrement',
 				description: 'Decrement a numeric column of a row',
@@ -79,18 +91,6 @@ export const rowOperations: INodeProperties[] = [
 				value: 'updateMany',
 				description: 'Apply the same update to all rows that match the given queries',
 				action: 'Update many rows',
-			},
-			{
-				name: 'Upsert',
-				value: 'upsert',
-				description: 'Create a row or update it if it already exists',
-				action: 'Upsert a row',
-			},
-			{
-				name: 'Upsert Many',
-				value: 'upsertMany',
-				description: 'Create or update multiple rows in a single request',
-				action: 'Upsert many rows',
 			},
 		],
 		default: 'get',
@@ -225,6 +225,7 @@ export const rowFields: INodeProperties[] = [
 		name: 'rowsJson',
 		type: 'json',
 		default: '[]',
+		// eslint-disable-next-line n8n-nodes-base/node-param-description-miscased-id -- $id is Appwrite's literal field name
 		description:
 			'A JSON array of row objects to create or upsert. Each object holds the column values; optionally include $id (omit it to auto-generate) and $permissions.',
 		displayOptions: {

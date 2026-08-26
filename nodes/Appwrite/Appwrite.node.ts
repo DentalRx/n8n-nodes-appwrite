@@ -5,7 +5,7 @@ import type {
 	INodeTypeDescription,
 	JsonObject,
 } from 'n8n-workflow';
-import { NodeApiError, NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
+import { NodeApiError, NodeOperationError } from 'n8n-workflow';
 import {
 	Avatars,
 	Functions,
@@ -52,10 +52,9 @@ export class Appwrite implements INodeType {
 			'Interact with the Appwrite API: databases with tables and rows, storage, functions, users, teams, and messaging',
 		defaults: {
 			name: 'Appwrite',
-			color: '#FD366E',
 		},
-		inputs: [NodeConnectionTypes.Main],
-		outputs: [NodeConnectionTypes.Main],
+		inputs: ['main'],
+		outputs: ['main'],
 		usableAsTool: true,
 		credentials: [
 			{
