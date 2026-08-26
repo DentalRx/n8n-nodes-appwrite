@@ -185,7 +185,7 @@ export const bucketFields: INodeProperties[] = [
 				type: 'number',
 				typeOptions: { minValue: 1 },
 				default: 30000000,
-				description: 'Maximum file size allowed in bytes',
+				description: 'Maximum file size allowed in bytes. Defaults to 30000000 (30MB).',
 			},
 		],
 	},

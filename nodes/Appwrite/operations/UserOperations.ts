@@ -38,10 +38,12 @@ export async function executeUserOperation(
 
 	if (operation === 'create') {
 		const createUserId = resolveId(userId);
-		const email = this.getNodeParameter('email', i, '') as string;
-		const phone = this.getNodeParameter('phone', i, '') as string;
-		const password = this.getNodeParameter('password', i, '') as string;
-		const name = this.getNodeParameter('name', i, '') as string;
+		const options = this.getNodeParameter('options', i, {}) as {
+			email?: string;
+			name?: string;
+			password?: string;
+			phone?: string;
+		};
 		const response = (await appwriteApiRequest.call(
 			this,
 			'POST',
@@ -49,10 +51,10 @@ export async function executeUserOperation(
 			{
 				body: {
 					userId: createUserId,
-					email: email === '' ? undefined : email,
-					phone: phone === '' ? undefined : phone,
-					password: password === '' ? undefined : password,
-					name: name === '' ? undefined : name,
+					email: options.email || undefined,
+					phone: options.phone || undefined,
+					password: options.password || undefined,
+					name: options.name || undefined,
 				},
 			},
 			i,
@@ -61,13 +63,15 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'createJWT') {
-		const sessionId = this.getNodeParameter('sessionId', i, '') as string;
-		const duration = this.getNodeParameter('duration', i, 900) as number;
+		const options = this.getNodeParameter('options', i, {}) as {
+			duration?: number;
+			sessionId?: string;
+		};
 		const response = (await appwriteApiRequest.call(
 			this,
 			'POST',
 			`${userPath}/jwts`,
-			{ body: { sessionId: sessionId === '' ? undefined : sessionId, duration } },
+			{ body: { sessionId: options.sessionId || undefined, duration: options.duration ?? 900 } },
 			i,
 		)) as IDataObject;
 		return toItems(response);
@@ -85,13 +89,15 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'createToken') {
-		const length = this.getNodeParameter('length', i, 6) as number;
-		const expire = this.getNodeParameter('expire', i, 900) as number;
+		const options = this.getNodeParameter('options', i, {}) as {
+			expire?: number;
+			length?: number;
+		};
 		const response = (await appwriteApiRequest.call(
 			this,
 			'POST',
 			`${userPath}/tokens`,
-			{ body: { length, expire } },
+			{ body: { length: options.length ?? 6, expire: options.expire ?? 900 } },
 			i,
 		)) as IDataObject;
 		return toItems(response);
@@ -302,7 +308,7 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'updateEmailVerification') {
-		const emailVerification = this.getNodeParameter('emailVerification', i, false) as boolean;
+		const emailVerification = this.getNodeParameter('emailVerification', i, true) as boolean;
 		const response = (await appwriteApiRequest.call(
 			this,
 			'PATCH',
@@ -362,7 +368,7 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'updatePhoneVerification') {
-		const phoneVerification = this.getNodeParameter('phoneVerification', i, false) as boolean;
+		const phoneVerification = this.getNodeParameter('phoneVerification', i, true) as boolean;
 		const response = (await appwriteApiRequest.call(
 			this,
 			'PATCH',

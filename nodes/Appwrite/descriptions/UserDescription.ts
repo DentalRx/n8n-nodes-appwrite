@@ -217,120 +217,6 @@ export const userFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Email',
-		name: 'email',
-		type: 'string',
-		default: '',
-		placeholder: 'name@email.com',
-		description: 'The email address of the user',
-		displayOptions: {
-			show: {
-				resource: ['user'],
-				operation: ['create'],
-			},
-		},
-	},
-	{
-		displayName: 'Phone Number',
-		name: 'phone',
-		type: 'string',
-		default: '',
-		placeholder: '+16175551212',
-		description:
-			'The phone number of the user. Format it with a leading "+" and the country code, e.g. +16175551212.',
-		displayOptions: {
-			show: {
-				resource: ['user'],
-				operation: ['create'],
-			},
-		},
-	},
-	{
-		displayName: 'Password',
-		name: 'password',
-		type: 'string',
-		typeOptions: { password: true },
-		default: '',
-		description:
-			'Plain text password of at least 8 characters. Leave empty to create the user without a password.',
-		displayOptions: {
-			show: {
-				resource: ['user'],
-				operation: ['create'],
-			},
-		},
-	},
-	{
-		displayName: 'Name',
-		name: 'name',
-		type: 'string',
-		default: '',
-		description: 'The name of the user',
-		displayOptions: {
-			show: {
-				resource: ['user'],
-				operation: ['create'],
-			},
-		},
-	},
-	{
-		displayName: 'Session ID',
-		name: 'sessionId',
-		type: 'string',
-		default: '',
-		description:
-			'The ID of the session to base the JWT on. Leave empty (or use "recent") to use the most recent session.',
-		displayOptions: {
-			show: {
-				resource: ['user'],
-				operation: ['createJWT'],
-			},
-		},
-	},
-	{
-		displayName: 'Duration (Seconds)',
-		name: 'duration',
-		type: 'number',
-		typeOptions: { minValue: 1, maxValue: 3600 },
-		default: 900,
-		description:
-			'Time in seconds before the JWT expires. The default is 900 seconds and the maximum is 3600 seconds.',
-		displayOptions: {
-			show: {
-				resource: ['user'],
-				operation: ['createJWT'],
-			},
-		},
-	},
-	{
-		displayName: 'Token Length',
-		name: 'length',
-		type: 'number',
-		typeOptions: { minValue: 1 },
-		default: 6,
-		description: 'Token length in characters',
-		displayOptions: {
-			show: {
-				resource: ['user'],
-				operation: ['createToken'],
-			},
-		},
-	},
-	{
-		displayName: 'Expire (Seconds)',
-		name: 'expire',
-		type: 'number',
-		typeOptions: { minValue: 1 },
-		default: 900,
-		description: 'Token expiration period in seconds',
-		displayOptions: {
-			show: {
-				resource: ['user'],
-				operation: ['createToken'],
-			},
-		},
-	},
-	{
 		displayName: 'Identity ID',
 		name: 'identityId',
 		type: 'string',
@@ -377,7 +263,7 @@ export const userFields: INodeProperties[] = [
 		displayName: 'Email Verified',
 		name: 'emailVerification',
 		type: 'boolean',
-		default: false,
+		default: true,
 		description: 'Whether the email address of the user is marked as verified',
 		displayOptions: {
 			show: {
@@ -450,7 +336,7 @@ export const userFields: INodeProperties[] = [
 		displayName: 'Phone Verified',
 		name: 'phoneVerification',
 		type: 'boolean',
-		default: false,
+		default: true,
 		description: 'Whether the phone number of the user is marked as verified',
 		displayOptions: {
 			show: {
@@ -460,12 +346,12 @@ export const userFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Preferences (JSON)',
+		displayName: 'Preferences',
 		name: 'prefs',
 		type: 'json',
 		default: '{}',
 		description:
-			'The preferences as a JSON key-value object. The object is stored as-is and replaces ALL existing preferences of the user.',
+			'The preferences as a JSON key-value object. The object is stored as-is and replaces all existing preferences of the user.',
 		displayOptions: {
 			show: {
 				resource: ['user'],
@@ -500,5 +386,117 @@ export const userFields: INodeProperties[] = [
 			hint: 'Get Many Logs supports only Limit and Offset queries',
 		},
 	),
+	{
+		displayName: 'Options',
+		name: 'options',
+		type: 'collection',
+		placeholder: 'Add option',
+		default: {},
+		displayOptions: {
+			show: {
+				resource: ['user'],
+				operation: ['create'],
+			},
+		},
+		options: [
+			{
+				displayName: 'Email',
+				name: 'email',
+				type: 'string',
+				default: '',
+				placeholder: 'name@email.com',
+				description: 'The email address of the user',
+			},
+			{
+				displayName: 'Name',
+				name: 'name',
+				type: 'string',
+				default: '',
+				description: 'The name of the user',
+			},
+			{
+				displayName: 'Password',
+				name: 'password',
+				type: 'string',
+				typeOptions: { password: true },
+				default: '',
+				description:
+					'Plain text password of at least 8 characters. Leave empty to create the user without a password.',
+			},
+			{
+				displayName: 'Phone Number',
+				name: 'phone',
+				type: 'string',
+				default: '',
+				placeholder: '+16175551212',
+				description:
+					'The phone number of the user. Format it with a leading "+" and the country code, e.g. +16175551212.',
+			},
+		],
+	},
+	{
+		displayName: 'Options',
+		name: 'options',
+		type: 'collection',
+		placeholder: 'Add option',
+		default: {},
+		displayOptions: {
+			show: {
+				resource: ['user'],
+				operation: ['createJWT'],
+			},
+		},
+		options: [
+			{
+				displayName: 'Duration (Seconds)',
+				name: 'duration',
+				type: 'number',
+				typeOptions: { minValue: 1, maxValue: 3600 },
+				default: 900,
+				description:
+					'Time in seconds before the JWT expires. Defaults to 900 seconds (15 minutes); the maximum is 3600 seconds.',
+			},
+			{
+				displayName: 'Session ID',
+				name: 'sessionId',
+				type: 'string',
+				default: '',
+				description:
+					'The ID of the session to base the JWT on. Leave empty (or use "recent") to use the most recent session.',
+			},
+		],
+	},
+	{
+		displayName: 'Options',
+		name: 'options',
+		type: 'collection',
+		placeholder: 'Add option',
+		default: {},
+		displayOptions: {
+			show: {
+				resource: ['user'],
+				operation: ['createToken'],
+			},
+		},
+		options: [
+			{
+				displayName: 'Expiration (Seconds)',
+				name: 'expire',
+				type: 'number',
+				typeOptions: { minValue: 1 },
+				default: 900,
+				description:
+					'Time in seconds before the token expires. Defaults to 900 seconds (15 minutes).',
+			},
+			{
+				displayName: 'Token Length',
+				name: 'length',
+				type: 'number',
+				typeOptions: { minValue: 1 },
+				default: 6,
+				description: 'Token length in characters. Defaults to 6.',
+			},
+		],
+	},
 	listOptionsProperty('user', ['getMany', 'getManyIdentities', 'getManyMemberships']),
 ];
