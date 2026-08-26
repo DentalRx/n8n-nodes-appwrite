@@ -104,8 +104,8 @@ Row operations support:
 
 1. Any node that produces binary data (for example **HTTP Request** with a file response).
 2. **Appwrite** → **Resource** `File`, **Operation** `Upload`.
-3. Pick the **Bucket Name or ID**, and set **Input Data Field Name** to the binary field
-   holding the file (`data` by default). Files larger than 5 MB are uploaded in chunks
+3. Pick the **Bucket Name or ID**, and set **Input Data Field Name** to the field holding
+   the file (`data` by default). Files larger than 5 MB are uploaded in chunks
    automatically.
 
 ### Use Appwrite as an AI agent tool
