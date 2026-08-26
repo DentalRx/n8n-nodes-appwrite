@@ -1,8 +1,8 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { buildQueries, fetchAllPages } from '../GenericFunctions';
-import { Query, extractId, resolveId } from '../helpers/appwrite';
+import { buildQueries, fetchAllPages, toItems, withLimit } from '../GenericFunctions';
+import { extractId, resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeDatabaseOperation(
@@ -10,11 +10,6 @@ export async function executeDatabaseOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
 	if (operation === 'create') {
 		const databaseId = resolveId(this.getNodeParameter('databaseId', i, '') as string);
 		const name = this.getNodeParameter('name', i) as string;
@@ -26,7 +21,7 @@ export async function executeDatabaseOperation(
 			{ body: { databaseId, name, enabled } },
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'get') {
@@ -38,7 +33,7 @@ export async function executeDatabaseOperation(
 			{},
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -61,7 +56,7 @@ export async function executeDatabaseOperation(
 					),
 				'databases',
 			);
-			return toItems(databases as IDataObject[]);
+			return toItems(databases as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -69,10 +64,10 @@ export async function executeDatabaseOperation(
 			this,
 			'GET',
 			'/tablesdb',
-			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		);
-		return toItems(response.databases as IDataObject[]);
+		return toItems(response.databases as IDataObject[], i);
 	}
 
 	if (operation === 'update') {
@@ -86,7 +81,7 @@ export async function executeDatabaseOperation(
 			{ body: { name, enabled: updateFields.enabled } },
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'delete') {
@@ -98,7 +93,7 @@ export async function executeDatabaseOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, databaseId });
+		return toItems({ success: true, databaseId }, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown database operation "${operation}"`, {

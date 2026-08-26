@@ -3,6 +3,8 @@ import { NodeOperationError } from 'n8n-workflow';
 
 import { appwriteApiRequest } from '../transport';
 
+import { toItems } from '../GenericFunctions';
+
 /** Each locale operation is a plain GET whose results live under one response key. */
 const LOCALE_OPERATIONS: Record<string, { path: string; listKey?: string }> = {
 	get: { path: '/locale' },
@@ -20,11 +22,6 @@ export async function executeLocaleOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
 	const target = LOCALE_OPERATIONS[operation];
 	if (target === undefined) {
 		throw new NodeOperationError(this.getNode(), `Unknown locale operation "${operation}"`, {
@@ -34,6 +31,6 @@ export async function executeLocaleOperation(
 
 	const response = await appwriteApiRequest.call(this, 'GET', target.path, {}, i);
 
-	if (target.listKey === undefined) return toItems(response);
-	return toItems((response[target.listKey] ?? []) as IDataObject[]);
+	if (target.listKey === undefined) return toItems(response, i);
+	return toItems((response[target.listKey] ?? []) as IDataObject[], i);
 }

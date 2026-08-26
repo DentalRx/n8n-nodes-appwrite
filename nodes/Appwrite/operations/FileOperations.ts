@@ -1,8 +1,15 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { buildQueries, fetchAllPages, getPermissions } from '../GenericFunctions';
-import { Query, extractId, resolveId } from '../helpers/appwrite';
+import {
+	buildQueries,
+	fetchAllPages,
+	getPermissions,
+	stripHexHash,
+	toItems,
+	withLimit,
+} from '../GenericFunctions';
+import { extractId, resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest, appwriteApiRequestBinary, appwriteFileUpload } from '../transport';
 
 /** Crop positions Appwrite accepts for a preview. The UI stores the wire value directly. */
@@ -36,11 +43,6 @@ interface PreviewOptions {
 	width?: number;
 }
 
-function stripHexHash(value?: string): string | undefined {
-	if (value === undefined || value === '') return undefined;
-	return value.replace(/^#/, '');
-}
-
 export async function executeFileOperation(
 	this: IExecuteFunctions,
 	operation: string,
@@ -48,11 +50,6 @@ export async function executeFileOperation(
 ): Promise<INodeExecutionData[]> {
 	const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
 	const filesPath = `/storage/buckets/${encodeURIComponent(bucketId)}/files`;
-
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
 
 	const toBinaryItem = async (
 		content: Buffer,
@@ -111,7 +108,7 @@ export async function executeFileOperation(
 			fields,
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'get') {
@@ -123,7 +120,7 @@ export async function executeFileOperation(
 			{},
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -146,7 +143,7 @@ export async function executeFileOperation(
 					),
 				'files',
 			);
-			return toItems(files as IDataObject[]);
+			return toItems(files as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -154,10 +151,10 @@ export async function executeFileOperation(
 			this,
 			'GET',
 			filesPath,
-			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		);
-		return toItems(response.files as IDataObject[]);
+		return toItems(response.files as IDataObject[], i);
 	}
 
 	if (operation === 'update') {
@@ -171,7 +168,7 @@ export async function executeFileOperation(
 			{ body: { name: name === '' ? undefined : name, permissions } },
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'delete') {
@@ -183,7 +180,7 @@ export async function executeFileOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, bucketId, fileId });
+		return toItems({ success: true, bucketId, fileId }, i);
 	}
 
 	if (operation === 'download' || operation === 'getView') {

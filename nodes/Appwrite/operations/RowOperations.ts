@@ -7,8 +7,10 @@ import {
 	getPermissions,
 	getRowData,
 	parseJsonArrayParameter,
+	toItems,
+	withLimit,
 } from '../GenericFunctions';
-import { Query, extractId, resolveId } from '../helpers/appwrite';
+import { extractId, resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeRowOperation(
@@ -27,11 +29,6 @@ export async function executeRowOperation(
 
 	const rowsPath = `/tablesdb/${encodeURIComponent(databaseId)}/tables/${encodeURIComponent(tableId)}/rows`;
 
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
 	if (operation === 'create') {
 		const rowId = resolveId(this.getNodeParameter('rowId', i, '') as string);
 		const data = getRowData.call(this, i);
@@ -43,7 +40,7 @@ export async function executeRowOperation(
 			{ body: { rowId, data, permissions, transactionId } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'createMany') {
@@ -60,7 +57,7 @@ export async function executeRowOperation(
 			{ body: { rows, transactionId } },
 			i,
 		)) as IDataObject;
-		return toItems(response.rows as IDataObject[]);
+		return toItems(response.rows as IDataObject[], i);
 	}
 
 	if (operation === 'get') {
@@ -78,7 +75,7 @@ export async function executeRowOperation(
 			},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -99,18 +96,11 @@ export async function executeRowOperation(
 					)) as IDataObject,
 				'rows',
 			);
-			return toItems(rows as IDataObject[]);
+			return toItems(rows as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const hasLimit = queries.some((q) => {
-			try {
-				return (JSON.parse(q) as { method?: string }).method === 'limit';
-			} catch {
-				return false;
-			}
-		});
-		const finalQueries = hasLimit ? queries : [...queries, Query.limit(limit)];
+		const finalQueries = withLimit(queries, limit);
 		const response = (await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -118,7 +108,7 @@ export async function executeRowOperation(
 			{ qs: { queries: finalQueries, transactionId } },
 			i,
 		)) as IDataObject;
-		return toItems(response.rows as IDataObject[]);
+		return toItems(response.rows as IDataObject[], i);
 	}
 
 	if (operation === 'update') {
@@ -132,7 +122,7 @@ export async function executeRowOperation(
 			{ body: { data, permissions, transactionId } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'updateMany') {
@@ -151,7 +141,7 @@ export async function executeRowOperation(
 			},
 			i,
 		)) as IDataObject;
-		return toItems(response.rows as IDataObject[]);
+		return toItems(response.rows as IDataObject[], i);
 	}
 
 	if (operation === 'upsert') {
@@ -165,7 +155,7 @@ export async function executeRowOperation(
 			{ body: { data, permissions, transactionId } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'upsertMany') {
@@ -182,7 +172,7 @@ export async function executeRowOperation(
 			{ body: { rows, transactionId } },
 			i,
 		)) as IDataObject;
-		return toItems(response.rows as IDataObject[]);
+		return toItems(response.rows as IDataObject[], i);
 	}
 
 	if (operation === 'delete') {
@@ -194,7 +184,7 @@ export async function executeRowOperation(
 			{ body: { transactionId } },
 			i,
 		);
-		return toItems({ success: true, rowId });
+		return toItems({ success: true, rowId }, i);
 	}
 
 	if (operation === 'deleteMany') {
@@ -211,7 +201,8 @@ export async function executeRowOperation(
 			},
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		// One item per deleted row, matching Create/Update/Upsert Many.
+		return toItems(response.rows as IDataObject[], i);
 	}
 
 	if (operation === 'increment') {
@@ -225,7 +216,7 @@ export async function executeRowOperation(
 			{ body: { value, max: options.max, transactionId } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'decrement') {
@@ -239,7 +230,7 @@ export async function executeRowOperation(
 			{ body: { value, min: options.min, transactionId } },
 			i,
 		)) as IDataObject;
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown row operation "${operation}"`, {

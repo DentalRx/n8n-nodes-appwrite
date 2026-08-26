@@ -1,8 +1,15 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { buildQueries, fetchAllPages, parseJsonParameter } from '../GenericFunctions';
-import { Query, extractId } from '../helpers/appwrite';
+import {
+	buildQueries,
+	fetchAllPages,
+	lookupEnum,
+	parseJsonParameter,
+	toItems,
+	withLimit,
+} from '../GenericFunctions';
+import { extractId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 /** The HTTP methods an execution can be triggered with. */
@@ -31,11 +38,6 @@ export async function executeExecutionOperation(
 	const functionId = extractId(this.getNodeParameter('functionId', i) as string, 'function');
 	const executionsPath = `/functions/${encodeURIComponent(functionId)}/executions`;
 
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
 	if (operation === 'create') {
 		const body = this.getNodeParameter('body', i, '') as string;
 		const async = this.getNodeParameter('async', i, false) as boolean;
@@ -55,14 +57,16 @@ export async function executeExecutionOperation(
 					async,
 					// The UI calls this "Path"; Appwrite takes it as the `path` field.
 					path: options.xpath === '' ? undefined : options.xpath,
-					method: options.method ? EXECUTION_METHOD_MAP[options.method] : undefined,
+					method: options.method
+						? lookupEnum(this, EXECUTION_METHOD_MAP, options.method, 'HTTP method', i)
+						: undefined,
 					headers: headers && Object.keys(headers).length > 0 ? headers : undefined,
 					scheduledAt: options.scheduledAt === '' ? undefined : options.scheduledAt,
 				},
 			},
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'delete') {
@@ -74,7 +78,7 @@ export async function executeExecutionOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, functionId, executionId });
+		return toItems({ success: true, functionId, executionId }, i);
 	}
 
 	if (operation === 'get') {
@@ -86,7 +90,7 @@ export async function executeExecutionOperation(
 			{},
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -107,7 +111,7 @@ export async function executeExecutionOperation(
 					),
 				'executions',
 			);
-			return toItems(executions as IDataObject[]);
+			return toItems(executions as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -115,10 +119,10 @@ export async function executeExecutionOperation(
 			this,
 			'GET',
 			executionsPath,
-			{ qs: { queries: [...queries, Query.limit(limit)] } },
+			{ qs: { queries: withLimit(queries, limit) } },
 			i,
 		);
-		return toItems(response.executions as IDataObject[]);
+		return toItems(response.executions as IDataObject[], i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown execution operation "${operation}"`, {

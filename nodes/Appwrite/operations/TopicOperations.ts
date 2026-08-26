@@ -1,8 +1,14 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { buildQueries, fetchAllPages, parseJsonArrayParameter } from '../GenericFunctions';
-import { Query, extractId, resolveId } from '../helpers/appwrite';
+import {
+	buildQueries,
+	fetchAllPages,
+	parseStringList,
+	toItems,
+	withLimit,
+} from '../GenericFunctions';
+import { extractId, resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeTopicOperation(
@@ -10,24 +16,8 @@ export async function executeTopicOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
-	const parseList = (raw: string, name: string): string[] => {
-		if (raw.trim() === '') return [];
-		if (raw.trim().startsWith('[')) {
-			return parseJsonArrayParameter.call(this, raw, name, i).map((e) => String(e));
-		}
-		return raw
-			.split(',')
-			.map((e) => e.trim())
-			.filter((e) => e !== '');
-	};
-
 	const listOrUndefined = (raw: string | undefined, name: string): string[] | undefined => {
-		const list = parseList(raw ?? '', name);
+		const list = parseStringList.call(this, raw ?? '', name, i);
 		return list.length > 0 ? list : undefined;
 	};
 
@@ -48,7 +38,7 @@ export async function executeTopicOperation(
 			{ body: { topicId, name, subscribe } },
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'createSubscriber') {
@@ -62,7 +52,7 @@ export async function executeTopicOperation(
 			{ body: { subscriberId, targetId } },
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'delete') {
@@ -74,7 +64,7 @@ export async function executeTopicOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, topicId });
+		return toItems({ success: true, topicId }, i);
 	}
 
 	if (operation === 'deleteSubscriber') {
@@ -89,12 +79,12 @@ export async function executeTopicOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, topicId, subscriberId });
+		return toItems({ success: true, topicId, subscriberId }, i);
 	}
 
 	if (operation === 'get') {
 		const response = await appwriteApiRequest.call(this, 'GET', topicPath(), {}, i);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -117,7 +107,7 @@ export async function executeTopicOperation(
 					),
 				'topics',
 			);
-			return toItems(topics as IDataObject[]);
+			return toItems(topics as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -125,10 +115,10 @@ export async function executeTopicOperation(
 			this,
 			'GET',
 			'/messaging/topics',
-			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		);
-		return toItems(response.topics as IDataObject[]);
+		return toItems(response.topics as IDataObject[], i);
 	}
 
 	if (operation === 'getManySubscribers') {
@@ -152,7 +142,7 @@ export async function executeTopicOperation(
 					),
 				'subscribers',
 			);
-			return toItems(subscribers as IDataObject[]);
+			return toItems(subscribers as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -160,10 +150,10 @@ export async function executeTopicOperation(
 			this,
 			'GET',
 			path,
-			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		);
-		return toItems(response.subscribers as IDataObject[]);
+		return toItems(response.subscribers as IDataObject[], i);
 	}
 
 	if (operation === 'getSubscriber') {
@@ -175,7 +165,7 @@ export async function executeTopicOperation(
 			{},
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'update') {
@@ -196,7 +186,7 @@ export async function executeTopicOperation(
 			},
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown topic operation "${operation}"`, {

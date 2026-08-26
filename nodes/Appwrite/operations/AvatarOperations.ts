@@ -1,6 +1,7 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
+import { stripHexHash } from '../GenericFunctions';
 import { appwriteApiRequestBinary } from '../transport';
 
 /** Browser codes Appwrite serves an icon for. */
@@ -147,7 +148,7 @@ export async function executeAvatarOperation(
 			name: name === '' ? undefined : name,
 			width: options.width,
 			height: options.height,
-			background: options.background === '' ? undefined : options.background,
+			background: stripHexHash(options.background),
 		});
 		return await toBinaryItem(content, 'initials.png', { name, ...options });
 	}

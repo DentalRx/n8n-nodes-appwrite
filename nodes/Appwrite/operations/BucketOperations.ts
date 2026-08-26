@@ -5,9 +5,12 @@ import {
 	buildQueries,
 	fetchAllPages,
 	getPermissions,
-	parseJsonArrayParameter,
+	lookupEnum,
+	parseStringList,
+	toItems,
+	withLimit,
 } from '../GenericFunctions';
-import { Query, extractId, resolveId } from '../helpers/appwrite';
+import { extractId, resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 /** The compression algorithms Appwrite accepts, keyed by the value the UI stores. */
@@ -32,36 +35,26 @@ export async function executeBucketOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
-	const parseList = (raw: string, name: string): string[] => {
-		if (raw.trim() === '') return [];
-		if (raw.trim().startsWith('[')) {
-			return parseJsonArrayParameter.call(this, raw, name, i).map((e) => String(e));
-		}
-		return raw
-			.split(',')
-			.map((e) => e.trim())
-			.filter((e) => e !== '');
-	};
-
-	const getBucketOptionArgs = (): IDataObject => {
+	const getBucketOptionArgs = (current?: IDataObject): IDataObject => {
 		const options = this.getNodeParameter('options', i, {}) as BucketOptions;
-		const allowedFileExtensions = parseList(
-			options.allowedFileExtensions ?? '',
-			'allowedFileExtensions',
-		);
+		// An option the user never added keeps whatever the bucket already has
+		// (`current` is set on update only); an option added and left blank clears it.
+		const extensions =
+			options.allowedFileExtensions === undefined
+				? (current?.allowedFileExtensions as string[] | undefined)
+				: parseStringList.call(this, options.allowedFileExtensions, 'allowedFileExtensions', i);
+
 		return {
-			fileSecurity: options.fileSecurity,
-			enabled: options.enabled,
-			maximumFileSize: options.maximumFileSize,
-			allowedFileExtensions: allowedFileExtensions.length > 0 ? allowedFileExtensions : undefined,
-			compression: options.compression ? COMPRESSION_MAP[options.compression] : undefined,
-			encryption: options.encryption,
-			antivirus: options.antivirus,
+			fileSecurity: options.fileSecurity ?? (current?.fileSecurity as boolean | undefined),
+			enabled: options.enabled ?? (current?.enabled as boolean | undefined),
+			maximumFileSize: options.maximumFileSize ?? (current?.maximumFileSize as number | undefined),
+			allowedFileExtensions:
+				extensions !== undefined && extensions.length > 0 ? extensions : undefined,
+			compression: options.compression
+				? lookupEnum(this, COMPRESSION_MAP, options.compression, 'compression algorithm', i)
+				: (current?.compression as string | undefined),
+			encryption: options.encryption ?? (current?.encryption as boolean | undefined),
+			antivirus: options.antivirus ?? (current?.antivirus as boolean | undefined),
 		};
 	};
 
@@ -76,7 +69,7 @@ export async function executeBucketOperation(
 			{ body: { bucketId, name, permissions, ...getBucketOptionArgs() } },
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'get') {
@@ -88,7 +81,7 @@ export async function executeBucketOperation(
 			{},
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -111,7 +104,7 @@ export async function executeBucketOperation(
 					),
 				'buckets',
 			);
-			return toItems(buckets as IDataObject[]);
+			return toItems(buckets as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -119,24 +112,35 @@ export async function executeBucketOperation(
 			this,
 			'GET',
 			'/storage/buckets',
-			{ qs: { queries: [...queries, Query.limit(limit)], search: searchArg } },
+			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		);
-		return toItems(response.buckets as IDataObject[]);
+		return toItems(response.buckets as IDataObject[], i);
 	}
 
 	if (operation === 'update') {
 		const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
 		const name = this.getNodeParameter('name', i) as string;
 		const permissions = getPermissions.call(this, i);
+		// PUT /storage/buckets/{id} is a full replace: any setting left out of the
+		// body is reset to the API's own default rather than kept, so renaming a
+		// bucket would clear its extension allowlist and reset File Security.
+		// Read the bucket first and resend the settings the user did not touch.
+		const current = (await appwriteApiRequest.call(
+			this,
+			'GET',
+			`/storage/buckets/${encodeURIComponent(bucketId)}`,
+			{},
+			i,
+		)) as IDataObject;
 		const response = await appwriteApiRequest.call(
 			this,
 			'PUT',
 			`/storage/buckets/${encodeURIComponent(bucketId)}`,
-			{ body: { name, permissions, ...getBucketOptionArgs() } },
+			{ body: { name, permissions, ...getBucketOptionArgs(current) } },
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'delete') {
@@ -148,7 +152,7 @@ export async function executeBucketOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, bucketId });
+		return toItems({ success: true, bucketId }, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown bucket operation "${operation}"`, {

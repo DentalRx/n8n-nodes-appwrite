@@ -1,8 +1,15 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { buildQueries, fetchAllPages, parseJsonArrayParameter } from '../GenericFunctions';
-import { Query, extractId } from '../helpers/appwrite';
+import {
+	buildQueries,
+	fetchAllPages,
+	lookupEnum,
+	parseStringList,
+	toItems,
+	withLimit,
+} from '../GenericFunctions';
+import { extractId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 /** The index types Appwrite accepts, keyed by the value the UI stores. */
@@ -24,23 +31,6 @@ export async function executeIndexOperation(
 		tableId,
 	)}/indexes`;
 
-	const toItems = (data: IDataObject | IDataObject[]): INodeExecutionData[] => {
-		const list = Array.isArray(data) ? data : [data];
-		return list.map((json) => ({ json, pairedItem: { item: i } }));
-	};
-
-	/** Split a comma-separated list (or a JSON array) into strings. */
-	const parseList = (raw: string, displayName: string): string[] => {
-		if (raw.trim() === '') return [];
-		if (raw.trim().startsWith('[')) {
-			return parseJsonArrayParameter.call(this, raw, displayName, i).map((e) => String(e));
-		}
-		return raw
-			.split(',')
-			.map((e) => e.trim())
-			.filter((e) => e !== '');
-	};
-
 	if (operation === 'create') {
 		const key = this.getNodeParameter('key', i) as string;
 		const typeRaw = this.getNodeParameter('indexType', i) as string;
@@ -48,9 +38,14 @@ export async function executeIndexOperation(
 			lengths?: string;
 			orders?: string;
 		};
-		const columns = parseList(this.getNodeParameter('columns', i, '') as string, 'Columns');
-		const orders = parseList(options.orders ?? '', 'Orders');
-		const lengths = parseList(options.lengths ?? '', 'Lengths').map((value) => {
+		const columns = parseStringList.call(
+			this,
+			this.getNodeParameter('columns', i, '') as string,
+			'Columns',
+			i,
+		);
+		const orders = parseStringList.call(this, options.orders ?? '', 'Orders', i);
+		const lengths = parseStringList.call(this, options.lengths ?? '', 'Lengths', i).map((value) => {
 			const parsed = Number(value);
 			if (Number.isNaN(parsed)) {
 				throw new NodeOperationError(this.getNode(), 'Parameter "Lengths" must contain numbers', {
@@ -67,7 +62,7 @@ export async function executeIndexOperation(
 			{
 				body: {
 					key,
-					type: INDEX_TYPE_MAP[typeRaw],
+					type: lookupEnum(this, INDEX_TYPE_MAP, typeRaw, 'index type', i),
 					columns,
 					orders: orders.length > 0 ? orders : undefined,
 					lengths: lengths.length > 0 ? lengths : undefined,
@@ -75,7 +70,7 @@ export async function executeIndexOperation(
 			},
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'get') {
@@ -87,7 +82,7 @@ export async function executeIndexOperation(
 			{},
 			i,
 		);
-		return toItems(response);
+		return toItems(response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -108,7 +103,7 @@ export async function executeIndexOperation(
 					),
 				'indexes',
 			);
-			return toItems(indexes as IDataObject[]);
+			return toItems(indexes as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -116,10 +111,10 @@ export async function executeIndexOperation(
 			this,
 			'GET',
 			indexesPath,
-			{ qs: { queries: [...queries, Query.limit(limit)] } },
+			{ qs: { queries: withLimit(queries, limit) } },
 			i,
 		);
-		return toItems(response.indexes as IDataObject[]);
+		return toItems(response.indexes as IDataObject[], i);
 	}
 
 	if (operation === 'delete') {
@@ -131,7 +126,7 @@ export async function executeIndexOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, databaseId, tableId, key });
+		return toItems({ success: true, databaseId, tableId, key }, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown index operation "${operation}"`, {
