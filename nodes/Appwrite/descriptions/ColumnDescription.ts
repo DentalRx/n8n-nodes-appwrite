@@ -171,7 +171,7 @@ export const columnFields: INodeProperties[] = [
 		required: true,
 		default: '',
 		description:
-			'The table to create the relationship with. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+			'The table to create the relationship with. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 		displayOptions: {
 			show: {
 				resource: ['column'],
