@@ -55,8 +55,9 @@ export async function executeTeamOperation(
 		const email = this.getNodeParameter('email', i, '') as string;
 		const userId = this.getNodeParameter('userId', i, '') as string;
 		const phone = this.getNodeParameter('phone', i, '') as string;
-		const url = this.getNodeParameter('url', i, '') as string;
-		const name = this.getNodeParameter('name', i, '') as string;
+		const options = this.getNodeParameter('options', i, {}) as { name?: string; url?: string };
+		const url = options.url ?? '';
+		const name = options.name ?? '';
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',

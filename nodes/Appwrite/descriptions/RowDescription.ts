@@ -128,7 +128,7 @@ const dataProperties: INodeProperties[] = [
 		name: 'dataFieldsUi',
 		type: 'fixedCollection',
 		typeOptions: { multipleValues: true, sortable: true },
-		placeholder: 'Add Field',
+		placeholder: 'Add field',
 		default: {},
 		description: 'The column values to set on the row',
 		displayOptions: {
@@ -151,20 +151,20 @@ const dataProperties: INodeProperties[] = [
 						description: 'Name of the column to set',
 					},
 					{
-						displayName: 'Value',
-						name: 'fieldValue',
-						type: 'string',
-						default: '',
-						description:
-							'Value to set. Numbers, booleans, null, and JSON arrays/objects are parsed automatically.',
-					},
-					{
 						displayName: 'Treat Value as String',
 						name: 'treatValueAsString',
 						type: 'boolean',
 						default: false,
 						description:
 							'Whether to always send the value as a string instead of auto-detecting numbers, booleans, and arrays',
+					},
+					{
+						displayName: 'Value',
+						name: 'fieldValue',
+						type: 'string',
+						default: '',
+						description:
+							'Value to set. Numbers, booleans, null, and JSON arrays/objects are parsed automatically.',
 					},
 				],
 			},
@@ -209,6 +209,7 @@ export const rowFields: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		placeholder: 'unique()',
+		hint: 'Create or Update needs the ID of an existing row. An auto-generated ID always creates a new row.',
 		description:
 			'The ID for the row. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {
@@ -224,6 +225,7 @@ export const rowFields: INodeProperties[] = [
 		displayName: 'Rows (JSON)',
 		name: 'rowsJson',
 		type: 'json',
+		required: true,
 		default: '[]',
 		placeholder: '[{"title": "Hello", "status": "draft"}]',
 		hint: 'Add "$id" to set a row\'s own ID (omit it to auto-generate one) and "$permissions" to set its permissions',
@@ -265,7 +267,7 @@ export const rowFields: INodeProperties[] = [
 	},
 	...returnAllAndLimitProperties('row', ['getMany']),
 	...queriesProperties('row', ['getMany', 'get', 'updateMany', 'deleteMany'], {
-		hint: 'Get uses only Select queries. For Update Many and Delete Many the queries choose which rows are affected, and no queries means every row in the table',
+		hint: 'Get uses only Select queries. For Update Many and Delete Many the queries choose which rows are affected, and no queries means every row in the table.',
 	}),
 	{
 		displayName: 'Options',
@@ -284,16 +286,16 @@ export const rowFields: INodeProperties[] = [
 				name: 'max',
 				type: 'number',
 				default: 0,
-				description:
-					'Maximum the column may reach when incrementing. Only used by Increment Column; leave the option out for no maximum.',
+				description: 'Maximum the column may reach; leave this option out for no maximum',
+				displayOptions: { show: { '/operation': ['increment'] } },
 			},
 			{
 				displayName: 'Min Value',
 				name: 'min',
 				type: 'number',
 				default: 0,
-				description:
-					'Minimum the column may reach when decrementing. Only used by Decrement Column; leave the option out for no minimum.',
+				description: 'Minimum the column may reach; leave this option out for no minimum',
+				displayOptions: { show: { '/operation': ['decrement'] } },
 			},
 			{
 				displayName: 'Transaction ID',
