@@ -6,6 +6,7 @@ import {
 	fetchAllPages,
 	getPermissions,
 	getRowData,
+	getSortQueries,
 	parseJsonArrayParameter,
 	toItems,
 	withLimit,
@@ -33,13 +34,13 @@ export async function executeRowOperation(
 		const rowId = resolveId(this.getNodeParameter('rowId', i, '') as string);
 		const data = getRowData.call(this, i);
 		const permissions = getPermissions.call(this, i);
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
 			rowsPath,
 			{ body: { rowId, data, permissions, transactionId } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 
@@ -47,23 +48,23 @@ export async function executeRowOperation(
 		const rows = parseJsonArrayParameter.call(
 			this,
 			this.getNodeParameter('rowsJson', i),
-			'rowsJson',
+			'Rows (JSON)',
 			i,
 		) as IDataObject[];
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
 			rowsPath,
 			{ body: { rows, transactionId } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response.rows as IDataObject[], i);
 	}
 
 	if (operation === 'get') {
 		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
 		const queries = buildQueries.call(this, i);
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
 			`${rowsPath}/${encodeURIComponent(rowId)}`,
@@ -74,40 +75,41 @@ export async function executeRowOperation(
 				},
 			},
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const queries = buildQueries.call(this, i);
+		const queries = [...buildQueries.call(this, i), ...getSortQueries.call(this, i)];
 
 		if (returnAll) {
 			const rows = await fetchAllPages.call(
 				this,
 				queries,
 				async (pageQueries) =>
-					(await appwriteApiRequest.call(
+					await appwriteApiRequest.call(
 						this,
 						'GET',
 						rowsPath,
 						{ qs: { queries: pageQueries, transactionId } },
 						i,
-					)) as IDataObject,
+					),
 				'rows',
+				i,
 			);
 			return toItems(rows as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
 		const finalQueries = withLimit(queries, limit);
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
 			rowsPath,
 			{ qs: { queries: finalQueries, transactionId } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response.rows as IDataObject[], i);
 	}
 
@@ -115,20 +117,20 @@ export async function executeRowOperation(
 		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
 		const data = getRowData.call(this, i);
 		const permissions = getPermissions.call(this, i);
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
 			`${rowsPath}/${encodeURIComponent(rowId)}`,
 			{ body: { data, permissions, transactionId } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 
 	if (operation === 'updateMany') {
 		const data = getRowData.call(this, i);
 		const queries = buildQueries.call(this, i);
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
 			rowsPath,
@@ -140,7 +142,7 @@ export async function executeRowOperation(
 				},
 			},
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response.rows as IDataObject[], i);
 	}
 
@@ -148,13 +150,13 @@ export async function executeRowOperation(
 		const rowId = resolveId(this.getNodeParameter('rowId', i, '') as string);
 		const data = getRowData.call(this, i);
 		const permissions = getPermissions.call(this, i);
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'PUT',
 			`${rowsPath}/${encodeURIComponent(rowId)}`,
 			{ body: { data, permissions, transactionId } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 
@@ -162,45 +164,48 @@ export async function executeRowOperation(
 		const rows = parseJsonArrayParameter.call(
 			this,
 			this.getNodeParameter('rowsJson', i),
-			'rowsJson',
+			'Rows (JSON)',
 			i,
 		) as IDataObject[];
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'PUT',
 			rowsPath,
 			{ body: { rows, transactionId } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response.rows as IDataObject[], i);
 	}
 
 	if (operation === 'delete') {
 		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
+		// The spec declares transactionId a query-string parameter on DELETE.
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
 			`${rowsPath}/${encodeURIComponent(rowId)}`,
-			{ body: { transactionId } },
+			{ qs: { transactionId } },
 			i,
 		);
-		return toItems({ success: true, rowId }, i);
+		return toItems({ deleted: true, rowId }, i);
 	}
 
 	if (operation === 'deleteMany') {
 		const queries = buildQueries.call(this, i);
-		const response = (await appwriteApiRequest.call(
+		// The spec declares queries and transactionId query-string parameters on
+		// DELETE, unlike the update/upsert bodies.
+		const response = await appwriteApiRequest.call(
 			this,
 			'DELETE',
 			rowsPath,
 			{
-				body: {
+				qs: {
 					queries: queries.length > 0 ? queries : undefined,
 					transactionId,
 				},
 			},
 			i,
-		)) as IDataObject;
+		);
 		// One item per deleted row, matching Create/Update/Upsert Many.
 		return toItems(response.rows as IDataObject[], i);
 	}
@@ -209,13 +214,13 @@ export async function executeRowOperation(
 		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
 		const column = this.getNodeParameter('column', i) as string;
 		const value = this.getNodeParameter('amount', i, 1) as number;
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
 			`${rowsPath}/${encodeURIComponent(rowId)}/${encodeURIComponent(column)}/increment`,
 			{ body: { value, max: options.max, transactionId } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 
@@ -223,13 +228,13 @@ export async function executeRowOperation(
 		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
 		const column = this.getNodeParameter('column', i) as string;
 		const value = this.getNodeParameter('amount', i, 1) as number;
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
 			`${rowsPath}/${encodeURIComponent(rowId)}/${encodeURIComponent(column)}/decrement`,
 			{ body: { value, min: options.min, transactionId } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 

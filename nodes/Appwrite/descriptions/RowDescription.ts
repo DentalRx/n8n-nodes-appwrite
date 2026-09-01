@@ -5,6 +5,7 @@ import {
 	permissionsProperty,
 	queriesProperties,
 	returnAllAndLimitProperties,
+	sortProperty,
 	tableIdProperty,
 } from './shared';
 
@@ -24,7 +25,7 @@ export const rowOperations: INodeProperties[] = [
 				name: 'Create',
 				value: 'create',
 				description: 'Create a new row (formerly known as a document)',
-				action: 'Create a row',
+				action: 'Create row',
 			},
 			{
 				name: 'Create Many',
@@ -36,7 +37,7 @@ export const rowOperations: INodeProperties[] = [
 				name: 'Create or Update',
 				value: 'upsert',
 				description: 'Create a new row, or update the current one if it already exists (upsert)',
-				action: 'Create or update a row',
+				action: 'Create or update row',
 			},
 			{
 				name: 'Create or Update Many',
@@ -48,13 +49,13 @@ export const rowOperations: INodeProperties[] = [
 				name: 'Decrement Column',
 				value: 'decrement',
 				description: 'Decrement a numeric column of a row',
-				action: 'Decrement a row column',
+				action: 'Decrement row column',
 			},
 			{
 				name: 'Delete',
 				value: 'delete',
-				description: 'Delete a row',
-				action: 'Delete a row',
+				description: 'Delete a row permanently',
+				action: 'Delete row',
 			},
 			{
 				name: 'Delete Many',
@@ -65,26 +66,26 @@ export const rowOperations: INodeProperties[] = [
 			{
 				name: 'Get',
 				value: 'get',
-				description: 'Get a row by ID',
-				action: 'Get a row',
+				description: 'Retrieve a single row by its ID',
+				action: 'Get row',
 			},
 			{
 				name: 'Get Many',
 				value: 'getMany',
-				description: 'List rows, with optional filters',
+				description: 'Retrieve a list of rows, with optional filters',
 				action: 'Get many rows',
 			},
 			{
 				name: 'Increment Column',
 				value: 'increment',
 				description: 'Increment a numeric column of a row',
-				action: 'Increment a row column',
+				action: 'Increment row column',
 			},
 			{
 				name: 'Update',
 				value: 'update',
-				description: 'Update a row',
-				action: 'Update a row',
+				description: 'Change the column values of an existing row',
+				action: 'Update row',
 			},
 			{
 				name: 'Update Many',
@@ -209,13 +210,28 @@ export const rowFields: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		placeholder: 'unique()',
+		description:
+			'The ID for the row. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
+		displayOptions: {
+			show: {
+				resource: ['row'],
+				operation: ['create'],
+			},
+		},
+	},
+	{
+		displayName: 'Row ID',
+		name: 'rowId',
+		type: 'string',
+		default: '',
+		placeholder: 'unique()',
 		hint: 'Create or Update needs the ID of an existing row. An auto-generated ID always creates a new row.',
 		description:
 			'The ID for the row. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {
 			show: {
 				resource: ['row'],
-				operation: ['create', 'upsert'],
+				operation: ['upsert'],
 			},
 		},
 	},
@@ -227,7 +243,7 @@ export const rowFields: INodeProperties[] = [
 		type: 'json',
 		required: true,
 		default: '[]',
-		placeholder: '[{"title": "Hello", "status": "draft"}]',
+		placeholder: 'e.g. [{"title": "Hello", "status": "draft"}]',
 		hint: 'Add "$id" to set a row\'s own ID (omit it to auto-generate one) and "$permissions" to set its permissions',
 		description:
 			"A JSON array of row objects to create or upsert. Each object holds the column values, and may also carry Appwrite's reserved keys for the row ID and its permissions.",
@@ -274,6 +290,7 @@ export const rowFields: INodeProperties[] = [
 	...queriesProperties('row', ['getMany', 'get', 'updateMany', 'deleteMany'], {
 		hint: 'Get uses only Select queries. For Update Many and Delete Many the queries choose which rows are affected, and no queries means every row in the table.',
 	}),
+	sortProperty('row', ['getMany']),
 	{
 		displayName: 'Options',
 		name: 'options',
@@ -287,7 +304,7 @@ export const rowFields: INodeProperties[] = [
 		},
 		options: [
 			{
-				displayName: 'Max Value',
+				displayName: 'Maximum',
 				name: 'max',
 				type: 'number',
 				default: 0,
@@ -295,7 +312,7 @@ export const rowFields: INodeProperties[] = [
 				displayOptions: { show: { '/operation': ['increment'] } },
 			},
 			{
-				displayName: 'Min Value',
+				displayName: 'Minimum',
 				name: 'min',
 				type: 'number',
 				default: 0,

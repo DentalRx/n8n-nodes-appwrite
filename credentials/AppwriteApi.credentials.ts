@@ -10,7 +10,10 @@ export class AppwriteApi implements ICredentialType {
 
 	displayName = 'Appwrite API';
 
-	icon = 'file:../nodes/Appwrite/appwrite.svg' as const;
+	icon = {
+		light: 'file:../nodes/Appwrite/appwrite.svg',
+		dark: 'file:../nodes/Appwrite/appwrite.dark.svg',
+	} as const;
 
 	documentationUrl = 'https://appwrite.io/docs/advanced/platform/api-keys';
 
@@ -21,7 +24,7 @@ export class AppwriteApi implements ICredentialType {
 			type: 'string',
 			default: 'https://cloud.appwrite.io/v1',
 			required: true,
-			placeholder: 'https://cloud.appwrite.io/v1',
+			placeholder: 'e.g. https://cloud.appwrite.io/v1',
 			description:
 				'The Appwrite API endpoint URL. Use https://cloud.appwrite.io/v1 for Appwrite Cloud (or your region endpoint, e.g. https://nyc.cloud.appwrite.io/v1), or the URL of your self-hosted instance.',
 		},
@@ -31,7 +34,7 @@ export class AppwriteApi implements ICredentialType {
 			type: 'string',
 			default: '',
 			required: true,
-			placeholder: '5f9a9b9a9b9a9',
+			placeholder: 'e.g. 5f9a9b9a9b9a9',
 			description:
 				'The Appwrite project ID. Found in the Appwrite Console under Settings > Project ID.',
 		},

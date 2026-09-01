@@ -5,6 +5,7 @@ import {
 	buildQueries,
 	fetchAllPages,
 	getPermissions,
+	simplifyItems,
 	stripHexHash,
 	toItems,
 	withLimit,
@@ -27,6 +28,17 @@ const IMAGE_GRAVITIES = new Set([
 
 /** Output formats Appwrite can convert a preview to. The UI stores the wire value directly. */
 const IMAGE_FORMATS = new Set(['avif', 'gif', 'heic', 'jpeg', 'jpg', 'png', 'webp']);
+
+/** The file-model fields most workflows read, for the Simplify toggle. */
+const SIMPLIFY_FIELDS = [
+	'$id',
+	'bucketId',
+	'name',
+	'mimeType',
+	'sizeOriginal',
+	'$createdAt',
+	'$updatedAt',
+];
 
 interface PreviewOptions {
 	background?: string;
@@ -120,7 +132,8 @@ export async function executeFileOperation(
 			{},
 			i,
 		);
-		return toItems(response, i);
+		const simplify = this.getNodeParameter('simplify', i, false) as boolean;
+		return toItems(simplify ? simplifyItems(response, SIMPLIFY_FIELDS) : response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -128,6 +141,9 @@ export async function executeFileOperation(
 		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
+		const simplify = this.getNodeParameter('simplify', i, false) as boolean;
+		const project = (files: IDataObject[]) =>
+			simplify ? (simplifyItems(files, SIMPLIFY_FIELDS) as IDataObject[]) : files;
 
 		if (returnAll) {
 			const files = await fetchAllPages.call(
@@ -142,8 +158,9 @@ export async function executeFileOperation(
 						i,
 					),
 				'files',
+				i,
 			);
-			return toItems(files as IDataObject[], i);
+			return toItems(project(files as IDataObject[]), i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -154,12 +171,12 @@ export async function executeFileOperation(
 			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		);
-		return toItems(response.files as IDataObject[], i);
+		return toItems(project(response.files as IDataObject[]), i);
 	}
 
 	if (operation === 'update') {
 		const fileId = extractId(this.getNodeParameter('fileId', i) as string, 'file');
-		const name = this.getNodeParameter('name', i, '') as string;
+		const name = this.getNodeParameter('fileName', i, '') as string;
 		const permissions = getPermissions.call(this, i);
 		const response = await appwriteApiRequest.call(
 			this,
@@ -180,7 +197,7 @@ export async function executeFileOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, bucketId, fileId }, i);
+		return toItems({ deleted: true, bucketId, fileId }, i);
 	}
 
 	if (operation === 'download' || operation === 'getView') {
@@ -203,9 +220,20 @@ export async function executeFileOperation(
 		const fileId = extractId(this.getNodeParameter('fileId', i) as string, 'file');
 		const options = this.getNodeParameter('options', i, {}) as PreviewOptions;
 
-		const output = options.output && IMAGE_FORMATS.has(options.output) ? options.output : undefined;
-		const gravity =
-			options.gravity && IMAGE_GRAVITIES.has(options.gravity) ? options.gravity : undefined;
+		const output = options.output || undefined;
+		if (output !== undefined && !IMAGE_FORMATS.has(output)) {
+			throw new NodeOperationError(this.getNode(), `Unknown output format "${output}"`, {
+				description: `Expected one of: ${[...IMAGE_FORMATS].sort().join(', ')}.`,
+				itemIndex: i,
+			});
+		}
+		const gravity = options.gravity || undefined;
+		if (gravity !== undefined && !IMAGE_GRAVITIES.has(gravity)) {
+			throw new NodeOperationError(this.getNode(), `Unknown crop gravity "${gravity}"`, {
+				description: `Expected one of: ${[...IMAGE_GRAVITIES].sort().join(', ')}.`,
+				itemIndex: i,
+			});
+		}
 
 		const content = await appwriteApiRequestBinary.call(
 			this,

@@ -2,7 +2,11 @@
 
 An [n8n](https://n8n.io) community node for [Appwrite](https://appwrite.io), built on the modern **TablesDB** API — databases contain **tables** (formerly collections) made of **columns** (formerly attributes) and **rows** (formerly documents).
 
-It talks to the Appwrite REST API directly through n8n's own HTTP helpers, so the package ships with **zero runtime dependencies** — nothing extra is installed into your n8n instance. It covers the current Appwrite API, including bulk row operations, upserts, atomic increments, database transactions, and spatial column types.
+It talks to the Appwrite REST API directly through n8n's own HTTP helpers, so the package ships with **zero runtime dependencies** — nothing extra is installed into your n8n instance. It tracks the current Appwrite API (Appwrite 2.0 / server 1.9), including bulk row operations, upserts, atomic increments, database transactions, and all 18 column types.
+
+## Why this package
+
+npm hosts older Appwrite community nodes, but they target the deprecated Collections/Documents API and depend on the Appwrite SDK (a runtime dependency n8n's verification guidelines disallow). This package is a from-scratch integration of the modern TablesDB API — tables, rows, columns, transactions, bulk operations, spatial and large-text column types — with zero runtime dependencies, published with npm provenance from a GitHub Action.
 
 ## Installation
 
@@ -32,7 +36,7 @@ Create an **Appwrite API** credential with:
 | --- | --- |
 | **Database** | Create, Delete, Get, Get Many, Update |
 | **Table** | Create, Delete, Get, Get Many, Update (permissions, row security, enabled) |
-| **Column** | Create, Delete, Get, Get Many, Update — all 13 column types: string, integer, float, boolean, datetime, email, enum, IP, URL, point, line, polygon, and relationship |
+| **Column** | Create, Delete, Get, Get Many, Update — all 18 column types: string, text, medium text, long text, varchar, integer, big integer, float, boolean, datetime, email, enum, IP, URL, point, line, polygon, and relationship |
 | **Index** | Create (key, unique, fulltext, spatial), Delete, Get, Get Many |
 | **Row** | Create, Create Many, Create or Update (upsert), Create or Update Many, Delete, Delete Many, Get, Get Many, Update, Update Many, Increment Column, Decrement Column |
 | **Transaction** | Create, Commit, Rollback, Create Operations, Delete, Get, Get Many |
@@ -41,6 +45,10 @@ Every **Get Many** operation in the node — not just rows — supports:
 
 - **Query builder** — visual builder for Appwrite queries (equal, contains, search, between, order, cursor pagination, select, …) or raw JSON query strings.
 - **Return All** — automatic pagination when you want every result.
+
+Get and Get Many on the wide models (users, functions, files, buckets, messages, tables) also offer a
+**Simplify** toggle that trims the response to its ten most useful fields, and Row → Get Many has a
+dedicated **Sort** collection.
 
 Row operations additionally support:
 
@@ -73,7 +81,7 @@ Row operations additionally support:
 
 | Resource | Operations |
 | --- | --- |
-| **Message** | Create/Update Email, Create/Update SMS, Create/Update Push, Delete, Get, Get Many, Get Many Logs, Get Many Targets |
+| **Message** | Create/Update Email, Create/Update SMS, Create/Update Push, Delete, Get, Get Many, Get Many Targets |
 | **Topic** | Create, Delete, Get, Get Many, Update, Subscribers (create/get/get many/delete) |
 
 ### Other
@@ -140,8 +148,17 @@ read from or write to your Appwrite project.
   `401`/`403` from Appwrite usually means a missing scope rather than a bad key. The credential
   test lists databases, so it needs `databases.read`; it deliberately does not use `/ping`, which
   Appwrite answers for unauthenticated callers and which would therefore pass for any key.
+- **Delete confirmations**: delete operations output a single `{"deleted": true, ...}` item (with the
+  deleted IDs echoed) so the following node always receives something to act on.
 - **Legacy Databases API**: this node intentionally targets the TablesDB API. If you still run an
   Appwrite version without TablesDB (< 1.8), use a legacy community node instead.
+- **Account API**: Appwrite's Account endpoints authenticate as a logged-in end user (session/JWT) and
+  never accept an API key, so a server-key node cannot implement them by design. The server-side
+  equivalent is the **User** resource, including Create Token, Create Session, and Create JWT for
+  minting user-scoped credentials.
+- **Not (yet) covered**: some Appwrite 2.0 areas are out of scope for now — vector databases
+  (vectorsDB), the schemaless documentsDB, Sites hosting, Backups, messaging provider management,
+  admin MFA operations, hashed-password user imports, and creating function deployments (code upload).
 
 ## Compatibility
 
@@ -150,7 +167,7 @@ read from or write to your Appwrite project.
 
 ## Development
 
-This package is built and linted with n8n's official [`n8n-node`](https://docs.n8n.io/integrations/creating-nodes/build/reference/n8n-node-tool/) tool.
+This package is built and linted with n8n's official [`n8n-node`](https://docs.n8n.io/integrations/creating-nodes/build/n8n-node) tool.
 
 ```bash
 npm ci

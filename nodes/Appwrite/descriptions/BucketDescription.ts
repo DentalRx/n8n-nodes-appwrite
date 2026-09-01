@@ -5,6 +5,7 @@ import {
 	permissionsProperty,
 	queriesProperties,
 	returnAllAndLimitProperties,
+	simplifyProperty,
 } from './shared';
 
 export const bucketOperations: INodeProperties[] = [
@@ -23,19 +24,19 @@ export const bucketOperations: INodeProperties[] = [
 				name: 'Create',
 				value: 'create',
 				description: 'Create a new storage bucket',
-				action: 'Create a bucket',
+				action: 'Create bucket',
 			},
 			{
 				name: 'Delete',
 				value: 'delete',
-				description: 'Delete a storage bucket',
-				action: 'Delete a bucket',
+				description: 'Delete a storage bucket and all its files permanently',
+				action: 'Delete bucket',
 			},
 			{
 				name: 'Get',
 				value: 'get',
-				description: 'Get a storage bucket by ID',
-				action: 'Get a bucket',
+				description: 'Retrieve a single storage bucket by its ID',
+				action: 'Get bucket',
 			},
 			{
 				name: 'Get Many',
@@ -46,8 +47,8 @@ export const bucketOperations: INodeProperties[] = [
 			{
 				name: 'Update',
 				value: 'update',
-				description: 'Update a storage bucket',
-				action: 'Update a bucket',
+				description: 'Change the settings of an existing storage bucket',
+				action: 'Update bucket',
 			},
 		],
 		default: 'get',
@@ -103,6 +104,7 @@ export const bucketFields: INodeProperties[] = [
 	permissionsProperty('bucket', ['create', 'update']),
 	...returnAllAndLimitProperties('bucket', ['getMany']),
 	...queriesProperties('bucket', ['getMany']),
+	simplifyProperty('bucket', ['get', 'getMany']),
 	{
 		displayName: 'Options',
 		name: 'options',
@@ -121,7 +123,7 @@ export const bucketFields: INodeProperties[] = [
 				name: 'allowedFileExtensions',
 				type: 'string',
 				default: '',
-				placeholder: 'jpg, png, pdf',
+				placeholder: 'e.g. jpg, png, pdf',
 				description:
 					'Allowed file extensions as a comma-separated list or a JSON array. Maximum of 100 extensions, each up to 64 characters long.',
 			},
@@ -186,6 +188,14 @@ export const bucketFields: INodeProperties[] = [
 				typeOptions: { minValue: 1 },
 				default: 30000000,
 				description: 'Maximum file size allowed in bytes. Defaults to 30000000 (30MB).',
+			},
+			{
+				displayName: 'Transformations',
+				name: 'transformations',
+				type: 'boolean',
+				default: true,
+				description:
+					'Whether image transformations (such as Get Preview resizing and format conversion) are enabled for files in the bucket',
 			},
 		],
 	},

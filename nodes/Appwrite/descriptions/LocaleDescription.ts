@@ -16,7 +16,7 @@ export const localeOperations: INodeProperties[] = [
 				name: 'Get',
 				value: 'get',
 				description: 'Get the current locale based on the request IP address',
-				action: 'Get the current locale',
+				action: 'Get current locale',
 			},
 			{
 				name: 'Get Many Continents',

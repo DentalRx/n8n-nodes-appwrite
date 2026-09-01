@@ -6,6 +6,7 @@ import {
 	permissionsProperty,
 	queriesProperties,
 	returnAllAndLimitProperties,
+	simplifyProperty,
 } from './shared';
 
 export const tableOperations: INodeProperties[] = [
@@ -24,19 +25,19 @@ export const tableOperations: INodeProperties[] = [
 				name: 'Create',
 				value: 'create',
 				description: 'Create a new table (formerly known as a collection)',
-				action: 'Create a table',
+				action: 'Create table',
 			},
 			{
 				name: 'Delete',
 				value: 'delete',
 				description: 'Delete a table and all its rows',
-				action: 'Delete a table',
+				action: 'Delete table',
 			},
 			{
 				name: 'Get',
 				value: 'get',
-				description: 'Get a table by ID',
-				action: 'Get a table',
+				description: 'Retrieve a single table by its ID',
+				action: 'Get table',
 			},
 			{
 				name: 'Get Many',
@@ -47,8 +48,8 @@ export const tableOperations: INodeProperties[] = [
 			{
 				name: 'Update',
 				value: 'update',
-				description: 'Update a table',
-				action: 'Update a table',
+				description: 'Change the settings of an existing table',
+				action: 'Update table',
 			},
 		],
 		default: 'getMany',
@@ -168,5 +169,6 @@ export const tableFields: INodeProperties[] = [
 	},
 	...returnAllAndLimitProperties('table', ['getMany']),
 	...queriesProperties('table', ['getMany']),
+	simplifyProperty('table', ['get', 'getMany']),
 	listOptionsProperty('table', ['getMany']),
 ];

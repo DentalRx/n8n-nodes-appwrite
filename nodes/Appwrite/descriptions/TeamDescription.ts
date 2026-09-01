@@ -18,31 +18,31 @@ export const teamOperations: INodeProperties[] = [
 				name: 'Create',
 				value: 'create',
 				description: 'Create a new team',
-				action: 'Create a team',
+				action: 'Create team',
 			},
 			{
 				name: 'Create Membership',
 				value: 'createMembership',
 				description: 'Invite a new member to join a team',
-				action: 'Create a team membership',
+				action: 'Create team membership',
 			},
 			{
 				name: 'Delete',
 				value: 'delete',
-				description: 'Delete a team',
-				action: 'Delete a team',
+				description: 'Delete a team permanently',
+				action: 'Delete team',
 			},
 			{
 				name: 'Delete Membership',
 				value: 'deleteMembership',
 				description: 'Remove a membership from a team',
-				action: 'Delete a team membership',
+				action: 'Delete team membership',
 			},
 			{
 				name: 'Get',
 				value: 'get',
-				description: 'Get a team by ID',
-				action: 'Get a team',
+				description: 'Retrieve a single team by its ID',
+				action: 'Get team',
 			},
 			{
 				name: 'Get Many',
@@ -60,7 +60,7 @@ export const teamOperations: INodeProperties[] = [
 				name: 'Get Membership',
 				value: 'getMembership',
 				description: 'Get a team membership by ID',
-				action: 'Get a team membership',
+				action: 'Get team membership',
 			},
 			{
 				name: 'Get Preferences',
@@ -72,13 +72,13 @@ export const teamOperations: INodeProperties[] = [
 				name: 'Update Membership',
 				value: 'updateMembership',
 				description: 'Update the roles of a team member',
-				action: 'Update a team membership',
+				action: 'Update team membership',
 			},
 			{
 				name: 'Update Name',
 				value: 'updateName',
 				description: 'Update the name of a team',
-				action: 'Update a team name',
+				action: 'Update team name',
 			},
 			{
 				name: 'Update Preferences',
@@ -153,7 +153,7 @@ export const teamFields: INodeProperties[] = [
 		name: 'roles',
 		type: 'string',
 		default: '',
-		placeholder: 'owner, editor',
+		placeholder: 'e.g. owner, editor',
 		description:
 			'The roles to assign to the user who creates the team, as a comma-separated list or a JSON array. A role can be any string, each up to 32 characters long. Leave empty to use the default owner role.',
 		displayOptions: {
@@ -183,7 +183,7 @@ export const teamFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		placeholder: 'member, editor',
+		placeholder: 'e.g. member, editor',
 		description:
 			'The roles to assign to the member, as a comma-separated list or a JSON array. A role can be any string, each up to 32 characters long.',
 		displayOptions: {
@@ -198,7 +198,7 @@ export const teamFields: INodeProperties[] = [
 		name: 'email',
 		type: 'string',
 		default: '',
-		placeholder: 'name@email.com',
+		placeholder: 'e.g. name@email.com',
 		description:
 			'The email of the new team member. Set at least one of Email, User Name or ID, or Phone; when more than one is set, Appwrite uses the user, then the email, then the phone.',
 		displayOptions: {
@@ -229,7 +229,7 @@ export const teamFields: INodeProperties[] = [
 		name: 'phone',
 		type: 'string',
 		default: '',
-		placeholder: '+16175551212',
+		placeholder: 'e.g. +16175551212',
 		description:
 			'The phone number of the new team member, with a leading + and a country code. Set at least one of Email, User Name or ID, or Phone; when more than one is set, Appwrite uses the user, then the email, then the phone.',
 		displayOptions: {
@@ -281,7 +281,7 @@ export const teamFields: INodeProperties[] = [
 				name: 'url',
 				type: 'string',
 				default: '',
-				placeholder: 'https://example.com/invite',
+				placeholder: 'e.g. https://example.com/invite',
 				description:
 					'The URL to redirect the user back to your app from the invitation email. Not required when an API key is supplied. Only URLs from hostnames in your project platform list are allowed.',
 			},

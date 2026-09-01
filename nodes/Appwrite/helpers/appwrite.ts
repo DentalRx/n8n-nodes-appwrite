@@ -1,4 +1,5 @@
 import type { IDataObject } from 'n8n-workflow';
+import { randomBytes } from 'node:crypto';
 
 /**
  * Appwrite query strings, matching the wire format the Appwrite API expects:
@@ -48,10 +49,11 @@ export function uniqueId(padding = 7): string {
 	const seconds = Math.floor(now.getTime() / 1000);
 	const hexTimestamp = seconds.toString(16) + now.getMilliseconds().toString(16).padStart(5, '0');
 
-	let randomPadding = '';
-	for (let index = 0; index < padding; index++) {
-		randomPadding += Math.floor(Math.random() * 16).toString(16);
-	}
+	// CSPRNG-backed padding: Math.random's small state space made ID collisions
+	// between parallel executions plausible, and crypto costs nothing here.
+	const randomPadding = randomBytes(Math.ceil(padding / 2))
+		.toString('hex')
+		.slice(0, padding);
 
 	return hexTimestamp + randomPadding;
 }

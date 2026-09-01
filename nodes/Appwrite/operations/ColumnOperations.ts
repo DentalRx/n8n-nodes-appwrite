@@ -47,13 +47,13 @@ export async function executeColumnOperation(
 
 	if (operation === 'get') {
 		const key = this.getNodeParameter('key', i) as string;
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
 			`${columnsPath}/${encodeURIComponent(key)}`,
 			{},
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 
@@ -66,7 +66,7 @@ export async function executeColumnOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, databaseId, tableId, key }, i);
+		return toItems({ deleted: true, databaseId, tableId, key }, i);
 	}
 
 	if (operation === 'getMany') {
@@ -78,26 +78,27 @@ export async function executeColumnOperation(
 				this,
 				queries,
 				async (pageQueries) =>
-					(await appwriteApiRequest.call(
+					await appwriteApiRequest.call(
 						this,
 						'GET',
 						columnsPath,
 						{ qs: { queries: pageQueries } },
 						i,
-					)) as IDataObject,
+					),
 				'columns',
+				i,
 			);
 			return toItems(columns as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
 			columnsPath,
 			{ qs: { queries: withLimit(queries, limit) } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response.columns as IDataObject[], i);
 	}
 
@@ -138,9 +139,9 @@ export async function executeColumnOperation(
 			);
 			const typeRaw = this.getNodeParameter('relationshipType', i) as string;
 			const twoWay = options.twoWay ?? false;
-			const relationshipKey = this.getNodeParameter('relationshipKey', i, '') as string;
+			const relationshipKey = this.getNodeParameter('key', i, '') as string;
 			const twoWayKey = options.twoWayKey ?? '';
-			const response = (await appwriteApiRequest.call(
+			const response = await appwriteApiRequest.call(
 				this,
 				'POST',
 				`${columnsPath}/relationship`,
@@ -155,13 +156,13 @@ export async function executeColumnOperation(
 					},
 				},
 				i,
-			)) as IDataObject;
+			);
 			return toItems(response, i);
 		}
 
 		const key = this.getNodeParameter('key', i) as string;
 		const newKeyRaw = options.newKey ?? '';
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
 			`${columnsPath}/${encodeURIComponent(key)}/relationship`,
@@ -178,7 +179,7 @@ export async function executeColumnOperation(
 				},
 			},
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 
@@ -192,13 +193,7 @@ export async function executeColumnOperation(
 
 	/** POST /tablesdb/{databaseId}/tables/{tableId}/columns/{type} */
 	const createColumn = async (type: string, body: IDataObject): Promise<IDataObject> =>
-		(await appwriteApiRequest.call(
-			this,
-			'POST',
-			`${columnsPath}/${type}`,
-			{ body },
-			i,
-		)) as IDataObject;
+		await appwriteApiRequest.call(this, 'POST', `${columnsPath}/${type}`, { body }, i);
 
 	/**
 	 * PATCH /tablesdb/{databaseId}/tables/{tableId}/columns/{type}/{key}
@@ -212,13 +207,13 @@ export async function executeColumnOperation(
 			SPATIAL_COLUMN_TYPES.has(type) || body.default !== undefined
 				? body
 				: { ...body, default: null };
-		return (await appwriteApiRequest.call(
+		return await appwriteApiRequest.call(
 			this,
 			'PATCH',
 			`${columnsPath}/${type}/${encodeURIComponent(key)}`,
 			{ body: payload },
 			i,
-		)) as IDataObject;
+		);
 	};
 
 	/** Read a numeric option, reporting problems under the name the user sees. */
@@ -229,7 +224,7 @@ export async function executeColumnOperation(
 		if (value === undefined || value === '') return undefined;
 		const parsed = Number(value);
 		if (Number.isNaN(parsed)) {
-			throw new NodeOperationError(this.getNode(), `Parameter "${displayName}" must be a number`, {
+			throw new NodeOperationError(this.getNode(), `Parameter '${displayName}' must be a number`, {
 				itemIndex: i,
 			});
 		}
@@ -271,6 +266,24 @@ export async function executeColumnOperation(
 	let response: IDataObject;
 
 	switch (columnType) {
+		case 'bigint':
+			response = isCreate
+				? await createColumn('bigint', {
+						key,
+						required,
+						min: numericOption(options.min, 'Minimum'),
+						max: numericOption(options.max, 'Maximum'),
+						default: numberDefault(),
+						array,
+					})
+				: await updateColumn('bigint', {
+						required,
+						default: numberDefault(),
+						min: numericOption(options.min, 'Minimum'),
+						max: numericOption(options.max, 'Maximum'),
+						newKey,
+					});
+			break;
 		case 'boolean':
 			response = isCreate
 				? await createColumn('boolean', {
@@ -317,13 +330,13 @@ export async function executeColumnOperation(
 			response = isCreate
 				? await createColumn('enum', {
 						key,
-						elements: getStringListParameter.call(this, 'elements', i),
+						elements: getStringListParameter.call(this, 'elements', i, 'Elements'),
 						required,
 						default: stringDefault,
 						array,
 					})
 				: await updateColumn('enum', {
-						elements: getStringListParameter.call(this, 'elements', i),
+						elements: getStringListParameter.call(this, 'elements', i, 'Elements'),
 						required,
 						default: stringDefault,
 						newKey,
@@ -418,6 +431,23 @@ export async function executeColumnOperation(
 						newKey,
 					});
 			break;
+		case 'longtext':
+		case 'mediumtext':
+		case 'text':
+			response = isCreate
+				? await createColumn(columnType, {
+						key,
+						required,
+						default: stringDefault,
+						array,
+						encrypt: options.encrypt ?? false,
+					})
+				: await updateColumn(columnType, {
+						required,
+						default: stringDefault,
+						newKey,
+					});
+			break;
 		case 'string':
 			response = isCreate
 				? await createColumn('string', {
@@ -446,6 +476,23 @@ export async function executeColumnOperation(
 				: await updateColumn('url', {
 						required,
 						default: stringDefault,
+						newKey,
+					});
+			break;
+		case 'varchar':
+			response = isCreate
+				? await createColumn('varchar', {
+						key,
+						size: this.getNodeParameter('size', i, 255) as number,
+						required,
+						default: stringDefault,
+						array,
+						encrypt: options.encrypt ?? false,
+					})
+				: await updateColumn('varchar', {
+						required,
+						default: stringDefault,
+						size: numericOption(options.newSize, 'New Size'),
 						newKey,
 					});
 			break;

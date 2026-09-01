@@ -59,7 +59,7 @@ export function permissionsProperty(
 		type: 'string',
 		typeOptions: { rows: 3 },
 		default: '',
-		placeholder: 'read("any")\nupdate("users")\ndelete("team:abc/owner")',
+		placeholder: 'e.g. read("any")\nupdate("users")\ndelete("team:abc/owner")',
 		description:
 			description ??
 			'Permission strings, one per line (or a JSON array). E.g. read("any"), create("users"), update("user:abc"), delete("team:abc"). Leave empty to apply Appwrite\'s defaults on create, or to keep the existing permissions on update. Enter [] to clear all permissions.',
@@ -143,13 +143,17 @@ export function queriesProperties(
 				{
 					name: 'queryValues',
 					displayName: 'Query',
+					// The linter requires these fields in alphabetical order, which is
+					// why the Type selector renders after fields whose visibility it
+					// controls.
 					values: [
 						{
 							displayName: 'Column',
 							name: 'column',
 							type: 'string',
 							default: '',
-							description: 'The column (attribute) to query on',
+							description:
+								'The column to query on. A column is what Appwrite used to call an attribute.',
 							displayOptions: { hide: { type: NO_COLUMN_TYPES } },
 						},
 						{
@@ -214,6 +218,64 @@ export function queriesProperties(
 			displayOptions: { show: { ...show, queriesMode: ['json'] } },
 		},
 	];
+}
+
+/**
+ * Standard Simplify toggle for operations whose responses carry more than ten
+ * fields, as the verification UX guidelines require.
+ */
+export function simplifyProperty(resource: string, operations: string[]): INodeProperties {
+	return {
+		displayName: 'Simplify',
+		name: 'simplify',
+		type: 'boolean',
+		default: false,
+		description: 'Whether to return a simplified version of the response instead of the raw data',
+		displayOptions: { show: { resource: [resource], operation: operations } },
+	};
+}
+
+/**
+ * Dedicated Sort collection for Get Many operations, translated into
+ * orderAsc/orderDesc queries by the operations layer via getSortQueries().
+ */
+export function sortProperty(resource: string, operations: string[]): INodeProperties {
+	return {
+		displayName: 'Sort',
+		name: 'sortUi',
+		type: 'fixedCollection',
+		typeOptions: { multipleValues: true, sortable: true },
+		placeholder: 'Add Sort Rule',
+		default: {},
+		description: 'The order to return the results in',
+		displayOptions: { show: { resource: [resource], operation: operations } },
+		options: [
+			{
+				name: 'sortValues',
+				displayName: 'Sort Rule',
+				values: [
+					{
+						displayName: 'Column',
+						name: 'column',
+						type: 'string',
+						default: '',
+						description: 'The column to sort by',
+					},
+					{
+						displayName: 'Direction',
+						name: 'direction',
+						type: 'options',
+						options: [
+							{ name: 'Ascending', value: 'asc' },
+							{ name: 'Descending', value: 'desc' },
+						],
+						default: 'asc',
+						description: 'The direction to sort in',
+					},
+				],
+			},
+		],
+	};
 }
 
 /**

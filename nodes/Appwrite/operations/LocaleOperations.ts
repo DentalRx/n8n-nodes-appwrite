@@ -1,9 +1,8 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { appwriteApiRequest } from '../transport';
-
 import { toItems } from '../GenericFunctions';
+import { appwriteApiRequest } from '../transport';
 
 /** Each locale operation is a plain GET whose results live under one response key. */
 const LOCALE_OPERATIONS: Record<string, { path: string; listKey?: string }> = {

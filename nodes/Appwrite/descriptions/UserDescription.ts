@@ -1,6 +1,11 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-import { listOptionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
+import {
+	listOptionsProperty,
+	queriesProperties,
+	returnAllAndLimitProperties,
+	simplifyProperty,
+} from './shared';
 
 export const userOperations: INodeProperties[] = [
 	{
@@ -18,55 +23,55 @@ export const userOperations: INodeProperties[] = [
 				name: 'Create',
 				value: 'create',
 				description: 'Create a new user',
-				action: 'Create a user',
+				action: 'Create user',
 			},
 			{
 				name: 'Create JWT',
 				value: 'createJWT',
 				description: 'Create a JSON Web Token to authenticate on behalf of a user',
-				action: 'Create a JWT for a user',
+				action: 'Create JWT for user',
 			},
 			{
 				name: 'Create Session',
 				value: 'createSession',
 				description: 'Create an immediately usable session for a user',
-				action: 'Create a session for a user',
+				action: 'Create session for user',
 			},
 			{
 				name: 'Create Token',
 				value: 'createToken',
 				description: 'Create a token with a secret key for creating a session',
-				action: 'Create a token for a user',
+				action: 'Create token for user',
 			},
 			{
 				name: 'Delete',
 				value: 'delete',
 				description: 'Delete a user and release their ID',
-				action: 'Delete a user',
+				action: 'Delete user',
 			},
 			{
 				name: 'Delete Identity',
 				value: 'deleteIdentity',
 				description: 'Delete an identity by its unique ID',
-				action: 'Delete a user identity',
+				action: 'Delete user identity',
 			},
 			{
 				name: 'Delete Session',
 				value: 'deleteSession',
 				description: 'Delete a single session of a user',
-				action: 'Delete a user session',
+				action: 'Delete user session',
 			},
 			{
 				name: 'Delete Sessions',
 				value: 'deleteSessions',
 				description: "Delete all of the user's sessions",
-				action: 'Delete all sessions of a user',
+				action: 'Delete all user sessions',
 			},
 			{
 				name: 'Get',
 				value: 'get',
-				description: 'Get a user by ID',
-				action: 'Get a user',
+				description: 'Retrieve a single user by its ID',
+				action: 'Get user',
 			},
 			{
 				name: 'Get Many',
@@ -102,61 +107,61 @@ export const userOperations: INodeProperties[] = [
 				name: 'Get Preferences',
 				value: 'getPrefs',
 				description: 'Get the preferences of a user',
-				action: 'Get the preferences of a user',
+				action: 'Get user preferences',
 			},
 			{
 				name: 'Update Email',
 				value: 'updateEmail',
 				description: 'Update the email address of a user',
-				action: 'Update the email of a user',
+				action: 'Update user email',
 			},
 			{
 				name: 'Update Email Verification',
 				value: 'updateEmailVerification',
 				description: 'Update the email verification status of a user',
-				action: 'Update the email verification of a user',
+				action: 'Update user email verification',
 			},
 			{
 				name: 'Update Labels',
 				value: 'updateLabels',
 				description: 'Replace the labels of a user',
-				action: 'Update the labels of a user',
+				action: 'Update user labels',
 			},
 			{
 				name: 'Update Name',
 				value: 'updateName',
 				description: 'Update the name of a user',
-				action: 'Update the name of a user',
+				action: 'Update user name',
 			},
 			{
 				name: 'Update Password',
 				value: 'updatePassword',
 				description: 'Update the password of a user',
-				action: 'Update the password of a user',
+				action: 'Update user password',
 			},
 			{
 				name: 'Update Phone',
 				value: 'updatePhone',
 				description: 'Update the phone number of a user',
-				action: 'Update the phone number of a user',
+				action: 'Update user phone number',
 			},
 			{
 				name: 'Update Phone Verification',
 				value: 'updatePhoneVerification',
 				description: 'Update the phone verification status of a user',
-				action: 'Update the phone verification of a user',
+				action: 'Update user phone verification',
 			},
 			{
 				name: 'Update Preferences',
 				value: 'updatePrefs',
 				description: 'Replace the preferences of a user',
-				action: 'Update the preferences of a user',
+				action: 'Update user preferences',
 			},
 			{
 				name: 'Update Status',
 				value: 'updateStatus',
 				description: 'Activate (unblock) or block a user',
-				action: 'Update the status of a user',
+				action: 'Update user status',
 			},
 		],
 		default: 'get',
@@ -250,7 +255,7 @@ export const userFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		placeholder: 'name@email.com',
+		placeholder: 'e.g. name@email.com',
 		description: 'The new email address of the user',
 		displayOptions: {
 			show: {
@@ -277,7 +282,7 @@ export const userFields: INodeProperties[] = [
 		name: 'labels',
 		type: 'string',
 		default: '',
-		placeholder: 'admin, premium',
+		placeholder: 'e.g. admin, premium',
 		description:
 			'The labels to set, as a comma-separated list or a JSON array. Replaces all previously set labels; leave empty to remove all labels. Each label can be up to 36 alphanumeric characters long.',
 		displayOptions: {
@@ -322,7 +327,7 @@ export const userFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		placeholder: '+16175551212',
+		placeholder: 'e.g. +16175551212',
 		description:
 			'The new phone number of the user. Format it with a leading "+" and the country code, e.g. +16175551212.',
 		displayOptions: {
@@ -386,6 +391,7 @@ export const userFields: INodeProperties[] = [
 			hint: 'Get Many Logs supports only Limit and Offset queries',
 		},
 	),
+	simplifyProperty('user', ['get', 'getMany']),
 	{
 		displayName: 'Options',
 		name: 'options',
@@ -404,7 +410,7 @@ export const userFields: INodeProperties[] = [
 				name: 'email',
 				type: 'string',
 				default: '',
-				placeholder: 'name@email.com',
+				placeholder: 'e.g. name@email.com',
 				description: 'The email address of the user',
 			},
 			{
@@ -428,7 +434,7 @@ export const userFields: INodeProperties[] = [
 				name: 'phone',
 				type: 'string',
 				default: '',
-				placeholder: '+16175551212',
+				placeholder: 'e.g. +16175551212',
 				description:
 					'The phone number of the user. Format it with a leading "+" and the country code, e.g. +16175551212.',
 			},

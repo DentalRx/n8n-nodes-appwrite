@@ -23,19 +23,19 @@ export const indexOperations: INodeProperties[] = [
 				name: 'Create',
 				value: 'create',
 				description: 'Create an index on a table',
-				action: 'Create an index',
+				action: 'Create index',
 			},
 			{
 				name: 'Delete',
 				value: 'delete',
-				description: 'Delete an index',
-				action: 'Delete an index',
+				description: 'Delete an index from a table permanently',
+				action: 'Delete index',
 			},
 			{
 				name: 'Get',
 				value: 'get',
-				description: 'Get an index by key',
-				action: 'Get an index',
+				description: 'Retrieve a single index by its key',
+				action: 'Get index',
 			},
 			{
 				name: 'Get Many',
@@ -107,7 +107,7 @@ export const indexFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		placeholder: 'status,createdAt',
+		placeholder: 'e.g. status,createdAt',
 		description: 'The columns to index, comma-separated (or a JSON array of strings)',
 		displayOptions: {
 			show: {
@@ -136,7 +136,7 @@ export const indexFields: INodeProperties[] = [
 				name: 'lengths',
 				type: 'string',
 				default: '',
-				placeholder: '128,256',
+				placeholder: 'e.g. 128,256',
 				description:
 					'The maximum indexed length for each column, matched position by position against Columns, comma-separated numbers (or a JSON array)',
 			},
@@ -145,9 +145,9 @@ export const indexFields: INodeProperties[] = [
 				name: 'orders',
 				type: 'string',
 				default: '',
-				placeholder: 'ASC,DESC',
+				placeholder: 'e.g. asc,desc',
 				description:
-					'The sort order for each column, matched position by position against Columns, comma-separated (ASC or DESC, or a JSON array)',
+					'The sort order for each column, matched position by position against Columns, comma-separated (asc or desc, or a JSON array)',
 			},
 		],
 	},

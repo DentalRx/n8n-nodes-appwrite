@@ -16,43 +16,43 @@ export const avatarOperations: INodeProperties[] = [
 				name: 'Get Browser Icon',
 				value: 'getBrowser',
 				description: 'Get the icon of a browser by its code',
-				action: 'Get a browser icon',
+				action: 'Get browser icon',
 			},
 			{
 				name: 'Get Credit Card Icon',
 				value: 'getCreditCard',
 				description: 'Get the icon of a credit card provider by its code',
-				action: 'Get a credit card icon',
+				action: 'Get credit card icon',
 			},
 			{
 				name: 'Get Favicon',
 				value: 'getFavicon',
 				description: 'Fetch the favicon of a remote website URL',
-				action: 'Get a favicon',
+				action: 'Get favicon',
 			},
 			{
 				name: 'Get Flag',
 				value: 'getFlag',
 				description: 'Get the flag icon of a country by its ISO 3166-1 code',
-				action: 'Get a country flag',
+				action: 'Get country flag',
 			},
 			{
 				name: 'Get Image',
 				value: 'getImage',
 				description: 'Fetch a remote image URL and crop it to the given size',
-				action: 'Get a remote image',
+				action: 'Get remote image',
 			},
 			{
 				name: 'Get Initials',
 				value: 'getInitials',
 				description: 'Get an avatar image showing the initials of a name',
-				action: 'Get an initials avatar',
+				action: 'Get initials avatar',
 			},
 			{
 				name: 'Get QR Code',
 				value: 'getQr',
 				description: 'Convert a given plain text to a QR code image',
-				action: 'Get a QR code',
+				action: 'Get QR code',
 			},
 		],
 		default: 'getInitials',
@@ -127,7 +127,7 @@ export const avatarFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		placeholder: 'https://example.com',
+		placeholder: 'e.g. https://example.com',
 		description: 'The website URL to fetch the favicon from. HTTP redirects are not followed.',
 		displayOptions: {
 			show: {
@@ -142,7 +142,7 @@ export const avatarFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		placeholder: 'us',
+		placeholder: 'e.g. us',
 		description:
 			'The two-letter country code to get the flag for, following the ISO 3166-1 alpha-2 standard (e.g. us, ca, de)',
 		displayOptions: {
@@ -158,7 +158,7 @@ export const avatarFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		placeholder: 'https://example.com/image.png',
+		placeholder: 'e.g. https://example.com/image.png',
 		description: 'The remote image URL to fetch and crop. HTTP redirects are not followed.',
 		displayOptions: {
 			show: {
@@ -173,7 +173,7 @@ export const avatarFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		placeholder: 'John Doe',
+		placeholder: 'e.g. John Doe',
 		description: 'The full name to build the initials from, up to 128 characters',
 		displayOptions: {
 			show: {
@@ -283,11 +283,10 @@ export const avatarFields: INodeProperties[] = [
 			{
 				displayName: 'Background Color',
 				name: 'background',
-				type: 'string',
+				type: 'color',
 				default: '',
-				placeholder: 'fd366e',
 				description:
-					'Background color as a hex value. Leave empty for a random color that stays persistent for the given name.',
+					'Background color as a hex value. A leading # is removed automatically. Leave empty for a random color that stays persistent for the given name.',
 			},
 			{
 				displayName: 'Height',

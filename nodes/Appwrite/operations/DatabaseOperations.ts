@@ -55,6 +55,7 @@ export async function executeDatabaseOperation(
 						i,
 					),
 				'databases',
+				i,
 			);
 			return toItems(databases as IDataObject[], i);
 		}
@@ -74,11 +75,25 @@ export async function executeDatabaseOperation(
 		const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
 		const name = this.getNodeParameter('name', i) as string;
 		const updateFields = this.getNodeParameter('updateFields', i, {}) as { enabled?: boolean };
+		// PUT /tablesdb/{id} treats an omitted `enabled` as its default (true), so
+		// a plain rename would silently re-enable a disabled database. Read the
+		// current value when the user leaves the option out.
+		let enabled = updateFields.enabled;
+		if (enabled === undefined) {
+			const current = await appwriteApiRequest.call(
+				this,
+				'GET',
+				`/tablesdb/${encodeURIComponent(databaseId)}`,
+				{},
+				i,
+			);
+			enabled = current.enabled as boolean | undefined;
+		}
 		const response = await appwriteApiRequest.call(
 			this,
 			'PUT',
 			`/tablesdb/${encodeURIComponent(databaseId)}`,
-			{ body: { name, enabled: updateFields.enabled } },
+			{ body: { name, enabled } },
 			i,
 		);
 		return toItems(response, i);
@@ -93,7 +108,7 @@ export async function executeDatabaseOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, databaseId }, i);
+		return toItems({ deleted: true, databaseId }, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown database operation "${operation}"`, {
