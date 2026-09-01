@@ -7,11 +7,26 @@ import {
 	fetchAllPagesByOffset,
 	getStringListParameter,
 	parseJsonParameter,
+	simplifyItems,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
 import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
+
+/** The user-model fields most workflows read, for the Simplify toggle. */
+const SIMPLIFY_FIELDS = [
+	'$id',
+	'name',
+	'email',
+	'phone',
+	'status',
+	'emailVerification',
+	'phoneVerification',
+	'labels',
+	'registration',
+	'accessedAt',
+];
 
 export async function executeUserOperation(
 	this: IExecuteFunctions,
@@ -29,7 +44,7 @@ export async function executeUserOperation(
 			password?: string;
 			phone?: string;
 		};
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
 			'/users',
@@ -43,7 +58,7 @@ export async function executeUserOperation(
 				},
 			},
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 
@@ -52,24 +67,18 @@ export async function executeUserOperation(
 			duration?: number;
 			sessionId?: string;
 		};
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
 			`${userPath}/jwts`,
 			{ body: { sessionId: options.sessionId || undefined, duration: options.duration ?? 900 } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 
 	if (operation === 'createSession') {
-		const response = (await appwriteApiRequest.call(
-			this,
-			'POST',
-			`${userPath}/sessions`,
-			{},
-			i,
-		)) as IDataObject;
+		const response = await appwriteApiRequest.call(this, 'POST', `${userPath}/sessions`, {}, i);
 		return toItems(response, i);
 	}
 
@@ -78,19 +87,19 @@ export async function executeUserOperation(
 			expire?: number;
 			length?: number;
 		};
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
 			`${userPath}/tokens`,
 			{ body: { length: options.length ?? 6, expire: options.expire ?? 900 } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 
 	if (operation === 'delete') {
 		await appwriteApiRequest.call(this, 'DELETE', userPath, {}, i);
-		return toItems({ success: true, userId }, i);
+		return toItems({ deleted: true, userId }, i);
 	}
 
 	if (operation === 'deleteIdentity') {
@@ -102,7 +111,7 @@ export async function executeUserOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, identityId }, i);
+		return toItems({ deleted: true, identityId }, i);
 	}
 
 	if (operation === 'deleteSession') {
@@ -114,17 +123,18 @@ export async function executeUserOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, userId, sessionId }, i);
+		return toItems({ deleted: true, userId, sessionId }, i);
 	}
 
 	if (operation === 'deleteSessions') {
 		await appwriteApiRequest.call(this, 'DELETE', `${userPath}/sessions`, {}, i);
-		return toItems({ success: true, userId }, i);
+		return toItems({ deleted: true, userId }, i);
 	}
 
 	if (operation === 'get') {
-		const response = (await appwriteApiRequest.call(this, 'GET', userPath, {}, i)) as IDataObject;
-		return toItems(response, i);
+		const response = await appwriteApiRequest.call(this, 'GET', userPath, {}, i);
+		const simplify = this.getNodeParameter('simplify', i, false) as boolean;
+		return toItems(simplify ? simplifyItems(response, SIMPLIFY_FIELDS) : response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -133,32 +143,37 @@ export async function executeUserOperation(
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
+		const simplify = this.getNodeParameter('simplify', i, false) as boolean;
+		const project = (users: IDataObject[]) =>
+			simplify ? (simplifyItems(users, SIMPLIFY_FIELDS) as IDataObject[]) : users;
+
 		if (returnAll) {
 			const result = await fetchAllPages.call(
 				this,
 				queries,
 				async (pageQueries) =>
-					(await appwriteApiRequest.call(
+					await appwriteApiRequest.call(
 						this,
 						'GET',
 						'/users',
 						{ qs: { queries: pageQueries, search: searchArg } },
 						i,
-					)) as IDataObject,
+					),
 				'users',
+				i,
 			);
-			return toItems(result as IDataObject[], i);
+			return toItems(project(result as IDataObject[]), i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
 			'/users',
 			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
-		)) as IDataObject;
-		return toItems(response.users as IDataObject[], i);
+		);
+		return toItems(project(response.users as IDataObject[]), i);
 	}
 
 	if (operation === 'getManyIdentities') {
@@ -172,26 +187,27 @@ export async function executeUserOperation(
 				this,
 				queries,
 				async (pageQueries) =>
-					(await appwriteApiRequest.call(
+					await appwriteApiRequest.call(
 						this,
 						'GET',
 						'/users/identities',
 						{ qs: { queries: pageQueries, search: searchArg } },
 						i,
-					)) as IDataObject,
+					),
 				'identities',
+				i,
 			);
 			return toItems(result as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
 			'/users/identities',
 			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response.identities as IDataObject[], i);
 	}
 
@@ -205,26 +221,27 @@ export async function executeUserOperation(
 				this,
 				queries,
 				async (pageQueries) =>
-					(await appwriteApiRequest.call(
+					await appwriteApiRequest.call(
 						this,
 						'GET',
 						`${userPath}/logs`,
 						{ qs: { queries: pageQueries } },
 						i,
-					)) as IDataObject,
+					),
 				'logs',
+				i,
 			);
 			return toItems(logs as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
 			`${userPath}/logs`,
 			{ qs: { queries: withLimit(queries, limit) } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response.logs as IDataObject[], i);
 	}
 
@@ -239,156 +256,150 @@ export async function executeUserOperation(
 				this,
 				queries,
 				async (pageQueries) =>
-					(await appwriteApiRequest.call(
+					await appwriteApiRequest.call(
 						this,
 						'GET',
 						`${userPath}/memberships`,
 						{ qs: { queries: pageQueries, search: searchArg } },
 						i,
-					)) as IDataObject,
+					),
 				'memberships',
+				i,
 			);
 			return toItems(result as IDataObject[], i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
 			`${userPath}/memberships`,
 			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response.memberships as IDataObject[], i);
 	}
 
 	if (operation === 'getManySessions') {
-		const response = (await appwriteApiRequest.call(
-			this,
-			'GET',
-			`${userPath}/sessions`,
-			{},
-			i,
-		)) as IDataObject;
+		const response = await appwriteApiRequest.call(this, 'GET', `${userPath}/sessions`, {}, i);
 		return toItems(response.sessions as IDataObject[], i);
 	}
 
 	if (operation === 'getPrefs') {
-		const response = (await appwriteApiRequest.call(
-			this,
-			'GET',
-			`${userPath}/prefs`,
-			{},
-			i,
-		)) as IDataObject;
+		const response = await appwriteApiRequest.call(this, 'GET', `${userPath}/prefs`, {}, i);
 		return toItems(response, i);
 	}
 
 	if (operation === 'updateEmail') {
 		const email = this.getNodeParameter('email', i) as string;
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
 			`${userPath}/email`,
 			{ body: { email } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 
 	if (operation === 'updateEmailVerification') {
 		const emailVerification = this.getNodeParameter('emailVerification', i, true) as boolean;
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
 			`${userPath}/verification`,
 			{ body: { emailVerification } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 
 	if (operation === 'updateLabels') {
-		const labels = getStringListParameter.call(this, 'labels', i);
-		const response = (await appwriteApiRequest.call(
+		const labels = getStringListParameter.call(this, 'labels', i, 'Labels');
+		const response = await appwriteApiRequest.call(
 			this,
 			'PUT',
 			`${userPath}/labels`,
 			{ body: { labels } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 
 	if (operation === 'updateName') {
 		const name = this.getNodeParameter('name', i) as string;
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
 			`${userPath}/name`,
 			{ body: { name } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 
 	if (operation === 'updatePassword') {
 		const password = this.getNodeParameter('password', i) as string;
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
 			`${userPath}/password`,
 			{ body: { password } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 
 	if (operation === 'updatePhone') {
 		const phone = this.getNodeParameter('phone', i) as string;
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
 			`${userPath}/phone`,
 			{ body: { number: phone } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 
 	if (operation === 'updatePhoneVerification') {
 		const phoneVerification = this.getNodeParameter('phoneVerification', i, true) as boolean;
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
 			`${userPath}/verification/phone`,
 			{ body: { phoneVerification } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 
 	if (operation === 'updatePrefs') {
-		const prefs = parseJsonParameter.call(this, this.getNodeParameter('prefs', i), 'prefs', i);
-		const response = (await appwriteApiRequest.call(
+		const prefs = parseJsonParameter.call(
+			this,
+			this.getNodeParameter('prefs', i),
+			'Preferences',
+			i,
+		);
+		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
 			`${userPath}/prefs`,
 			{ body: { prefs } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 
 	if (operation === 'updateStatus') {
 		const status = this.getNodeParameter('status', i, true) as boolean;
-		const response = (await appwriteApiRequest.call(
+		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
 			`${userPath}/status`,
 			{ body: { status } },
 			i,
-		)) as IDataObject;
+		);
 		return toItems(response, i);
 	}
 

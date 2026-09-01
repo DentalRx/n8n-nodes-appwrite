@@ -6,7 +6,7 @@ import type {
 	ILoadOptionsFunctions,
 	JsonObject,
 } from 'n8n-workflow';
-import { NodeApiError } from 'n8n-workflow';
+import { NodeApiError, NodeOperationError } from 'n8n-workflow';
 import { randomBytes } from 'node:crypto';
 
 export type AppwriteContext = IExecuteFunctions | ILoadOptionsFunctions;
@@ -72,9 +72,26 @@ function compact(body: IDataObject): IDataObject {
  * message in the title and the rest of the payload in the details.
  */
 function toNodeApiError(context: AppwriteContext, error: unknown, itemIndex?: number): never {
-	// NodeApiError's constructor hands back an existing NodeApiError untouched,
-	// so re-wrapping one would silently drop the message and item index we pass.
+	// n8n's request helpers throw pre-wrapped NodeApiErrors, so this branch is
+	// the one that handles essentially every real API failure. For a binary
+	// request the arraybuffer encoding applies to the error response too:
+	// Appwrite's JSON body is stranded on the wrapped error as raw bytes, and
+	// must be decoded here or the user only sees n8n's generic status text.
 	if (error instanceof NodeApiError) {
+		const buffered = (error.context as { data?: unknown } | undefined)?.data;
+		const decoded =
+			buffered instanceof Buffer || buffered instanceof Uint8Array
+				? parseErrorBuffer(Buffer.from(buffered))
+				: undefined;
+		if (decoded !== undefined) {
+			// Building from the decoded payload constructs a fresh error; the
+			// constructor's return-existing-instance shortcut only applies when the
+			// errorResponse argument is itself a NodeApiError.
+			throw new NodeApiError(context.getNode(), decoded, {
+				message: (decoded as { message?: string }).message,
+				itemIndex,
+			});
+		}
 		if (itemIndex !== undefined) error.context.itemIndex = itemIndex;
 		throw error;
 	}
@@ -302,7 +319,19 @@ export async function appwriteFileUpload(
 		}
 
 		if (typeof response === 'string') {
-			response = JSON.parse(response) as IDataObject;
+			try {
+				response = JSON.parse(response) as IDataObject;
+			} catch {
+				throw new NodeOperationError(
+					this.getNode(),
+					'Appwrite answered the file upload with an unexpected response',
+					{
+						description:
+							'The upload endpoint returned a body that is not JSON. Check the Endpoint URL in the credential points at an Appwrite API (ending in /v1).',
+						itemIndex,
+					},
+				);
+			}
 		}
 
 		uploadId = (response?.$id as string | undefined) ?? uploadId;

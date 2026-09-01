@@ -1,10 +1,11 @@
 import type {
+	IDataObject,
 	IExecuteFunctions,
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
 } from 'n8n-workflow';
-import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
+import { NodeApiError, NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
 import { properties } from './descriptions';
 import {
@@ -41,7 +42,7 @@ export class Appwrite implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Appwrite',
 		name: 'appwrite',
-		icon: 'file:appwrite.svg',
+		icon: { light: 'file:appwrite.svg', dark: 'file:appwrite.dark.svg' },
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
@@ -49,7 +50,7 @@ export class Appwrite implements INodeType {
 			'Interact with the Appwrite API: databases with tables and rows, storage, functions, users, teams, and messaging',
 		// Declared here rather than in a sibling Appwrite.node.json: the n8n CLI's
 		// build step only copies images into dist/, so a codex file would never
-		// reach the published package, and n8n prefers this field over the file.
+		// reach the published package. The inline field carries the same data.
 		codex: {
 			categories: ['Development'],
 			resources: {
@@ -105,10 +106,17 @@ export class Appwrite implements INodeType {
 			try {
 				push(returnData, await runOperation.call(this, resource, i));
 			} catch (error) {
-				returnData.push({
-					json: { error: error instanceof Error ? error.message : String(error) },
-					pairedItem: { item: i },
-				});
+				const json: IDataObject = {
+					error: error instanceof Error ? error.message : String(error),
+				};
+				// A NodeApiError's message is n8n's generic status text; Appwrite's
+				// own message lives in `description`, so keep both on the error item
+				// (plus the status code) for downstream error-handling branches.
+				if (error instanceof NodeApiError) {
+					if (error.description) json.description = error.description;
+					if (error.httpCode) json.httpCode = error.httpCode;
+				}
+				returnData.push({ json, pairedItem: { item: i } });
 			}
 		}
 

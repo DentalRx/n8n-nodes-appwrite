@@ -44,11 +44,20 @@ export async function executeIndexOperation(
 			'Columns',
 			i,
 		);
-		const orders = parseStringList.call(this, options.orders ?? '', 'Orders', i);
+		const orders = parseStringList.call(this, options.orders ?? '', 'Orders', i).map((order) => {
+			const normalized = order.toLowerCase();
+			if (normalized !== 'asc' && normalized !== 'desc') {
+				throw new NodeOperationError(this.getNode(), `Unknown sort order "${order}"`, {
+					description: 'Expected one of: asc, desc.',
+					itemIndex: i,
+				});
+			}
+			return normalized;
+		});
 		const lengths = parseStringList.call(this, options.lengths ?? '', 'Lengths', i).map((value) => {
 			const parsed = Number(value);
 			if (Number.isNaN(parsed)) {
-				throw new NodeOperationError(this.getNode(), 'Parameter "Lengths" must contain numbers', {
+				throw new NodeOperationError(this.getNode(), "Parameter 'Lengths' must contain numbers", {
 					itemIndex: i,
 				});
 			}
@@ -102,6 +111,7 @@ export async function executeIndexOperation(
 						i,
 					),
 				'indexes',
+				i,
 			);
 			return toItems(indexes as IDataObject[], i);
 		}
@@ -126,7 +136,7 @@ export async function executeIndexOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, databaseId, tableId, key }, i);
+		return toItems({ deleted: true, databaseId, tableId, key }, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown index operation "${operation}"`, {

@@ -18,19 +18,19 @@ export const executionOperations: INodeProperties[] = [
 				name: 'Create',
 				value: 'create',
 				description: 'Trigger a function execution',
-				action: 'Create an execution',
+				action: 'Create execution',
 			},
 			{
 				name: 'Delete',
 				value: 'delete',
 				description: 'Delete a function execution log',
-				action: 'Delete an execution',
+				action: 'Delete execution',
 			},
 			{
 				name: 'Get',
 				value: 'get',
 				description: 'Get a function execution log by ID',
-				action: 'Get an execution',
+				action: 'Get execution',
 			},
 			{
 				name: 'Get Many',

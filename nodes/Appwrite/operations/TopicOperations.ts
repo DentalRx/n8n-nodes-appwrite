@@ -29,7 +29,7 @@ export async function executeTopicOperation(
 		const name = this.getNodeParameter('name', i) as string;
 		const subscribe = listOrUndefined(
 			this.getNodeParameter('subscribe', i, '') as string,
-			'subscribe',
+			'Subscribe Roles',
 		);
 		const response = await appwriteApiRequest.call(
 			this,
@@ -64,7 +64,7 @@ export async function executeTopicOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, topicId }, i);
+		return toItems({ deleted: true, topicId }, i);
 	}
 
 	if (operation === 'deleteSubscriber') {
@@ -79,7 +79,7 @@ export async function executeTopicOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, topicId, subscriberId }, i);
+		return toItems({ deleted: true, topicId, subscriberId }, i);
 	}
 
 	if (operation === 'get') {
@@ -106,6 +106,7 @@ export async function executeTopicOperation(
 						i,
 					),
 				'topics',
+				i,
 			);
 			return toItems(topics as IDataObject[], i);
 		}
@@ -141,6 +142,7 @@ export async function executeTopicOperation(
 						i,
 					),
 				'subscribers',
+				i,
 			);
 			return toItems(subscribers as IDataObject[], i);
 		}
@@ -181,7 +183,7 @@ export async function executeTopicOperation(
 			{
 				body: {
 					name: updateFields.name || undefined,
-					subscribe: listOrUndefined(updateFields.subscribe, 'subscribe'),
+					subscribe: listOrUndefined(updateFields.subscribe, 'Subscribe Roles'),
 				},
 			},
 			i,

@@ -63,7 +63,7 @@ export function parseJsonParameter(
 		if (Array.isArray(value)) {
 			throw new NodeOperationError(
 				this.getNode(),
-				`Parameter "${parameterName}" must be a JSON object`,
+				`Parameter '${parameterName}' must be a JSON object`,
 				{
 					description: 'Provide an object like {"key": "value"}, not a list or a plain value.',
 					itemIndex,
@@ -77,7 +77,7 @@ export function parseJsonParameter(
 	try {
 		parsed = jsonParse<IDataObject>(value as string);
 	} catch (error) {
-		throw new NodeOperationError(this.getNode(), `Parameter "${parameterName}" is not valid JSON`, {
+		throw new NodeOperationError(this.getNode(), `Parameter '${parameterName}' is not valid JSON`, {
 			description: (error as Error).message,
 			itemIndex,
 		});
@@ -86,7 +86,7 @@ export function parseJsonParameter(
 	if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
 		throw new NodeOperationError(
 			this.getNode(),
-			`Parameter "${parameterName}" must be a JSON object`,
+			`Parameter '${parameterName}' must be a JSON object`,
 			{
 				description: 'Provide an object like {"key": "value"}, not a list or a plain value.',
 				itemIndex,
@@ -116,7 +116,7 @@ export function parseJsonArrayParameter(
 		} catch (error) {
 			throw new NodeOperationError(
 				this.getNode(),
-				`Parameter "${parameterName}" is not valid JSON`,
+				`Parameter '${parameterName}' is not valid JSON`,
 				{ description: (error as Error).message, itemIndex },
 			);
 		}
@@ -124,7 +124,7 @@ export function parseJsonArrayParameter(
 		if (!Array.isArray(parsed)) {
 			throw new NodeOperationError(
 				this.getNode(),
-				`Parameter "${parameterName}" must be a JSON array`,
+				`Parameter '${parameterName}' must be a JSON array`,
 				{
 					description: 'Provide a list like ["a", "b"], not an object or a plain value.',
 					itemIndex,
@@ -135,7 +135,7 @@ export function parseJsonArrayParameter(
 		return parsed;
 	}
 
-	throw new NodeOperationError(this.getNode(), `Parameter "${parameterName}" must be an array`, {
+	throw new NodeOperationError(this.getNode(), `Parameter '${parameterName}' must be an array`, {
 		itemIndex,
 	});
 }
@@ -174,9 +174,10 @@ export function getStringListParameter(
 	this: IExecuteFunctions,
 	parameterName: string,
 	itemIndex: number,
+	displayName = parameterName,
 ): string[] {
 	const raw = this.getNodeParameter(parameterName, itemIndex, '') as string | string[];
-	return parseStringList.call(this, raw, parameterName, itemIndex);
+	return parseStringList.call(this, raw, displayName, itemIndex);
 }
 
 /**
@@ -209,12 +210,6 @@ export function smartParseValue(value: string, treatAsString: boolean): unknown 
 	if (treatAsString) return value;
 	const trimmed = value.trim();
 	if (trimmed === '') return value;
-	// Pure-integer strings outside the double-safe range would be silently
-	// rounded by JSON.parse (Appwrite integer columns are 64-bit); keep the
-	// original string so the value is never corrupted.
-	if (/^-?\d+$/.test(trimmed) && !Number.isSafeInteger(Number(trimmed))) {
-		return value;
-	}
 	if (
 		/^(-?\d+(\.\d+)?([eE][+-]?\d+)?|true|false|null)$/.test(trimmed) ||
 		trimmed.startsWith('[') ||
@@ -222,7 +217,18 @@ export function smartParseValue(value: string, treatAsString: boolean): unknown 
 		(trimmed.startsWith('"') && trimmed.endsWith('"'))
 	) {
 		try {
-			return JSON.parse(trimmed);
+			const parsed: unknown = JSON.parse(trimmed);
+			// Numeric literals a double cannot hold faithfully would be silently
+			// corrupted by the parse (Appwrite integer columns are 64-bit):
+			// overflow becomes Infinity, which serialises as null, and large
+			// integral values round - including ones written with a decimal point
+			// ("9007199254740993.0") or an exponent. Keep the original string in
+			// those cases so the value is never corrupted.
+			if (typeof parsed === 'number') {
+				if (!Number.isFinite(parsed)) return value;
+				if (Number.isInteger(parsed) && !Number.isSafeInteger(parsed)) return value;
+			}
+			return parsed;
 		} catch {
 			return value;
 		}
@@ -235,7 +241,6 @@ interface QueryCondition {
 	column?: string;
 	value?: string;
 	value2?: string;
-	values?: string;
 	treatValueAsString?: boolean;
 }
 
@@ -252,7 +257,7 @@ export function buildQueries(
 
 	if (mode === 'json') {
 		const raw = this.getNodeParameter(`${parameterName}Json`, itemIndex, '[]');
-		const parsed = parseJsonArrayParameter.call(this, raw, `${parameterName}Json`, itemIndex);
+		const parsed = parseJsonArrayParameter.call(this, raw, 'Queries (JSON)', itemIndex);
 		return parsed.map((q) => (typeof q === 'string' ? q : JSON.stringify(q)));
 	}
 
@@ -278,7 +283,7 @@ function buildSingleQuery(
 	// Column lists (Select) accept the same comma-separated form as every other
 	// list-valued field in this node, as well as a JSON array.
 	const columnList = (): string[] =>
-		parseStringList.call(this, condition.values ?? condition.value ?? '', 'Select', itemIndex);
+		parseStringList.call(this, condition.value ?? '', 'Select', itemIndex);
 
 	switch (type) {
 		case 'equal':
@@ -348,6 +353,24 @@ function buildSingleQuery(
 }
 
 /**
+ * Read the dedicated Sort collection (sortUi) into Appwrite order queries,
+ * appended after the user's own queries by the Get Many operations that offer
+ * the collection.
+ */
+export function getSortQueries(this: IExecuteFunctions, itemIndex: number): string[] {
+	const collection = this.getNodeParameter('sortUi', itemIndex, {}) as {
+		sortValues?: Array<{ column?: string; direction?: string }>;
+	};
+	return (collection.sortValues ?? [])
+		.filter((rule) => (rule.column ?? '') !== '')
+		.map((rule) =>
+			rule.direction === 'desc'
+				? Query.orderDesc(rule.column as string)
+				: Query.orderAsc(rule.column as string),
+		);
+}
+
+/**
  * Parse the permissions parameter into an array of Appwrite permission
  * strings, e.g. ['read("any")', 'update("team:abc")'].
  *
@@ -370,7 +393,7 @@ export function getPermissions(
 
 	if (trimmed.startsWith('[')) {
 		return parseJsonArrayParameter
-			.call(this, trimmed, parameterName, itemIndex)
+			.call(this, trimmed, 'Permissions', itemIndex)
 			.map((p) => String(p));
 	}
 
@@ -392,7 +415,7 @@ export function getRowData(this: IExecuteFunctions, itemIndex: number): IDataObj
 
 	if (mode === 'json') {
 		const raw = this.getNodeParameter('dataJson', itemIndex, '{}');
-		return parseJsonParameter.call(this, raw, 'dataJson', itemIndex);
+		return parseJsonParameter.call(this, raw, 'Data (JSON)', itemIndex);
 	}
 
 	const fields = this.getNodeParameter('dataFieldsUi', itemIndex, {}) as {
@@ -408,6 +431,24 @@ export function getRowData(this: IExecuteFunctions, itemIndex: number): IDataObj
 		) as IDataObject[string];
 	}
 	return data;
+}
+
+/**
+ * Project an API model down to the handful of fields most workflows read, for
+ * the standard n8n `Simplify` toggle. Fields missing from a model are skipped.
+ */
+export function simplifyItems(
+	data: IDataObject | IDataObject[],
+	fields: string[],
+): IDataObject | IDataObject[] {
+	const pick = (row: IDataObject): IDataObject => {
+		const out: IDataObject = {};
+		for (const field of fields) {
+			if (row[field] !== undefined) out[field] = row[field];
+		}
+		return out;
+	};
+	return Array.isArray(data) ? data.map(pick) : pick(data);
 }
 
 /**

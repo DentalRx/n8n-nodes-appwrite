@@ -45,7 +45,7 @@ export async function executeExecutionOperation(
 		const headers =
 			options.headers === undefined
 				? undefined
-				: parseJsonParameter.call(this, options.headers, 'headers', i);
+				: parseJsonParameter.call(this, options.headers, 'Headers', i);
 
 		const response = await appwriteApiRequest.call(
 			this,
@@ -78,7 +78,7 @@ export async function executeExecutionOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, functionId, executionId }, i);
+		return toItems({ deleted: true, functionId, executionId }, i);
 	}
 
 	if (operation === 'get') {
@@ -110,6 +110,7 @@ export async function executeExecutionOperation(
 						i,
 					),
 				'executions',
+				i,
 			);
 			return toItems(executions as IDataObject[], i);
 		}

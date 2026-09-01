@@ -1,7 +1,7 @@
 {
 	"name": "@dentalrx/n8n-nodes-appwrite",
 	"version": "0.1.0",
-	"description": "n8n community node for Appwrite using the modern TablesDB API (tables, rows, and columns)",
+	"description": "n8n community node for Appwrite: TablesDB databases (tables, rows, columns, transactions), storage, users and teams, functions, messaging, and more",
 	"keywords": [
 		"n8n-community-node-package",
 		"n8n",

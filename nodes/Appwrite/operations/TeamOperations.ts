@@ -23,7 +23,7 @@ export async function executeTeamOperation(
 	if (operation === 'create') {
 		const teamId = resolveId(this.getNodeParameter('teamId', i, '') as string);
 		const name = this.getNodeParameter('name', i) as string;
-		const roles = getStringListParameter.call(this, 'roles', i);
+		const roles = getStringListParameter.call(this, 'roles', i, 'Roles');
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
@@ -36,7 +36,7 @@ export async function executeTeamOperation(
 
 	if (operation === 'createMembership') {
 		const path = `${teamPath()}/memberships`;
-		const roles = getStringListParameter.call(this, 'roles', i);
+		const roles = getStringListParameter.call(this, 'roles', i, 'Roles');
 		const email = this.getNodeParameter('email', i, '') as string;
 		const userId = this.getNodeParameter('userId', i, '') as string;
 		const phone = this.getNodeParameter('phone', i, '') as string;
@@ -65,7 +65,7 @@ export async function executeTeamOperation(
 	if (operation === 'delete') {
 		const teamId = extractId(this.getNodeParameter('teamId', i) as string, 'team');
 		await appwriteApiRequest.call(this, 'DELETE', `/teams/${encodeURIComponent(teamId)}`, {}, i);
-		return toItems({ success: true, teamId }, i);
+		return toItems({ deleted: true, teamId }, i);
 	}
 
 	if (operation === 'deleteMembership') {
@@ -78,7 +78,7 @@ export async function executeTeamOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, teamId, membershipId }, i);
+		return toItems({ deleted: true, teamId, membershipId }, i);
 	}
 
 	if (operation === 'get') {
@@ -105,6 +105,7 @@ export async function executeTeamOperation(
 						i,
 					),
 				'teams',
+				i,
 			);
 			return toItems(allTeams as IDataObject[], i);
 		}
@@ -140,6 +141,7 @@ export async function executeTeamOperation(
 						i,
 					),
 				'memberships',
+				i,
 			);
 			return toItems(memberships as IDataObject[], i);
 		}
@@ -175,7 +177,7 @@ export async function executeTeamOperation(
 	if (operation === 'updateMembership') {
 		const membershipId = this.getNodeParameter('membershipId', i) as string;
 		const path = `${teamPath()}/memberships/${encodeURIComponent(membershipId)}`;
-		const roles = getStringListParameter.call(this, 'roles', i);
+		const roles = getStringListParameter.call(this, 'roles', i, 'Roles');
 		const response = await appwriteApiRequest.call(this, 'PATCH', path, { body: { roles } }, i);
 		return toItems(response, i);
 	}
@@ -189,7 +191,12 @@ export async function executeTeamOperation(
 
 	if (operation === 'updatePrefs') {
 		const path = `${teamPath()}/prefs`;
-		const prefs = parseJsonParameter.call(this, this.getNodeParameter('prefs', i), 'prefs', i);
+		const prefs = parseJsonParameter.call(
+			this,
+			this.getNodeParameter('prefs', i),
+			'Preferences',
+			i,
+		);
 		const response = await appwriteApiRequest.call(this, 'PUT', path, { body: { prefs } }, i);
 		return toItems(response, i);
 	}

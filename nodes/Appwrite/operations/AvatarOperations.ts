@@ -84,7 +84,10 @@ export async function executeAvatarOperation(
 			throw new NodeOperationError(
 				this.getNode(),
 				`Unknown ${isBrowser ? 'browser' : 'credit card'} code "${code}"`,
-				{ itemIndex: i },
+				{
+					description: `Expected one of: ${[...allowed].sort().join(', ')}.`,
+					itemIndex: i,
+				},
 			);
 		}
 

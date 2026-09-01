@@ -8,6 +8,7 @@ import {
 } from './shared';
 
 const SCALAR_TYPES = [
+	'bigint',
 	'boolean',
 	'datetime',
 	'email',
@@ -15,8 +16,12 @@ const SCALAR_TYPES = [
 	'float',
 	'integer',
 	'ip',
+	'longtext',
+	'mediumtext',
 	'string',
+	'text',
 	'url',
+	'varchar',
 ];
 
 export const columnOperations: INodeProperties[] = [
@@ -35,19 +40,19 @@ export const columnOperations: INodeProperties[] = [
 				name: 'Create',
 				value: 'create',
 				description: 'Add a new column (formerly known as an attribute) to a table',
-				action: 'Create a column',
+				action: 'Create column',
 			},
 			{
 				name: 'Delete',
 				value: 'delete',
-				description: 'Delete a column from a table',
-				action: 'Delete a column',
+				description: 'Delete a column from a table permanently',
+				action: 'Delete column',
 			},
 			{
 				name: 'Get',
 				value: 'get',
-				description: 'Get a column by key',
-				action: 'Get a column',
+				description: 'Retrieve a single column by its key',
+				action: 'Get column',
 			},
 			{
 				name: 'Get Many',
@@ -58,8 +63,8 @@ export const columnOperations: INodeProperties[] = [
 			{
 				name: 'Update',
 				value: 'update',
-				description: 'Update a column',
-				action: 'Update a column',
+				description: 'Change the settings of an existing column',
+				action: 'Update column',
 			},
 		],
 		default: 'getMany',
@@ -74,6 +79,7 @@ export const columnFields: INodeProperties[] = [
 		name: 'columnType',
 		type: 'options',
 		options: [
+			{ name: 'Big Integer', value: 'bigint' },
 			{ name: 'Boolean', value: 'boolean' },
 			{ name: 'Datetime', value: 'datetime' },
 			{ name: 'Email', value: 'email' },
@@ -82,11 +88,15 @@ export const columnFields: INodeProperties[] = [
 			{ name: 'Integer', value: 'integer' },
 			{ name: 'IP Address', value: 'ip' },
 			{ name: 'Line', value: 'line' },
+			{ name: 'Long Text', value: 'longtext' },
+			{ name: 'Medium Text', value: 'mediumtext' },
 			{ name: 'Point', value: 'point' },
 			{ name: 'Polygon', value: 'polygon' },
 			{ name: 'Relationship', value: 'relationship' },
 			{ name: 'String', value: 'string' },
+			{ name: 'Text', value: 'text' },
 			{ name: 'URL', value: 'url' },
+			{ name: 'Varchar', value: 'varchar' },
 		],
 		default: 'string',
 		description:
@@ -141,7 +151,7 @@ export const columnFields: INodeProperties[] = [
 			show: {
 				resource: ['column'],
 				operation: ['create'],
-				columnType: ['string'],
+				columnType: ['string', 'varchar'],
 			},
 		},
 	},
@@ -152,7 +162,7 @@ export const columnFields: INodeProperties[] = [
 		type: 'string',
 		required: true,
 		default: '',
-		placeholder: 'todo,in-progress,done',
+		placeholder: 'e.g. todo,in-progress,done',
 		description: 'The allowed enum values, comma-separated (or a JSON array of strings)',
 		displayOptions: {
 			show: {
@@ -202,7 +212,7 @@ export const columnFields: INodeProperties[] = [
 	},
 	{
 		displayName: 'Key',
-		name: 'relationshipKey',
+		name: 'key',
 		type: 'string',
 		default: '',
 		description:
@@ -283,7 +293,7 @@ export const columnFields: INodeProperties[] = [
 				displayOptions: {
 					show: {
 						'/operation': ['create'],
-						'/columnType': ['string'],
+						'/columnType': ['string', 'text', 'mediumtext', 'longtext', 'varchar'],
 					},
 				},
 			},
@@ -295,7 +305,7 @@ export const columnFields: INodeProperties[] = [
 				description: 'The largest value the column accepts. Leave this option out for no maximum.',
 				displayOptions: {
 					show: {
-						'/columnType': ['integer', 'float'],
+						'/columnType': ['bigint', 'float', 'integer'],
 					},
 				},
 			},
@@ -307,7 +317,7 @@ export const columnFields: INodeProperties[] = [
 				description: 'The smallest value the column accepts. Leave this option out for no minimum.',
 				displayOptions: {
 					show: {
-						'/columnType': ['integer', 'float'],
+						'/columnType': ['bigint', 'float', 'integer'],
 					},
 				},
 			},
@@ -335,7 +345,7 @@ export const columnFields: INodeProperties[] = [
 				displayOptions: {
 					show: {
 						'/operation': ['update'],
-						'/columnType': ['string'],
+						'/columnType': ['string', 'varchar'],
 					},
 				},
 			},

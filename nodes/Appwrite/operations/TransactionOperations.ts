@@ -56,6 +56,7 @@ export async function executeTransactionOperation(
 						i,
 					),
 				'transactions',
+				i,
 			);
 			return toItems(transactions as IDataObject[], i);
 		}
@@ -93,7 +94,7 @@ export async function executeTransactionOperation(
 		const operations = parseJsonArrayParameter.call(
 			this,
 			this.getNodeParameter('operationsJson', i),
-			'operationsJson',
+			'Operations (JSON)',
 			i,
 		) as object[];
 		const response = await appwriteApiRequest.call(
@@ -115,7 +116,7 @@ export async function executeTransactionOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, transactionId }, i);
+		return toItems({ deleted: true, transactionId }, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown transaction operation "${operation}"`, {

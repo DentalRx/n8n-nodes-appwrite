@@ -1,9 +1,9 @@
 import type { IDataObject, ILoadOptionsFunctions, INodePropertyOptions } from 'n8n-workflow';
 
-import { Query } from '../helpers/appwrite';
+import { Query, extractId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
-/** Appwrite caps list endpoints at 100 results per page. */
+/** Fetch picker lists in pages of 100. */
 const PAGE_SIZE = 100;
 
 /** Stop paginating a picker list here; longer lists are better served by an expression. */
@@ -62,10 +62,15 @@ function toOptions(
 		.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 }
 
-/** Read a sibling parameter that a dependent list needs, e.g. the database a table belongs to. */
-function dependency(context: ILoadOptionsFunctions, name: string): string {
+/**
+ * Read a sibling parameter that a dependent list needs, e.g. the database a
+ * table belongs to. Run through extractId so a Console URL pasted into the
+ * parent field works for the dependent dropdowns exactly as it does at
+ * execute time.
+ */
+function dependency(context: ILoadOptionsFunctions, name: string, kind: string): string {
 	const value = context.getCurrentNodeParameter(name);
-	return typeof value === 'string' ? value : '';
+	return typeof value === 'string' ? extractId(value, kind) : '';
 }
 
 export async function getDatabases(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
@@ -74,7 +79,7 @@ export async function getDatabases(this: ILoadOptionsFunctions): Promise<INodePr
 }
 
 export async function getTables(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const databaseId = dependency(this, 'databaseId');
+	const databaseId = dependency(this, 'databaseId', 'database');
 	if (databaseId === '') return [];
 
 	const tables = await listAll(
@@ -86,8 +91,8 @@ export async function getTables(this: ILoadOptionsFunctions): Promise<INodePrope
 }
 
 export async function getColumns(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const databaseId = dependency(this, 'databaseId');
-	const tableId = dependency(this, 'tableId');
+	const databaseId = dependency(this, 'databaseId', 'database');
+	const tableId = dependency(this, 'tableId', 'table');
 	if (databaseId === '' || tableId === '') return [];
 
 	const columns = await listAll(
@@ -133,5 +138,11 @@ export async function getUsers(this: ILoadOptionsFunctions): Promise<INodeProper
 export async function getRuntimes(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 	const response = await appwriteApiRequest.call(this, 'GET', '/functions/runtimes');
 	const runtimes = (response.runtimes ?? []) as AppwriteListItem[];
-	return toOptions(runtimes, (runtime) => (runtime.name as string) ?? '');
+	// The runtime model's `name` is the family alone ("Node.js"), so without the
+	// version the dropdown would show many indistinguishable duplicates.
+	return toOptions(runtimes, (runtime) => {
+		const name = (runtime.name as string) ?? '';
+		const version = (runtime.version as string) ?? '';
+		return version === '' ? name : `${name} ${version}`;
+	});
 }

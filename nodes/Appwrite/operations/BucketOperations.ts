@@ -7,6 +7,7 @@ import {
 	getPermissions,
 	lookupEnum,
 	parseStringList,
+	simplifyItems,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
@@ -20,6 +21,20 @@ const COMPRESSION_MAP: Record<string, string> = {
 	zstd: 'zstd',
 };
 
+/** The bucket-model fields most workflows read, for the Simplify toggle. */
+const SIMPLIFY_FIELDS = [
+	'$id',
+	'name',
+	'enabled',
+	'fileSecurity',
+	'maximumFileSize',
+	'allowedFileExtensions',
+	'compression',
+	'encryption',
+	'antivirus',
+	'transformations',
+];
+
 interface BucketOptions {
 	allowedFileExtensions?: string;
 	antivirus?: boolean;
@@ -28,6 +43,7 @@ interface BucketOptions {
 	encryption?: boolean;
 	fileSecurity?: boolean;
 	maximumFileSize?: number;
+	transformations?: boolean;
 }
 
 export async function executeBucketOperation(
@@ -42,7 +58,7 @@ export async function executeBucketOperation(
 		const extensions =
 			options.allowedFileExtensions === undefined
 				? (current?.allowedFileExtensions as string[] | undefined)
-				: parseStringList.call(this, options.allowedFileExtensions, 'allowedFileExtensions', i);
+				: parseStringList.call(this, options.allowedFileExtensions, 'Allowed File Extensions', i);
 
 		return {
 			fileSecurity: options.fileSecurity ?? (current?.fileSecurity as boolean | undefined),
@@ -55,6 +71,7 @@ export async function executeBucketOperation(
 				: (current?.compression as string | undefined),
 			encryption: options.encryption ?? (current?.encryption as boolean | undefined),
 			antivirus: options.antivirus ?? (current?.antivirus as boolean | undefined),
+			transformations: options.transformations ?? (current?.transformations as boolean | undefined),
 		};
 	};
 
@@ -81,7 +98,8 @@ export async function executeBucketOperation(
 			{},
 			i,
 		);
-		return toItems(response, i);
+		const simplify = this.getNodeParameter('simplify', i, false) as boolean;
+		return toItems(simplify ? simplifyItems(response, SIMPLIFY_FIELDS) : response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -89,6 +107,9 @@ export async function executeBucketOperation(
 		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
+		const simplify = this.getNodeParameter('simplify', i, false) as boolean;
+		const project = (buckets: IDataObject[]) =>
+			simplify ? (simplifyItems(buckets, SIMPLIFY_FIELDS) as IDataObject[]) : buckets;
 
 		if (returnAll) {
 			const buckets = await fetchAllPages.call(
@@ -103,8 +124,9 @@ export async function executeBucketOperation(
 						i,
 					),
 				'buckets',
+				i,
 			);
-			return toItems(buckets as IDataObject[], i);
+			return toItems(project(buckets as IDataObject[]), i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -115,7 +137,7 @@ export async function executeBucketOperation(
 			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		);
-		return toItems(response.buckets as IDataObject[], i);
+		return toItems(project(response.buckets as IDataObject[]), i);
 	}
 
 	if (operation === 'update') {
@@ -126,13 +148,13 @@ export async function executeBucketOperation(
 		// body is reset to the API's own default rather than kept, so renaming a
 		// bucket would clear its extension allowlist and reset File Security.
 		// Read the bucket first and resend the settings the user did not touch.
-		const current = (await appwriteApiRequest.call(
+		const current = await appwriteApiRequest.call(
 			this,
 			'GET',
 			`/storage/buckets/${encodeURIComponent(bucketId)}`,
 			{},
 			i,
-		)) as IDataObject;
+		);
 		const response = await appwriteApiRequest.call(
 			this,
 			'PUT',
@@ -152,7 +174,7 @@ export async function executeBucketOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, bucketId }, i);
+		return toItems({ deleted: true, bucketId }, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown bucket operation "${operation}"`, {

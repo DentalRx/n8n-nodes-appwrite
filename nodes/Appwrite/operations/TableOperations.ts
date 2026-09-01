@@ -5,11 +5,23 @@ import {
 	buildQueries,
 	fetchAllPages,
 	getPermissions,
+	simplifyItems,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
 import { extractId, resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
+
+/** The table-model fields most workflows read, for the Simplify toggle. */
+const SIMPLIFY_FIELDS = [
+	'$id',
+	'databaseId',
+	'name',
+	'enabled',
+	'rowSecurity',
+	'$createdAt',
+	'$updatedAt',
+];
 
 export async function executeTableOperation(
 	this: IExecuteFunctions,
@@ -44,7 +56,8 @@ export async function executeTableOperation(
 			{},
 			i,
 		);
-		return toItems(response, i);
+		const simplify = this.getNodeParameter('simplify', i, false) as boolean;
+		return toItems(simplify ? simplifyItems(response, SIMPLIFY_FIELDS) : response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -52,6 +65,9 @@ export async function executeTableOperation(
 		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
+		const simplify = this.getNodeParameter('simplify', i, false) as boolean;
+		const project = (tables: IDataObject[]) =>
+			simplify ? (simplifyItems(tables, SIMPLIFY_FIELDS) as IDataObject[]) : tables;
 
 		if (returnAll) {
 			const tables = await fetchAllPages.call(
@@ -66,8 +82,9 @@ export async function executeTableOperation(
 						i,
 					),
 				'tables',
+				i,
 			);
-			return toItems(tables as IDataObject[], i);
+			return toItems(project(tables as IDataObject[]), i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -78,7 +95,7 @@ export async function executeTableOperation(
 			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		);
-		return toItems(response.tables as IDataObject[], i);
+		return toItems(project(response.tables as IDataObject[]), i);
 	}
 
 	if (operation === 'update') {
@@ -89,6 +106,21 @@ export async function executeTableOperation(
 			enabled?: boolean;
 			rowSecurity?: boolean;
 		};
+		// PUT treats omitted `enabled`/`rowSecurity` as their defaults (true/false),
+		// so a plain rename would re-enable a disabled table or turn row security
+		// off. Read the current values when the user leaves the options out.
+		let { enabled, rowSecurity } = updateFields;
+		if (enabled === undefined || rowSecurity === undefined) {
+			const current = await appwriteApiRequest.call(
+				this,
+				'GET',
+				`${tablesPath}/${encodeURIComponent(tableId)}`,
+				{},
+				i,
+			);
+			enabled = enabled ?? (current.enabled as boolean | undefined);
+			rowSecurity = rowSecurity ?? (current.rowSecurity as boolean | undefined);
+		}
 		const response = await appwriteApiRequest.call(
 			this,
 			'PUT',
@@ -97,8 +129,8 @@ export async function executeTableOperation(
 				body: {
 					name,
 					permissions,
-					rowSecurity: updateFields.rowSecurity,
-					enabled: updateFields.enabled,
+					rowSecurity,
+					enabled,
 				},
 			},
 			i,
@@ -115,7 +147,7 @@ export async function executeTableOperation(
 			{},
 			i,
 		);
-		return toItems({ success: true, databaseId, tableId }, i);
+		return toItems({ deleted: true, databaseId, tableId }, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown table operation "${operation}"`, {

@@ -53,6 +53,7 @@ export async function executeTokenOperation(
 				async (pageQueries) =>
 					await appwriteApiRequest.call(this, 'GET', path, { qs: { queries: pageQueries } }, i),
 				'tokens',
+				i,
 			);
 			return toItems(results as IDataObject[], i);
 		}
@@ -84,7 +85,7 @@ export async function executeTokenOperation(
 	if (operation === 'delete') {
 		const tokenId = this.getNodeParameter('tokenId', i) as string;
 		await appwriteApiRequest.call(this, 'DELETE', `/tokens/${encodeURIComponent(tokenId)}`, {}, i);
-		return toItems({ success: true, tokenId }, i);
+		return toItems({ deleted: true, tokenId }, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown token operation "${operation}"`, {

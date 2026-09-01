@@ -1,6 +1,11 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-import { listOptionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
+import {
+	listOptionsProperty,
+	queriesProperties,
+	returnAllAndLimitProperties,
+	simplifyProperty,
+} from './shared';
 
 export const functionOperations: INodeProperties[] = [
 	{
@@ -18,49 +23,49 @@ export const functionOperations: INodeProperties[] = [
 				name: 'Activate Deployment',
 				value: 'activateDeployment',
 				description: 'Set the code deployment the function serves',
-				action: 'Activate a function deployment',
+				action: 'Activate function deployment',
 			},
 			{
 				name: 'Create',
 				value: 'create',
 				description: 'Create a new function',
-				action: 'Create a function',
+				action: 'Create function',
 			},
 			{
 				name: 'Create Variable',
 				value: 'createVariable',
 				description: 'Create a new environment variable for a function',
-				action: 'Create a function variable',
+				action: 'Create function variable',
 			},
 			{
 				name: 'Delete',
 				value: 'delete',
-				description: 'Delete a function',
-				action: 'Delete a function',
+				description: 'Delete a function permanently',
+				action: 'Delete function',
 			},
 			{
 				name: 'Delete Deployment',
 				value: 'deleteDeployment',
 				description: 'Delete a code deployment of a function',
-				action: 'Delete a function deployment',
+				action: 'Delete function deployment',
 			},
 			{
 				name: 'Delete Variable',
 				value: 'deleteVariable',
-				description: 'Delete an environment variable of a function',
-				action: 'Delete a function variable',
+				description: 'Delete an environment variable of a function permanently',
+				action: 'Delete function variable',
 			},
 			{
 				name: 'Get',
 				value: 'get',
-				description: 'Get a function by ID',
-				action: 'Get a function',
+				description: 'Retrieve a single function by its ID',
+				action: 'Get function',
 			},
 			{
 				name: 'Get Deployment',
 				value: 'getDeployment',
 				description: 'Get a code deployment of a function by ID',
-				action: 'Get a function deployment',
+				action: 'Get function deployment',
 			},
 			{
 				name: 'Get Many',
@@ -84,19 +89,19 @@ export const functionOperations: INodeProperties[] = [
 				name: 'Get Variable',
 				value: 'getVariable',
 				description: 'Get an environment variable of a function by ID',
-				action: 'Get a function variable',
+				action: 'Get function variable',
 			},
 			{
 				name: 'Update',
 				value: 'update',
-				description: 'Update a function',
-				action: 'Update a function',
+				description: 'Change the configuration of an existing function',
+				action: 'Update function',
 			},
 			{
 				name: 'Update Variable',
 				value: 'updateVariable',
-				description: 'Update an environment variable of a function',
-				action: 'Update a function variable',
+				description: 'Change the key, value, or secret flag of an environment variable',
+				action: 'Update function variable',
 			},
 		],
 		default: 'get',
@@ -109,7 +114,7 @@ const functionConfigOptions: INodeProperties[] = [
 		name: 'commands',
 		type: 'string',
 		default: '',
-		placeholder: 'npm install',
+		placeholder: 'e.g. npm install',
 		description: 'Build commands to run before the function is deployed',
 	},
 	{
@@ -125,7 +130,7 @@ const functionConfigOptions: INodeProperties[] = [
 		name: 'entrypoint',
 		type: 'string',
 		default: '',
-		placeholder: 'src/main.js',
+		placeholder: 'e.g. src/main.js',
 		description: 'The entrypoint file, relative to the root directory of the function code',
 	},
 	{
@@ -133,7 +138,7 @@ const functionConfigOptions: INodeProperties[] = [
 		name: 'events',
 		type: 'string',
 		default: '',
-		placeholder: 'users.*.create, teams.*.update',
+		placeholder: 'e.g. users.*.create, teams.*.update',
 		description:
 			'Events that trigger the function, as a comma-separated list or a JSON array. Maximum of 100 events.',
 	},
@@ -142,7 +147,7 @@ const functionConfigOptions: INodeProperties[] = [
 		name: 'execute',
 		type: 'string',
 		default: '',
-		placeholder: 'any, users, team:abc',
+		placeholder: 'e.g. any, users, team:abc',
 		description:
 			'Roles allowed to execute the function, as a comma-separated list or a JSON array. By default no user can execute it. Maximum of 100 roles.',
 	},
@@ -168,7 +173,7 @@ const functionConfigOptions: INodeProperties[] = [
 		name: 'schedule',
 		type: 'string',
 		default: '',
-		placeholder: '0 * * * *',
+		placeholder: 'e.g. 0 * * * *',
 		description: 'Execution schedule in CRON syntax. Leave empty for no schedule.',
 	},
 	{
@@ -176,9 +181,9 @@ const functionConfigOptions: INodeProperties[] = [
 		name: 'scopes',
 		type: 'string',
 		default: '',
-		placeholder: 'users.read, databases.read',
+		placeholder: 'e.g. users.read, databases.read',
 		description:
-			'API scopes allowed for the API key auto-generated for every execution, as a comma-separated list or a JSON array. Maximum of 100 scopes.',
+			'API scopes allowed for the API key auto-generated for every execution, as a comma-separated list or a JSON array. Maximum of 200 scopes.',
 	},
 	{
 		displayName: 'Timeout',
@@ -250,6 +255,21 @@ export const functionFields: INodeProperties[] = [
 		},
 	},
 	{
+		displayName: 'Variable ID',
+		name: 'variableId',
+		type: 'string',
+		default: '',
+		placeholder: 'unique()',
+		description:
+			'The ID for the new environment variable. Leave empty (or use unique()) to auto-generate a unique ID.',
+		displayOptions: {
+			show: {
+				resource: ['function'],
+				operation: ['createVariable'],
+			},
+		},
+	},
+	{
 		displayName: 'Name',
 		name: 'name',
 		type: 'string',
@@ -312,6 +332,7 @@ export const functionFields: INodeProperties[] = [
 		displayName: 'Value',
 		name: 'value',
 		type: 'string',
+		typeOptions: { password: true },
 		required: true,
 		default: '',
 		description: 'The variable value. Max length: 8192 characters.',
@@ -326,6 +347,7 @@ export const functionFields: INodeProperties[] = [
 		displayName: 'Value',
 		name: 'value',
 		type: 'string',
+		typeOptions: { password: true },
 		default: '',
 		description:
 			'The new variable value. Leave empty to keep the current value. Max length: 8192 characters.',
@@ -342,7 +364,7 @@ export const functionFields: INodeProperties[] = [
 		type: 'boolean',
 		default: false,
 		description:
-			'Whether the variable is secret. Secret variables can be updated or deleted, but only functions can read them during build and runtime. When updating, leaving this off keeps the existing setting.',
+			'Whether the variable is secret. Secret variables can be updated or deleted, but only functions can read them during build and runtime, and a variable cannot be made readable again once it is secret. When updating, leaving this off keeps the existing setting.',
 		displayOptions: {
 			show: {
 				resource: ['function'],
@@ -352,6 +374,7 @@ export const functionFields: INodeProperties[] = [
 	},
 	...returnAllAndLimitProperties('function', ['getMany', 'getManyDeployments']),
 	...queriesProperties('function', ['getMany', 'getManyDeployments']),
+	simplifyProperty('function', ['get', 'getMany']),
 	{
 		displayName: 'Options',
 		name: 'options',

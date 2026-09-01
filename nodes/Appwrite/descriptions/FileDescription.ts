@@ -5,6 +5,7 @@ import {
 	permissionsProperty,
 	queriesProperties,
 	returnAllAndLimitProperties,
+	simplifyProperty,
 } from './shared';
 
 export const fileOperations: INodeProperties[] = [
@@ -22,20 +23,20 @@ export const fileOperations: INodeProperties[] = [
 			{
 				name: 'Delete',
 				value: 'delete',
-				description: 'Delete a file',
-				action: 'Delete a file',
+				description: 'Delete a file from its bucket permanently',
+				action: 'Delete file',
 			},
 			{
 				name: 'Download',
 				value: 'download',
 				description: 'Download the content of a file',
-				action: 'Download a file',
+				action: 'Download file',
 			},
 			{
 				name: 'Get',
 				value: 'get',
 				description: 'Get the metadata of a file by ID',
-				action: 'Get a file',
+				action: 'Get file',
 			},
 			{
 				name: 'Get Many',
@@ -47,26 +48,26 @@ export const fileOperations: INodeProperties[] = [
 				name: 'Get Preview',
 				value: 'getPreview',
 				description: 'Get a preview image of a file, with optional resizing and cropping',
-				action: 'Get a file preview',
+				action: 'Get file preview',
 			},
 			{
 				name: 'Get View',
 				value: 'getView',
 				description:
 					'Get the content of a file to display in the browser instead of downloading it',
-				action: 'Get a file view',
+				action: 'Get file view',
 			},
 			{
 				name: 'Update',
 				value: 'update',
 				description: 'Update the name or permissions of a file',
-				action: 'Update a file',
+				action: 'Update file',
 			},
 			{
 				name: 'Upload',
 				value: 'upload',
 				description: 'Upload a new file to a bucket',
-				action: 'Upload a file',
+				action: 'Upload file',
 			},
 		],
 		default: 'get',
@@ -148,7 +149,7 @@ export const fileFields: INodeProperties[] = [
 	},
 	{
 		displayName: 'File Name',
-		name: 'name',
+		name: 'fileName',
 		type: 'string',
 		default: '',
 		description: 'The new name of the file. Leave empty to keep the current name.',
@@ -161,11 +162,17 @@ export const fileFields: INodeProperties[] = [
 	},
 	permissionsProperty(
 		'file',
-		['upload', 'update'],
+		['upload'],
 		'Permission strings, one per line (or a JSON array). E.g. read("any"), update("user:abc"), delete("team:abc"). Leave empty to use the bucket permissions.',
+	),
+	permissionsProperty(
+		'file',
+		['update'],
+		'Permission strings, one per line (or a JSON array). E.g. read("any"), update("user:abc"), delete("team:abc"). Leave empty to keep the file\'s current permissions; enter [] to clear them so only the bucket permissions apply.',
 	),
 	...returnAllAndLimitProperties('file', ['getMany']),
 	...queriesProperties('file', ['getMany']),
+	simplifyProperty('file', ['get', 'getMany']),
 	{
 		displayName: 'Output Data Field Name',
 		name: 'outputBinaryField',

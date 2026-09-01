@@ -1,6 +1,11 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-import { listOptionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
+import {
+	listOptionsProperty,
+	queriesProperties,
+	returnAllAndLimitProperties,
+	simplifyProperty,
+} from './shared';
 
 export const messageOperations: INodeProperties[] = [
 	{
@@ -18,44 +23,38 @@ export const messageOperations: INodeProperties[] = [
 				name: 'Create Email',
 				value: 'createEmail',
 				description: 'Create a new email message',
-				action: 'Create an email message',
+				action: 'Create email message',
 			},
 			{
 				name: 'Create Push',
 				value: 'createPush',
 				description: 'Create a new push notification',
-				action: 'Create a push message',
+				action: 'Create push message',
 			},
 			{
 				name: 'Create SMS',
 				value: 'createSMS',
 				description: 'Create a new SMS message',
-				action: 'Create an SMS message',
+				action: 'Create SMS message',
 			},
 			{
 				name: 'Delete',
 				value: 'delete',
 				description:
 					'Delete a message. If the message has already been sent, this will not recall it.',
-				action: 'Delete a message',
+				action: 'Delete message',
 			},
 			{
 				name: 'Get',
 				value: 'get',
-				description: 'Get a message by ID',
-				action: 'Get a message',
+				description: 'Retrieve a single message by its ID',
+				action: 'Get message',
 			},
 			{
 				name: 'Get Many',
 				value: 'getMany',
 				description: 'List messages, with optional filters',
 				action: 'Get many messages',
-			},
-			{
-				name: 'Get Many Logs',
-				value: 'getManyLogs',
-				description: 'List the activity logs of a message',
-				action: 'Get many message logs',
 			},
 			{
 				name: 'Get Many Targets',
@@ -67,19 +66,19 @@ export const messageOperations: INodeProperties[] = [
 				name: 'Update Email',
 				value: 'updateEmail',
 				description: 'Update an email message that is in draft status',
-				action: 'Update an email message',
+				action: 'Update email message',
 			},
 			{
 				name: 'Update Push',
 				value: 'updatePush',
 				description: 'Update a push notification that is in draft status',
-				action: 'Update a push message',
+				action: 'Update push message',
 			},
 			{
 				name: 'Update SMS',
 				value: 'updateSMS',
 				description: 'Update an SMS message that is in draft status',
-				action: 'Update an SMS message',
+				action: 'Update SMS message',
 			},
 		],
 		default: 'get',
@@ -92,9 +91,9 @@ const recipientProperties: INodeProperties[] = [
 		name: 'topics',
 		type: 'string',
 		default: '',
-		placeholder: 'topic-1, topic-2',
+		placeholder: 'e.g. topic-1, topic-2',
 		description:
-			'Topic IDs to send the message to, as a comma-separated list or a JSON array. At least one of Topic IDs, User IDs, or Target IDs must be provided.',
+			'Topic IDs to send the message to, as a comma-separated list or a JSON array. At least one of Topic IDs, User IDs, or Target IDs must be provided, unless the message is created as a draft.',
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -107,9 +106,9 @@ const recipientProperties: INodeProperties[] = [
 		name: 'users',
 		type: 'string',
 		default: '',
-		placeholder: 'user-1, user-2',
+		placeholder: 'e.g. user-1, user-2',
 		description:
-			'User IDs to send the message to, as a comma-separated list or a JSON array. At least one of Topic IDs, User IDs, or Target IDs must be provided.',
+			'User IDs to send the message to, as a comma-separated list or a JSON array. At least one of Topic IDs, User IDs, or Target IDs must be provided, unless the message is created as a draft.',
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -122,9 +121,9 @@ const recipientProperties: INodeProperties[] = [
 		name: 'targets',
 		type: 'string',
 		default: '',
-		placeholder: 'target-1, target-2',
+		placeholder: 'e.g. target-1, target-2',
 		description:
-			'Target IDs to send the message to, as a comma-separated list or a JSON array. At least one of Topic IDs, User IDs, or Target IDs must be provided.',
+			'Target IDs to send the message to, as a comma-separated list or a JSON array. At least one of Topic IDs, User IDs, or Target IDs must be provided, unless the message is created as a draft.',
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -145,15 +144,7 @@ export const messageFields: INodeProperties[] = [
 		displayOptions: {
 			show: {
 				resource: ['message'],
-				operation: [
-					'delete',
-					'get',
-					'getManyLogs',
-					'getManyTargets',
-					'updateEmail',
-					'updatePush',
-					'updateSMS',
-				],
+				operation: ['delete', 'get', 'getManyTargets', 'updateEmail', 'updatePush', 'updateSMS'],
 			},
 		},
 	},
@@ -242,10 +233,9 @@ export const messageFields: INodeProperties[] = [
 		},
 	},
 	...recipientProperties,
-	...returnAllAndLimitProperties('message', ['getMany', 'getManyLogs', 'getManyTargets']),
-	...queriesProperties('message', ['getMany', 'getManyLogs', 'getManyTargets'], {
-		hint: 'Get Many Logs supports only Limit and Offset queries',
-	}),
+	...returnAllAndLimitProperties('message', ['getMany', 'getManyTargets']),
+	...queriesProperties('message', ['getMany', 'getManyTargets']),
+	simplifyProperty('message', ['get', 'getMany']),
 	{
 		displayName: 'Options',
 		name: 'options',
@@ -264,7 +254,7 @@ export const messageFields: INodeProperties[] = [
 				name: 'attachments',
 				type: 'string',
 				default: '',
-				placeholder: 'bucket-1:file-1, bucket-1:file-2',
+				placeholder: 'e.g. bucket-1:file-1, bucket-1:file-2',
 				description:
 					'File IDs to attach to the email, as a comma-separated list or a JSON array of compound IDs formatted as &lt;BUCKET_ID&gt;:&lt;FILE_ID&gt;',
 			},
@@ -273,7 +263,7 @@ export const messageFields: INodeProperties[] = [
 				name: 'bcc',
 				type: 'string',
 				default: '',
-				placeholder: 'target-1, target-2',
+				placeholder: 'e.g. target-1, target-2',
 				description: 'Target IDs to add as BCC, as a comma-separated list or a JSON array',
 			},
 			{
@@ -281,7 +271,7 @@ export const messageFields: INodeProperties[] = [
 				name: 'cc',
 				type: 'string',
 				default: '',
-				placeholder: 'target-1, target-2',
+				placeholder: 'e.g. target-1, target-2',
 				description: 'Target IDs to add as CC, as a comma-separated list or a JSON array',
 			},
 			{
@@ -385,7 +375,7 @@ export const messageFields: INodeProperties[] = [
 				name: 'image',
 				type: 'string',
 				default: '',
-				placeholder: 'bucket-1:file-1',
+				placeholder: 'e.g. bucket-1:file-1',
 				description:
 					'Image for the push notification. Must be a compound ID of a JPEG, PNG, or BMP image in Appwrite Storage, formatted as &lt;BUCKET_ID&gt;:&lt;FILE_ID&gt;.',
 			},
@@ -480,7 +470,7 @@ export const messageFields: INodeProperties[] = [
 				name: 'attachments',
 				type: 'string',
 				default: '',
-				placeholder: 'bucket-1:file-1, bucket-1:file-2',
+				placeholder: 'e.g. bucket-1:file-1, bucket-1:file-2',
 				description:
 					'File IDs to attach to the email, as a comma-separated list or a JSON array of compound IDs formatted as &lt;BUCKET_ID&gt;:&lt;FILE_ID&gt;',
 			},
@@ -489,7 +479,7 @@ export const messageFields: INodeProperties[] = [
 				name: 'bcc',
 				type: 'string',
 				default: '',
-				placeholder: 'target-1, target-2',
+				placeholder: 'e.g. target-1, target-2',
 				description: 'Target IDs to add as BCC, as a comma-separated list or a JSON array',
 			},
 			{
@@ -497,7 +487,7 @@ export const messageFields: INodeProperties[] = [
 				name: 'cc',
 				type: 'string',
 				default: '',
-				placeholder: 'target-1, target-2',
+				placeholder: 'e.g. target-1, target-2',
 				description: 'Target IDs to add as CC, as a comma-separated list or a JSON array',
 			},
 			{
@@ -646,7 +636,7 @@ export const messageFields: INodeProperties[] = [
 				name: 'image',
 				type: 'string',
 				default: '',
-				placeholder: 'bucket-1:file-1',
+				placeholder: 'e.g. bucket-1:file-1',
 				description:
 					'Image for the push notification. Must be a compound ID of a JPEG, PNG, or BMP image in Appwrite Storage, formatted as &lt;BUCKET_ID&gt;:&lt;FILE_ID&gt;.',
 			},
