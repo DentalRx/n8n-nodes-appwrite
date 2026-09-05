@@ -1,36 +1,89 @@
+# Publishes this n8n community node package to npm on every version tag push.
+#
+# n8n only verifies community nodes that are published from GitHub Actions with
+# an npm provenance statement, so that anyone can cryptographically verify that
+# a published version was built by this workflow, from this repository and
+# commit. `n8n-node release` detects GitHub Actions, runs lint and build, and
+# publishes with provenance enabled.
+#
+# ─── ONE-TIME SETUP ────────────────────────────────────────────────────────────
+#
+# Option A — OIDC Trusted Publishing (recommended, no long-lived secrets):
+#   1. Log in to npmjs.com and open the package's settings.
+#   2. Under "Publish access" → "Trusted Publishers", click "Add a publisher".
+#   3. Select GitHub Actions and fill in:
+#        Repository owner: DentalRx
+#        Repository name:  n8n-nodes-appwrite
+#        Workflow name:    publish.yml
+#        Environment:      (leave blank)
+#   4. Leave the NPM_TOKEN secret unset in this repository. GitHub's OIDC
+#      token is used instead. (Requires npm 11.5+, which the LTS Node.js used
+#      below ships with.)
+#
+# Option B — npm Automation Token (fallback):
+#   1. On npmjs.com: Access Tokens → Generate New Token → Granular Access Token.
+#      Scope it to this package with "Read and write" publish permission.
+#   2. In GitHub: Settings → Secrets and variables → Actions → New secret.
+#      Name it NPM_TOKEN and paste the token value.
+#
+# Both options produce a provenance attestation, which is signed by GitHub's
+# OIDC infrastructure regardless of how npm authentication is handled.
+#
+# ─── RELEASE PROCESS ───────────────────────────────────────────────────────────
+#
+# Run `npm run release` locally on a clean `main` checkout. It lints, builds,
+# prompts for the version bump, regenerates CHANGELOG.md, commits, tags, pushes,
+# and creates the GitHub release. The pushed tag (e.g. 0.2.0) triggers this
+# workflow, which publishes that exact commit to npm.
+
 name: Publish
 
-# n8n requires verified community nodes to be published from a GitHub Action
-# with an npm provenance statement, so the published artifact can be traced
-# back to the commit it was built from.
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      # Matches 0.1.0, 1.2.3, 2.0.0-rc.1, etc.
+      - '*.*.*'
+  # Manual re-run for a tag whose automatic publish failed (for example before
+  # the npm trusted publisher was configured). Pick the tag as the ref.
   workflow_dispatch:
 
 jobs:
   publish:
+    name: Publish to npm
     runs-on: ubuntu-latest
+
     permissions:
-      # Required for npm provenance: mints the OIDC token npm uses to attest
-      # which workflow and commit produced the package.
+      # Required to mint the OIDC token npm uses for the provenance attestation
+      # (and for trusted publishing).
       id-token: write
+      # Scoped down from the default (write) for least-privilege publishing.
       contents: read
+
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 'lts/*'
           cache: npm
-          registry-url: https://registry.npmjs.org
 
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-      - run: npm run build
+      - name: Run tests
+        run: npm test
 
-      - run: npm run lint
-
-      - run: npm publish --provenance --access public
+      - name: Release
+        # `n8n-node release` in CI mode runs lint and build, then publishes with
+        # a provenance attestation (requires id-token: write above).
+        #
+        # Option A (OIDC): leave NPM_TOKEN unset - the token step is skipped and
+        #   npm uses the OIDC exchange instead.
+        # Option B (token): set NPM_TOKEN in repo secrets - it is written to
+        #   the npm config here before publishing.
+        run: |
+          [ -n "$NPM_TOKEN" ] && npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+          npm run release
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

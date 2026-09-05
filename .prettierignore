@@ -1,0 +1,6 @@
+# Build output
+dist
+
+# Regenerated from git history by `npm run release` (auto-changelog), so its
+# formatting is owned by that tool rather than by Prettier.
+CHANGELOG.md

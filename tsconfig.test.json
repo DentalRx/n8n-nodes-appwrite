@@ -1,0 +1,10 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"declaration": false,
+		"sourceMap": false,
+		"types": ["node"]
+	},
+	"include": ["credentials/**/*", "nodes/**/*", "test/**/*", "vitest.config.mts"]
+}

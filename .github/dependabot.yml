@@ -1,0 +1,17 @@
+# The published package has no runtime dependencies, so every update here is
+# to the development toolchain or to the workflows themselves.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dev-dependencies:
+        patterns:
+          - '*'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
