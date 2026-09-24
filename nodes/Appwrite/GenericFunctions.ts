@@ -4,8 +4,9 @@ import type {
 	INodeExecutionData,
 	INodeProperties,
 	INodePropertyCollection,
+	JsonObject,
 } from 'n8n-workflow';
-import { NodeOperationError, jsonParse } from 'n8n-workflow';
+import { NodeApiError, NodeOperationError, jsonParse } from 'n8n-workflow';
 
 import { Query, extractId } from './helpers/appwrite';
 
@@ -19,6 +20,59 @@ export function toItems(
 ): INodeExecutionData[] {
 	const list = Array.isArray(data) ? data : [data];
 	return list.map((json) => ({ json, pairedItem: { item: itemIndex } }));
+}
+
+/**
+ * The output of a bulk write: one item per record Appwrite returns, or one
+ * summary item when it returns none. Inside a transaction Appwrite only stages
+ * the writes and returns no records, and the next node (such as the
+ * transaction's Commit) must still run.
+ */
+export function bulkWriteItems(
+	response: IDataObject,
+	listKey: string,
+	itemIndex: number,
+	transactionId?: string,
+): INodeExecutionData[] {
+	const records = (response[listKey] as IDataObject[] | undefined) ?? [];
+	if (records.length > 0 && transactionId === undefined) return toItems(records, itemIndex);
+	return toItems(
+		{ total: response.total ?? records.length, ...(transactionId ? { transactionId } : {}) },
+		itemIndex,
+	);
+}
+
+/**
+ * Stop Update Many or Delete Many that has no query unless Apply to All is on:
+ * with no query, Appwrite applies them to every record of the table or
+ * collection.
+ */
+export function assertBulkTargetsChosen(
+	this: IExecuteFunctions,
+	queries: string[],
+	record: string,
+	itemIndex: number,
+): void {
+	if (queries.length > 0 || (this.getNodeParameter('applyToAll', itemIndex, false) as boolean)) {
+		return;
+	}
+	const plural = `${record}s`;
+	throw new NodeOperationError(this.getNode(), `No query selects which ${plural} to change`, {
+		description: `Add a query that selects the ${plural}, or turn on Apply to All ${plural.charAt(0).toUpperCase()}${plural.slice(1)} to change every ${record}.`,
+		itemIndex,
+	});
+}
+
+/** The output of a bulk delete: one confirmation, like every other delete. */
+export function bulkDeleteItems(
+	response: IDataObject,
+	itemIndex: number,
+	transactionId?: string,
+): INodeExecutionData[] {
+	return toItems(
+		{ deleted: true, total: response.total ?? 0, ...(transactionId ? { transactionId } : {}) },
+		itemIndex,
+	);
 }
 
 /**
@@ -653,10 +707,20 @@ export function simplifyItems(
 	return Array.isArray(data) ? data.map(pick) : pick(data);
 }
 
+/** Whether Appwrite refused a cursor because the row's sort value is null. */
+function isOrderNullError(error: unknown): boolean {
+	const failure = error as { context?: { data?: { type?: unknown } }; description?: unknown };
+	return (
+		failure.context?.data?.type === 'database_query_order_null' ||
+		String(failure.description ?? '').includes('Cursor pagination requires')
+	);
+}
+
 /**
  * Paginate an Appwrite list endpoint until all results are fetched, in pages
  * of 100. Cursor pagination is used where the returned models carry $id;
- * models without one (e.g. columns and indexes) fall back to offset paging.
+ * models without one (e.g. columns and indexes) fall back to offset paging,
+ * as does a sorted list once the cursor row's sort value is null.
  * A user-supplied Cursor After or Offset query sets the starting point;
  * Return All overrides any Limit query.
  */
@@ -703,7 +767,10 @@ export async function fetchAllPages<T extends { $id?: string }>(
 		cleanQueries.push(q);
 	}
 
+	// A user's Cursor After stays the starting point when paging by offset.
+	const initialCursor = initialQueries.filter((q) => q.includes('"cursorAfter"'));
 	let cursor: string | undefined;
+	let byOffset = false;
 	for (let page = 0; ; page++) {
 		const pageQueries = [...cleanQueries, Query.limit(100)];
 		if (cursor !== undefined) {
@@ -711,15 +778,29 @@ export async function fetchAllPages<T extends { $id?: string }>(
 		} else if (page === 0) {
 			pageQueries.push(...initialQueries);
 		} else {
-			pageQueries.push(Query.offset(startOffset + results.length));
+			pageQueries.push(...initialCursor, Query.offset(startOffset + results.length));
 		}
 
-		const response = (await fetchPage(pageQueries)) as unknown as Record<string, T[]>;
+		let response: Record<string, T[]>;
+		try {
+			response = (await fetchPage(pageQueries)) as unknown as Record<string, T[]>;
+		} catch (error) {
+			// Appwrite cannot continue from a cursor whose value in the sort
+			// column is null; the rest of the list is fetched by offset.
+			if (cursor !== undefined && isOrderNullError(error)) {
+				cursor = undefined;
+				byOffset = true;
+				continue;
+			}
+			throw error instanceof NodeApiError || error instanceof NodeOperationError
+				? error
+				: new NodeApiError(this.getNode(), error as JsonObject, { itemIndex });
+		}
 		const list = response[listKey] ?? [];
 		results.push(...list);
 
 		if (list.length < 100) break;
-		cursor = list[list.length - 1].$id;
+		cursor = byOffset ? undefined : list[list.length - 1].$id;
 	}
 
 	return results;

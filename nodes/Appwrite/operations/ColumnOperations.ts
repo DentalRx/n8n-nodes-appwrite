@@ -26,9 +26,6 @@ const RELATION_MUTATE_MAP: Record<string, string> = {
 	setNull: 'setNull',
 };
 
-/** The column types whose update endpoint does not take a `default`. */
-const SPATIAL_COLUMN_TYPES = new Set(['point', 'line', 'polygon']);
-
 const RELATIONSHIP_TYPE_MAP: Record<string, string> = {
 	oneToOne: 'oneToOne',
 	oneToMany: 'oneToMany',
@@ -121,6 +118,7 @@ export async function executeColumnOperation(
 		newKey?: string;
 		newSize?: number | string;
 		onDelete?: string;
+		required?: boolean;
 		twoWay?: boolean;
 		twoWayKey?: string;
 	};
@@ -203,15 +201,29 @@ export async function executeColumnOperation(
 	/**
 	 * PATCH /tablesdb/{databaseId}/tables/{tableId}/columns/{type}/{key}
 	 *
-	 * Appwrite marks `default` required-but-nullable on every scalar column
-	 * update, so an absent Default Value has to be sent as an explicit null;
-	 * omitting the key is rejected. The spatial types do not require it.
+	 * Appwrite requires `required` on every column update, and `default`
+	 * (nullable) on the scalar ones, and overwrites both. So the column is read
+	 * first and keeps its current values for whichever the user left out; an
+	 * empty Default Value removes the default.
 	 */
 	const updateColumn = async (type: string, body: IDataObject): Promise<IDataObject> => {
-		const payload =
-			SPATIAL_COLUMN_TYPES.has(type) || body.default !== undefined
-				? body
-				: { ...body, default: null };
+		const current = await appwriteApiRequest.call(
+			this,
+			'GET',
+			`${columnsPath}/${encodeURIComponent(key)}`,
+			{},
+			i,
+		);
+		const payload: IDataObject = {
+			...body,
+			required: options.required ?? (current.required as boolean | undefined) ?? false,
+		};
+		if (options.defaultValue === undefined) {
+			// A required column cannot keep a default.
+			payload.default = payload.required ? null : (current.default ?? null);
+		}
+		// Default Value added but left empty: remove the default.
+		if (payload.default === undefined) payload.default = null;
 		return await appwriteApiRequest.call(
 			this,
 			'PATCH',

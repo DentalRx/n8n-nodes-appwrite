@@ -225,6 +225,11 @@ function valueFor(
 			if (filled && (name === 'searchVector' || name === 'vectorEmbeddings')) {
 				return '[0.12, -0.55, 0.88]';
 			}
+			if (filled && name === 'queriesJson') {
+				return context.operation === 'get'
+					? '["{\\"method\\":\\"select\\",\\"values\\":[\\"name\\"]}"]'
+					: '["{\\"method\\":\\"equal\\",\\"attribute\\":\\"status\\",\\"values\\":[\\"active\\"]}"]';
+			}
 			return property.default;
 		case 'resourceLocator':
 			return filled ? { __rl: true, mode: 'id', value: `${name}-id` } : property.default;

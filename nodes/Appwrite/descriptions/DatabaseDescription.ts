@@ -282,6 +282,8 @@ export const databaseFields: INodeProperties[] = [
 	...returnAllAndLimitProperties('database', ['getMany', 'getManyOperations']),
 	...queriesProperties('database', ['getMany']),
 	simplifyProperty('database', [
+		'get',
+		'getMany',
 		'getManyMigrations',
 		'getManyOperations',
 		'getManySpecifications',

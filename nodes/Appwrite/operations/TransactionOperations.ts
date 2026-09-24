@@ -3,12 +3,13 @@ import { NodeOperationError } from 'n8n-workflow';
 
 import {
 	buildQueries,
-	fetchAllPages,
+	fetchAllPagesByOffset,
 	getStringParameter,
 	parseJsonArrayParameter,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
+import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 /**
@@ -64,7 +65,9 @@ export async function executeTransactionAction(
 		const queries = buildQueries.call(this, i);
 
 		if (returnAll) {
-			const transactions = await fetchAllPages.call(
+			// Appwrite's transaction list cannot resolve a cursor (it fails with a
+			// server error on the second page), so it is paged by offset.
+			const transactions = await fetchAllPagesByOffset.call(
 				this,
 				queries,
 				async (pageQueries) =>
@@ -110,12 +113,22 @@ export async function executeTransactionAction(
 
 	if (action === 'createOperations') {
 		const path = `${transactionPath()}/operations`;
-		const operations = parseJsonArrayParameter.call(
-			this,
-			this.getNodeParameter('operationsJson', i),
-			'Operations (JSON)',
-			i,
-		) as object[];
+		// Appwrite stores a staged record under the ID it is given: unlike the
+		// create endpoints, it does not turn unique() into a generated ID.
+		const operations = (
+			parseJsonArrayParameter.call(
+				this,
+				this.getNodeParameter('operationsJson', i),
+				'Operations (JSON)',
+				i,
+			) as IDataObject[]
+		).map((operation) => {
+			const staged = { ...operation };
+			for (const key of ['rowId', 'documentId']) {
+				if (staged[key] === 'unique()') staged[key] = resolveId(staged[key]);
+			}
+			return staged;
+		});
 		const response = await appwriteApiRequest.call(this, 'POST', path, { body: { operations } }, i);
 		return toItems(response, i);
 	}

@@ -4,6 +4,7 @@ import type { DocumentDatabaseType } from '../helpers/documentDatabases';
 import { collectionLocator, documentDatabaseLocator } from './locators';
 import type { RecordTerms } from './shared';
 import {
+	applyToAllProperty,
 	dataProperties,
 	permissionsProperty,
 	queriesProperties,
@@ -333,10 +334,11 @@ export function documentFields(type: DocumentDatabaseType): INodeProperties[] {
 		...returnAllAndLimitProperties(resource, ['getMany']),
 		...queriesProperties(resource, queryOperations, {
 			hint: type.vectors
-				? 'Get uses only Select queries, and Search uses the queries to filter the documents it compares. For Update Many and Delete Many the queries choose which documents are affected, and no queries means every document in the collection.'
-				: 'Get uses only Select queries. For Update Many and Delete Many the queries choose which documents are affected, and no queries means every document in the collection.',
+				? 'Get uses only Select queries, and Search uses the queries to filter the documents it compares. For Update Many and Delete Many the queries choose which documents are affected.'
+				: 'Get uses only Select queries. For Update Many and Delete Many the queries choose which documents are affected.',
 			terms: DOCUMENT_TERMS,
 		}),
+		applyToAllProperty(resource, DOCUMENT_TERMS),
 		sortProperty(resource, ['getMany'], DOCUMENT_TERMS),
 		{
 			displayName: 'Options',

@@ -100,6 +100,30 @@ const ROW_TERMS: RecordTerms = {
 const titleCase = (word: string): string => word.charAt(0).toUpperCase() + word.slice(1);
 
 /**
+ * The explicit opt-in Update Many and Delete Many need before they run without
+ * a query: Appwrite applies them to every record then.
+ */
+export function applyToAllProperty(
+	resource: string,
+	terms: RecordTerms = ROW_TERMS,
+): INodeProperties {
+	const plural = `${terms.record}s`;
+	return {
+		displayName: `Apply to All ${titleCase(plural)}`,
+		name: 'applyToAll',
+		type: 'boolean',
+		default: false,
+		description: `Whether to update or delete every ${terms.record} when no query selects which ones. Off, the node refuses to run without a query.`,
+		displayOptions: {
+			show: {
+				resource: [resource],
+				operation: ['updateMany', 'deleteMany'],
+			},
+		},
+	};
+}
+
+/**
  * Query parameters: a mode switch plus a visual builder and a raw JSON field.
  * The operations layer reads them via buildQueries().
  */

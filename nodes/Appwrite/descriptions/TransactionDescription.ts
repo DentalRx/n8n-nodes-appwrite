@@ -80,10 +80,9 @@ export const transactionFields: INodeProperties[] = [
 		displayName: 'TTL (Seconds)',
 		name: 'ttl',
 		type: 'number',
-		typeOptions: { minValue: 1 },
+		typeOptions: { minValue: 60, maxValue: 3600 },
 		default: 300,
-		description:
-			'Number of seconds before the transaction expires. Appwrite rejects a value outside the range its deployment allows.',
+		description: 'Number of seconds before the transaction expires, from 60 to 3600',
 		displayOptions: {
 			show: {
 				resource: ['transaction'],

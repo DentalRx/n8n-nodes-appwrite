@@ -2,7 +2,10 @@ import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-wor
 import { NodeOperationError } from 'n8n-workflow';
 
 import {
+	assertBulkTargetsChosen,
 	buildQueries,
+	bulkDeleteItems,
+	bulkWriteItems,
 	fetchAllPages,
 	getCollectionParameter,
 	getPermissions,
@@ -61,7 +64,7 @@ export async function executeRowOperation(
 			{ body: { rows, transactionId } },
 			i,
 		);
-		return toItems(response.rows as IDataObject[], i);
+		return bulkWriteItems(response, 'rows', i, transactionId);
 	}
 
 	if (operation === 'get') {
@@ -133,6 +136,7 @@ export async function executeRowOperation(
 	if (operation === 'updateMany') {
 		const data = getRowData.call(this, i);
 		const queries = buildQueries.call(this, i);
+		assertBulkTargetsChosen.call(this, queries, 'row', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
@@ -146,7 +150,7 @@ export async function executeRowOperation(
 			},
 			i,
 		);
-		return toItems(response.rows as IDataObject[], i);
+		return bulkWriteItems(response, 'rows', i, transactionId);
 	}
 
 	if (operation === 'upsert') {
@@ -177,7 +181,7 @@ export async function executeRowOperation(
 			{ body: { rows, transactionId } },
 			i,
 		);
-		return toItems(response.rows as IDataObject[], i);
+		return bulkWriteItems(response, 'rows', i, transactionId);
 	}
 
 	if (operation === 'delete') {
@@ -195,6 +199,7 @@ export async function executeRowOperation(
 
 	if (operation === 'deleteMany') {
 		const queries = buildQueries.call(this, i);
+		assertBulkTargetsChosen.call(this, queries, 'row', i);
 		// The spec declares queries and transactionId query-string parameters on
 		// DELETE, unlike the update/upsert bodies.
 		const response = await appwriteApiRequest.call(
@@ -209,8 +214,7 @@ export async function executeRowOperation(
 			},
 			i,
 		);
-		// One item per deleted row, matching Create/Update/Upsert Many.
-		return toItems(response.rows as IDataObject[], i);
+		return bulkDeleteItems(response, i, transactionId);
 	}
 
 	if (operation === 'increment') {

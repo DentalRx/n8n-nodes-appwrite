@@ -1,6 +1,7 @@
 import type { INodeProperties } from 'n8n-workflow';
 
 import {
+	applyToAllProperty,
 	dataProperties,
 	databaseIdProperty,
 	permissionsProperty,
@@ -198,8 +199,9 @@ export const rowFields: INodeProperties[] = [
 	},
 	...returnAllAndLimitProperties('row', ['getMany']),
 	...queriesProperties('row', ['getMany', 'get', 'updateMany', 'deleteMany'], {
-		hint: 'Get uses only Select queries. For Update Many and Delete Many the queries choose which rows are affected, and no queries means every row in the table.',
+		hint: 'Get uses only Select queries. For Update Many and Delete Many the queries choose which rows are affected.',
 	}),
+	applyToAllProperty('row'),
 	sortProperty('row', ['getMany']),
 	{
 		displayName: 'Options',

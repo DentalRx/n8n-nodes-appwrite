@@ -204,7 +204,9 @@ export function documentCollectionFields(type: DocumentDatabaseType): INodePrope
 			];
 
 	const updateFields: INodeProperties[] = type.vectors
-		? [dimension('dimension'), documentSecurity(true), enabled(true)]
+		? // Appwrite accepts a new dimension on update but only records it: the
+			// embeddings attribute and the stored vectors keep their size.
+			[documentSecurity(true), enabled(true)]
 		: [
 				documentSecurity(true),
 				enabled(true),

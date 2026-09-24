@@ -14,6 +14,19 @@ import {
 import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
+/** The database fields most workflows read, for the Simplify toggle. */
+const DATABASE_SIMPLIFY_FIELDS = [
+	'$id',
+	'name',
+	'enabled',
+	'type',
+	'status',
+	'specification',
+	'replicas',
+	'$createdAt',
+	'$updatedAt',
+];
+
 /** The database-status fields most workflows read, for the Simplify toggle. */
 const STATUS_SIMPLIFY_FIELDS = [
 	'health',
@@ -170,7 +183,7 @@ export async function executeDatabaseOperation(
 			{},
 			i,
 		);
-		return toItems(response, i);
+		return toItems(simplified(response, DATABASE_SIMPLIFY_FIELDS), i);
 	}
 
 	if (operation === 'getMany') {
@@ -195,7 +208,7 @@ export async function executeDatabaseOperation(
 				'databases',
 				i,
 			);
-			return toItems(databases as IDataObject[], i);
+			return toItems(simplified(databases as IDataObject[], DATABASE_SIMPLIFY_FIELDS), i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -206,7 +219,7 @@ export async function executeDatabaseOperation(
 			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		);
-		return toItems(response.databases as IDataObject[], i);
+		return toItems(simplified(response.databases as IDataObject[], DATABASE_SIMPLIFY_FIELDS), i);
 	}
 
 	if (operation === 'getManyMigrations') {

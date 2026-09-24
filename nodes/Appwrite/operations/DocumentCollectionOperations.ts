@@ -163,11 +163,7 @@ export function documentCollectionExecutor(type: DocumentDatabaseType) {
 				documentSecurity = documentSecurity ?? (current.documentSecurity as boolean | undefined);
 			}
 			const body: IDataObject = { name, permissions, documentSecurity, enabled };
-			if (type.vectors) {
-				body.dimension = updateFields.dimension;
-			} else {
-				body.purge = updateFields.purge;
-			}
+			if (!type.vectors) body.purge = updateFields.purge;
 			const response = await appwriteApiRequest.call(this, 'PUT', path, { body }, i);
 			return toItems(response, i);
 		}

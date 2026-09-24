@@ -2,7 +2,10 @@ import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-wor
 import { NodeOperationError } from 'n8n-workflow';
 
 import {
+	assertBulkTargetsChosen,
 	buildQueries,
+	bulkDeleteItems,
+	bulkWriteItems,
 	fetchAllPages,
 	getCollectionParameter,
 	getPermissions,
@@ -120,7 +123,7 @@ export function documentExecutor(type: DocumentDatabaseType) {
 				{ body: { documents, transactionId } },
 				i,
 			);
-			return toItems(response.documents as IDataObject[], i);
+			return bulkWriteItems(response, 'documents', i, transactionId);
 		}
 
 		if (operation === 'get') {
@@ -219,6 +222,7 @@ export function documentExecutor(type: DocumentDatabaseType) {
 		if (operation === 'updateMany') {
 			const data = getData();
 			const queries = buildQueries.call(this, i);
+			assertBulkTargetsChosen.call(this, queries, 'document', i);
 			const response = await appwriteApiRequest.call(
 				this,
 				'PATCH',
@@ -232,7 +236,7 @@ export function documentExecutor(type: DocumentDatabaseType) {
 				},
 				i,
 			);
-			return toItems(response.documents as IDataObject[], i);
+			return bulkWriteItems(response, 'documents', i, transactionId);
 		}
 
 		if (operation === 'upsert') {
@@ -264,6 +268,7 @@ export function documentExecutor(type: DocumentDatabaseType) {
 
 		if (operation === 'deleteMany') {
 			const queries = buildQueries.call(this, i);
+			assertBulkTargetsChosen.call(this, queries, 'document', i);
 			const response = await appwriteApiRequest.call(
 				this,
 				'DELETE',
@@ -271,8 +276,7 @@ export function documentExecutor(type: DocumentDatabaseType) {
 				{ qs: { queries: queries.length > 0 ? queries : undefined, transactionId } },
 				i,
 			);
-			// One item per deleted document, matching Create/Update/Upsert Many.
-			return toItems(response.documents as IDataObject[], i);
+			return bulkDeleteItems(response, i, transactionId);
 		}
 
 		if ((operation === 'increment' || operation === 'decrement') && !type.vectors) {
