@@ -1,5 +1,7 @@
 import type { INodeProperties, INodePropertyOptions } from 'n8n-workflow';
 import { NodeHelpers } from 'n8n-workflow';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { AppwriteApi } from '../credentials/AppwriteApi.credentials';
@@ -35,6 +37,20 @@ export function visibleProperties(values: Record<string, string>): INodeProperti
 	);
 }
 
+/** The node panel categories n8n accepts in a codex file. */
+const CODEX_CATEGORIES = [
+	'Analytics',
+	'Communication',
+	'Data & Storage',
+	'Development',
+	'Finance & Accounting',
+	'Marketing & Content',
+	'Miscellaneous',
+	'Productivity',
+	'Sales',
+	'Utility',
+];
+
 const staticOptionValues = (property: INodeProperties): unknown[] =>
 	((property.options ?? []) as INodePropertyOptions[]).map((option) => option.value);
 
@@ -53,8 +69,40 @@ describe('node metadata', () => {
 		expect(description.outputs).toHaveLength(1);
 		expect(description.usableAsTool).toBe(true);
 		expect(description.subtitle).toContain('$parameter["operation"]');
-		expect(description.codex?.categories?.length).toBeGreaterThan(0);
-		expect(description.codex?.resources?.primaryDocumentation?.[0]?.url).toMatch(/^https:\/\//);
+	});
+
+	it('ships a codex file that n8n can load next to the compiled node', () => {
+		// n8n reads the codex from `<node file>.json` beside the compiled node, so
+		// the build must emit it into dist/ (tsconfig includes nodes/**/*.json).
+		const codex = JSON.parse(
+			readFileSync(join(__dirname, '../nodes/Appwrite/Appwrite.node.json'), 'utf8'),
+		) as {
+			node: string;
+			nodeVersion: string;
+			codexVersion: string;
+			categories: string[];
+			resources: {
+				primaryDocumentation: Array<{ url: string }>;
+				credentialDocumentation: Array<{ url: string }>;
+			};
+		};
+		const tsconfig = JSON.parse(readFileSync(join(__dirname, '../tsconfig.json'), 'utf8')) as {
+			include: string[];
+		};
+		const packageName = (
+			JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf8')) as { name: string }
+		).name;
+
+		expect(codex.node).toBe(packageName);
+		expect(codex.nodeVersion).toBe(`${description.version as number}.0`);
+		expect(codex.codexVersion).toBe('1.0');
+		expect(codex.categories.length).toBeGreaterThan(0);
+		for (const category of codex.categories) {
+			expect(CODEX_CATEGORIES).toContain(category);
+		}
+		expect(codex.resources.primaryDocumentation[0].url).toMatch(/^https:\/\//);
+		expect(codex.resources.credentialDocumentation[0].url).toMatch(/^https:\/\//);
+		expect(tsconfig.include).toContain('nodes/**/*.json');
 	});
 
 	it('requires the credential type this package ships', () => {

@@ -20,5 +20,5 @@
 		"skipLibCheck": true,
 		"outDir": "./dist/"
 	},
-	"include": ["credentials/**/*", "nodes/**/*"]
+	"include": ["credentials/**/*", "nodes/**/*", "nodes/**/*.json"]
 }

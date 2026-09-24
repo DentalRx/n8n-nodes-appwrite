@@ -1,0 +1,19 @@
+{
+	"node": "@dentalrx/n8n-nodes-appwrite",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": ["Data & Storage", "Development"],
+	"alias": ["TablesDB", "BaaS", "Database", "Storage", "Auth", "Serverless"],
+	"resources": {
+		"credentialDocumentation": [
+			{
+				"url": "https://github.com/DentalRx/n8n-nodes-appwrite?tab=readme-ov-file#credentials"
+			}
+		],
+		"primaryDocumentation": [
+			{
+				"url": "https://github.com/DentalRx/n8n-nodes-appwrite?tab=readme-ov-file"
+			}
+		]
+	}
+}
