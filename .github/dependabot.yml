@@ -7,9 +7,25 @@ updates:
     schedule:
       interval: weekly
     groups:
+      # Minor and patch updates land together; each major update gets its own
+      # pull request, so one breaking release cannot hold back the rest.
       dev-dependencies:
         patterns:
           - '*'
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # `n8n-node lint` runs typescript-eslint and n8n's ESLint plugins, which
+      # support TypeScript 5 and ESLint 9 only: TypeScript 7 and ESLint 10 crash
+      # the linter. Move these when @n8n/node-cli moves.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+      - dependency-name: eslint
+        update-types: ['version-update:semver-major']
+      # The types follow the oldest Node.js release the package supports.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /
