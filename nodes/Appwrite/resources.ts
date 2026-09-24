@@ -5,6 +5,7 @@ import type {
 	INodePropertyOptions,
 } from 'n8n-workflow';
 
+import { accountFields, accountOperations } from './descriptions/AccountDescription';
 import { activityFields, activityOperations } from './descriptions/ActivityDescription';
 import { advisorFields, advisorOperations } from './descriptions/AdvisorDescription';
 import { avatarFields, avatarOperations } from './descriptions/AvatarDescription';
@@ -36,6 +37,7 @@ import { topicFields, topicOperations } from './descriptions/TopicDescription';
 import { transactionFields, transactionOperations } from './descriptions/TransactionDescription';
 import { userFields, userOperations } from './descriptions/UserDescription';
 import { webhookFields, webhookOperations } from './descriptions/WebhookDescription';
+import { executeAccountOperation } from './operations/AccountOperations';
 import { executeActivityOperation } from './operations/ActivityOperations';
 import { executeAdvisorOperation } from './operations/AdvisorOperations';
 import { executeAvatarOperation } from './operations/AvatarOperations';
@@ -88,6 +90,16 @@ interface ResourceDefinition {
  * all derived from this table.
  */
 const RESOURCES: ResourceDefinition[] = [
+	{
+		option: {
+			name: 'Account',
+			value: 'account',
+			description: 'Sign users in and manage their account as the signed-in user',
+		},
+		operations: accountOperations,
+		fields: accountFields,
+		execute: executeAccountOperation,
+	},
 	{
 		option: {
 			name: 'Activity',

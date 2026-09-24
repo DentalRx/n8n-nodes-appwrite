@@ -116,8 +116,14 @@ export interface ExecuteContextOptions {
 
 export interface ExecuteContext {
 	context: IExecuteFunctions;
-	/** Every request the node handed to n8n's HTTP helper, in order. */
+	/** Every request the node handed to n8n's HTTP helpers, in order. */
 	requests: IHttpRequestOptions[];
+	/**
+	 * For each entry of `requests`, whether it went through
+	 * httpRequestWithAuthentication, which adds the credential's API key,
+	 * rather than httpRequest, which sends only the headers the node set.
+	 */
+	withApiKey: boolean[];
 }
 
 /**
@@ -129,9 +135,16 @@ export interface ExecuteContext {
 export function createExecuteContext(options: ExecuteContextOptions): ExecuteContext {
 	const resolved = resolveParameters(options.parameters);
 	const requests: IHttpRequestOptions[] = [];
+	const withApiKey: boolean[] = [];
 	const respond: Responder = options.respond ?? (() => ({}));
 	const items = options.items ?? [{ json: {} }];
 	const binary = options.binary ?? {};
+
+	const send = async (request: IHttpRequestOptions, apiKey: boolean): Promise<unknown> => {
+		requests.push(request);
+		withApiKey.push(apiKey);
+		return await respond(request, requests.length - 1);
+	};
 
 	const binaryFixture = (propertyName: string): BinaryFixture => {
 		const fixture = binary[propertyName];
@@ -167,10 +180,8 @@ export function createExecuteContext(options: ExecuteContextOptions): ExecuteCon
 			httpRequestWithAuthentication: async (
 				_credentialType: string,
 				request: IHttpRequestOptions,
-			) => {
-				requests.push(request);
-				return await respond(request, requests.length - 1);
-			},
+			) => await send(request, true),
+			httpRequest: async (request: IHttpRequestOptions) => await send(request, false),
 			prepareBinaryData: async (
 				buffer: Buffer,
 				fileName?: string,
@@ -193,7 +204,7 @@ export function createExecuteContext(options: ExecuteContextOptions): ExecuteCon
 		},
 	};
 
-	return { context: context as unknown as IExecuteFunctions, requests };
+	return { context: context as unknown as IExecuteFunctions, requests, withApiKey };
 }
 
 export interface LoadOptionsContextOptions {

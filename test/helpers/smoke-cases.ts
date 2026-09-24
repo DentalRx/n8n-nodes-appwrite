@@ -42,6 +42,7 @@ const LIST_KEYS = [
 	'branches',
 	'buckets',
 	'columns',
+	'consents',
 	'continents',
 	'countries',
 	'currencies',

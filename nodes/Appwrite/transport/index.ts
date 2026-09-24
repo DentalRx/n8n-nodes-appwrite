@@ -24,11 +24,19 @@ interface AppwriteRequestOptions {
 }
 
 /**
- * Resolve the API base URL from the credentials, without its trailing slash.
+ * Resolve the API base URL (without its trailing slash) and the project ID
+ * from the credentials.
  */
-async function getBaseUrl(this: AppwriteContext): Promise<string> {
+async function getProject(this: AppwriteContext): Promise<{ baseUrl: string; projectId: string }> {
 	const credentials = await this.getCredentials('appwriteApi');
-	return (credentials.endpoint as string).replace(/\/+$/, '');
+	return {
+		baseUrl: (credentials.endpoint as string).replace(/\/+$/, ''),
+		projectId: credentials.projectId as string,
+	};
+}
+
+async function getBaseUrl(this: AppwriteContext): Promise<string> {
+	return (await getProject.call(this)).baseUrl;
 }
 
 /**
@@ -141,22 +149,16 @@ function parseErrorBuffer(buffer: Buffer): JsonObject | undefined {
 }
 
 /**
- * Make an authenticated request against the Appwrite REST API.
- *
- * The node talks to Appwrite over HTTP through n8n's request helpers rather
- * than through the Appwrite SDK, because n8n community nodes must ship without
- * runtime dependencies.
+ * Shape a request the way every Appwrite call is sent: JSON in and out,
+ * bracketed query parameters, and a body without undefined keys.
  */
-async function request(
-	context: AppwriteContext,
+function buildRequestOptions(
+	baseUrl: string,
 	method: IHttpRequestMethods,
 	path: string,
 	options: AppwriteRequestOptions,
 	binary: boolean,
-	itemIndex?: number,
-): Promise<unknown> {
-	const baseUrl = await getBaseUrl.call(context);
-
+): IHttpRequestOptions {
 	const requestOptions: IHttpRequestOptions = {
 		method,
 		url: `${baseUrl}${path}`,
@@ -179,6 +181,27 @@ async function request(
 		requestOptions.encoding = 'arraybuffer';
 		requestOptions.json = false;
 	}
+
+	return requestOptions;
+}
+
+/**
+ * Make an authenticated request against the Appwrite REST API.
+ *
+ * The node talks to Appwrite over HTTP through n8n's request helpers rather
+ * than through the Appwrite SDK, because n8n community nodes must ship without
+ * runtime dependencies.
+ */
+async function request(
+	context: AppwriteContext,
+	method: IHttpRequestMethods,
+	path: string,
+	options: AppwriteRequestOptions,
+	binary: boolean,
+	itemIndex?: number,
+): Promise<unknown> {
+	const baseUrl = await getBaseUrl.call(context);
+	const requestOptions = buildRequestOptions(baseUrl, method, path, options, binary);
 
 	try {
 		return await context.helpers.httpRequestWithAuthentication.call(
@@ -216,6 +239,61 @@ export async function appwriteApiRequestBinary(
 	itemIndex?: number,
 ): Promise<Buffer> {
 	return (await request(this, method, path, options, true, itemIndex)) as Buffer;
+}
+
+/**
+ * Who an Account request acts as. Appwrite identifies a signed-in user by a
+ * JWT or a session secret; a caller with neither is a guest, which is enough
+ * for the endpoints whose own parameters prove who is calling, such as
+ * completing an email verification with the secret from the email.
+ */
+export type UserAuthentication =
+	{ type: 'jwt'; jwt: string } | { type: 'session'; secret: string } | { type: 'guest' };
+
+function userHeaders(authentication: UserAuthentication): IDataObject {
+	if (authentication.type === 'jwt') return { 'X-Appwrite-JWT': authentication.jwt };
+	if (authentication.type === 'session') return { 'X-Appwrite-Session': authentication.secret };
+	return {};
+}
+
+/**
+ * Make a request as an end user instead of with the API key, for the Account
+ * endpoints that act on the signed-in user. It cannot go through the
+ * credential: an API key replaces the user's scopes with the key's own, and no
+ * API key can hold the `account` scope those endpoints need. So the request
+ * carries the project ID and the user's JWT or session secret, and never the
+ * API key; getProject reads the credential so that this function never holds
+ * it.
+ */
+export async function appwriteUserRequest(
+	this: IExecuteFunctions,
+	method: IHttpRequestMethods,
+	path: string,
+	authentication: UserAuthentication,
+	options: AppwriteRequestOptions = {},
+	itemIndex?: number,
+): Promise<IDataObject> {
+	const { baseUrl, projectId } = await getProject.call(this);
+	const requestOptions = buildRequestOptions(baseUrl, method, path, options, false);
+	requestOptions.headers = {
+		...requestOptions.headers,
+		'X-Appwrite-Project': projectId,
+		...userHeaders(authentication),
+	};
+
+	try {
+		return (await this.helpers.httpRequest(requestOptions)) as IDataObject;
+	} catch (error) {
+		// httpRequestWithAuthentication wraps a failed response in a
+		// NodeApiError, httpRequest hands over the HTTP client's own error.
+		// Wrapping it the same way surfaces Appwrite's message exactly as it
+		// does for API-key requests.
+		toNodeApiError(
+			this,
+			error instanceof NodeApiError ? error : new NodeApiError(this.getNode(), error as JsonObject),
+			itemIndex,
+		);
+	}
 }
 
 /**
