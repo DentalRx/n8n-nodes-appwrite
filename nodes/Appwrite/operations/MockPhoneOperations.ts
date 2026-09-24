@@ -11,7 +11,7 @@ export async function executeMockPhoneOperation(
 ): Promise<INodeExecutionData[]> {
 	// A mock phone number is identified by the number itself.
 	const phone = (): string => {
-		const number = (this.getNodeParameter('phone', i) as string).trim();
+		const number = String(this.getNodeParameter('phone', i) ?? '').trim();
 		if (number === '') {
 			throw new NodeOperationError(this.getNode(), "The 'Phone Number' parameter is empty", {
 				description: 'Enter the mock phone number, such as +12065550100.',
@@ -21,7 +21,7 @@ export async function executeMockPhoneOperation(
 		return number;
 	};
 	const phonePath = (): string => `/project/mock-phones/${encodeURIComponent(phone())}`;
-	const otp = (): string => (this.getNodeParameter('mockPhoneCode', i) as string).trim();
+	const otp = (): string => String(this.getNodeParameter('mockPhoneCode', i) ?? '').trim();
 
 	if (operation === 'create') {
 		const response = await appwriteApiRequest.call(

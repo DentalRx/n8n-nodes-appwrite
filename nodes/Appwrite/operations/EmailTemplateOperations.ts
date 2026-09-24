@@ -21,7 +21,7 @@ export async function executeEmailTemplateOperation(
 	const templateId = (): string => this.getNodeParameter('emailTemplateType', i) as string;
 	// Left empty, Appwrite uses its default locale.
 	const locale = (): string | undefined =>
-		(this.getNodeParameter('emailTemplateLocale', i, '') as string).trim() || undefined;
+		String(this.getNodeParameter('emailTemplateLocale', i, '') ?? '').trim() || undefined;
 
 	if (operation === 'get') {
 		const response = await appwriteApiRequest.call(

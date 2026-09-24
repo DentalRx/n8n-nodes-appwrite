@@ -12,7 +12,7 @@ export async function executeProjectVariableOperation(
 ): Promise<INodeExecutionData[]> {
 	// Resolved on first use: create and the list operation act on no existing variable.
 	const variableId = (): string => {
-		const id = (this.getNodeParameter('variableId', i) as string).trim();
+		const id = String(this.getNodeParameter('variableId', i) ?? '').trim();
 		if (id === '') {
 			throw new NodeOperationError(this.getNode(), "The 'Variable ID' parameter is empty", {
 				description: 'Enter the ID of the project variable to use.',
