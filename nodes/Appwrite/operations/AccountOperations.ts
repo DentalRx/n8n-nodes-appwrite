@@ -9,7 +9,9 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getResourceId,
+	getStringParameter,
 	parseJsonParameter,
 	simplifyItems,
 	toItems,
@@ -119,7 +121,7 @@ function getSessionAuthentication(this: IExecuteFunctions, itemIndex: number): U
  * stand in for either.
  */
 function getUserAuthentication(this: IExecuteFunctions, itemIndex: number): UserAuthentication {
-	const authentication = this.getNodeParameter('accountAuthentication', itemIndex) as string;
+	const authentication = getStringParameter.call(this, 'accountAuthentication', itemIndex);
 
 	if (authentication === 'jwt') {
 		const jwt = getRequiredSecret.call(
@@ -224,13 +226,13 @@ export async function executeAccountOperation(
 
 	// The user a secret was sent to, and the secret itself.
 	const userId = (): string => getResourceId.call(this, 'userId', i, 'user', 'User');
-	const secret = (): string => this.getNodeParameter('accountSecret', i) as string;
+	const secret = (): string => getStringParameter.call(this, 'accountSecret', i);
 
 	const byCode = (): boolean =>
-		(this.getNodeParameter('accountEmailMethod', i, 'link') as string) === 'code';
+		getStringParameter.call(this, 'accountEmailMethod', i, 'link') === 'code';
 
 	const phraseOption = (): boolean | undefined =>
-		(this.getNodeParameter('options', i, {}) as { phrase?: boolean }).phrase;
+		(getCollectionParameter.call(this, 'options', i) as { phrase?: boolean }).phrase;
 
 	const getMany = async (path: string, listKey: string): Promise<IDataObject[]> => {
 		const authentication = getUserAuthentication.call(this, i);
@@ -254,8 +256,8 @@ export async function executeAccountOperation(
 	}
 
 	if (operation === 'completeMfaChallenge') {
-		const challengeId = this.getNodeParameter('challengeId', i) as string;
-		const otp = this.getNodeParameter('accountOtp', i) as string;
+		const challengeId = getStringParameter.call(this, 'challengeId', i);
+		const otp = getStringParameter.call(this, 'accountOtp', i);
 		const response = await asSession('PUT', '/account/mfa/challenges', {
 			body: { challengeId, otp },
 		});
@@ -271,7 +273,7 @@ export async function executeAccountOperation(
 
 	if (operation === 'completeRecovery') {
 		const path = byCode() ? '/account/recovery/otp' : '/account/recovery';
-		const password = this.getNodeParameter('password', i) as string;
+		const password = getStringParameter.call(this, 'password', i);
 		const response = await withApiKey('PUT', path, {
 			body: { userId: userId(), secret: secret(), password },
 		});
@@ -279,12 +281,12 @@ export async function executeAccountOperation(
 	}
 
 	if (operation === 'create') {
-		const options = this.getNodeParameter('options', i, {}) as { name?: string };
+		const options = getCollectionParameter.call(this, 'options', i) as { name?: string };
 		const response = await withApiKey('POST', '/account', {
 			body: {
-				userId: resolveId(this.getNodeParameter('userId', i, '') as string),
-				email: this.getNodeParameter('email', i) as string,
-				password: this.getNodeParameter('password', i) as string,
+				userId: resolveId(getStringParameter.call(this, 'userId', i, '')),
+				email: getStringParameter.call(this, 'email', i),
+				password: getStringParameter.call(this, 'password', i),
 				name: options.name || undefined,
 			},
 		});
@@ -299,8 +301,8 @@ export async function executeAccountOperation(
 	if (operation === 'createEmailPasswordSession') {
 		const response = await withApiKey('POST', '/account/sessions/email', {
 			body: {
-				email: this.getNodeParameter('email', i) as string,
-				password: this.getNodeParameter('password', i) as string,
+				email: getStringParameter.call(this, 'email', i),
+				password: getStringParameter.call(this, 'password', i),
 			},
 		});
 		return toItems(response, i);
@@ -309,8 +311,8 @@ export async function executeAccountOperation(
 	if (operation === 'createEmailToken') {
 		const response = await withApiKey('POST', '/account/tokens/email', {
 			body: {
-				userId: resolveId(this.getNodeParameter('userId', i, '') as string),
-				email: this.getNodeParameter('email', i) as string,
+				userId: resolveId(getStringParameter.call(this, 'userId', i, '')),
+				email: getStringParameter.call(this, 'email', i),
 				phrase: phraseOption(),
 			},
 		});
@@ -323,13 +325,13 @@ export async function executeAccountOperation(
 					body: { phrase: phraseOption() },
 				})
 			: await asUser('POST', '/account/verifications/email', {
-					body: { url: this.getNodeParameter('url', i) as string },
+					body: { url: getStringParameter.call(this, 'url', i) },
 				});
 		return toItems(response, i);
 	}
 
 	if (operation === 'createIdTokenSession') {
-		const options = this.getNodeParameter('options', i, {}) as {
+		const options = getCollectionParameter.call(this, 'options', i) as {
 			accessToken?: string;
 			accessTokenExpiry?: number;
 			name?: string;
@@ -337,8 +339,8 @@ export async function executeAccountOperation(
 		};
 		const request: RequestOptions = {
 			body: {
-				provider: this.getNodeParameter('accountIdTokenProvider', i) as string,
-				idToken: this.getNodeParameter('accountIdToken', i) as string,
+				provider: getStringParameter.call(this, 'accountIdTokenProvider', i),
+				idToken: getStringParameter.call(this, 'accountIdToken', i),
 				nonce: options.nonce || undefined,
 				accessToken: options.accessToken || undefined,
 				accessTokenExpiry: options.accessTokenExpiry,
@@ -347,18 +349,21 @@ export async function executeAccountOperation(
 		};
 		// As a signed-in user, the identity is linked to that user's account.
 		const response =
-			(this.getNodeParameter('accountAuthentication', i) as string) === 'apiKey'
+			getStringParameter.call(this, 'accountAuthentication', i) === 'apiKey'
 				? await withApiKey('POST', '/account/sessions/id-token', request)
 				: await asUser('POST', '/account/sessions/id-token', request);
 		return toItems(response, i);
 	}
 
 	if (operation === 'createMagicUrlToken') {
-		const options = this.getNodeParameter('options', i, {}) as { phrase?: boolean; url?: string };
+		const options = getCollectionParameter.call(this, 'options', i) as {
+			phrase?: boolean;
+			url?: string;
+		};
 		const response = await withApiKey('POST', '/account/tokens/magic-url', {
 			body: {
-				userId: resolveId(this.getNodeParameter('userId', i, '') as string),
-				email: this.getNodeParameter('email', i) as string,
+				userId: resolveId(getStringParameter.call(this, 'userId', i, '')),
+				email: getStringParameter.call(this, 'email', i),
 				url: options.url || undefined,
 				phrase: options.phrase,
 			},
@@ -372,7 +377,7 @@ export async function executeAccountOperation(
 	}
 
 	if (operation === 'createMfaChallenge') {
-		const factor = this.getNodeParameter('accountMfaFactor', i) as string;
+		const factor = getStringParameter.call(this, 'accountMfaFactor', i);
 		const response = await asUser('POST', '/account/mfa/challenges', { body: { factor } });
 		return toItems(response, i);
 	}
@@ -385,8 +390,8 @@ export async function executeAccountOperation(
 	if (operation === 'createPhoneToken') {
 		const response = await withApiKey('POST', '/account/tokens/phone', {
 			body: {
-				userId: resolveId(this.getNodeParameter('userId', i, '') as string),
-				phone: this.getNodeParameter('phone', i) as string,
+				userId: resolveId(getStringParameter.call(this, 'userId', i, '')),
+				phone: getStringParameter.call(this, 'phone', i),
 			},
 		});
 		return toItems(response, i);
@@ -398,13 +403,13 @@ export async function executeAccountOperation(
 	}
 
 	if (operation === 'createRecovery') {
-		const email = this.getNodeParameter('email', i) as string;
+		const email = getStringParameter.call(this, 'email', i);
 		const response = byCode()
 			? await withApiKey('POST', '/account/recovery/otp', {
 					body: { email, phrase: phraseOption() },
 				})
 			: await withApiKey('POST', '/account/recovery', {
-					body: { email, url: this.getNodeParameter('url', i) as string },
+					body: { email, url: getStringParameter.call(this, 'url', i) },
 				});
 		return toItems(response, i);
 	}
@@ -514,8 +519,8 @@ export async function executeAccountOperation(
 	if (operation === 'updateEmail') {
 		const response = await asUser('PATCH', '/account/email', {
 			body: {
-				email: this.getNodeParameter('email', i) as string,
-				password: this.getNodeParameter('password', i) as string,
+				email: getStringParameter.call(this, 'email', i),
+				password: getStringParameter.call(this, 'password', i),
 			},
 		});
 		return toItems(response, i);
@@ -528,16 +533,16 @@ export async function executeAccountOperation(
 	}
 
 	if (operation === 'updateName') {
-		const name = this.getNodeParameter('name', i) as string;
+		const name = getStringParameter.call(this, 'name', i);
 		const response = await asUser('PATCH', '/account/name', { body: { name } });
 		return toItems(response, i);
 	}
 
 	if (operation === 'updatePassword') {
-		const options = this.getNodeParameter('options', i, {}) as { oldPassword?: string };
+		const options = getCollectionParameter.call(this, 'options', i) as { oldPassword?: string };
 		const response = await asUser('PATCH', '/account/password', {
 			body: {
-				password: this.getNodeParameter('password', i) as string,
+				password: getStringParameter.call(this, 'password', i),
 				oldPassword: options.oldPassword || undefined,
 			},
 		});
@@ -547,8 +552,8 @@ export async function executeAccountOperation(
 	if (operation === 'updatePhone') {
 		const response = await asUser('PATCH', '/account/phone', {
 			body: {
-				phone: this.getNodeParameter('phone', i) as string,
-				password: this.getNodeParameter('password', i) as string,
+				phone: getStringParameter.call(this, 'phone', i),
+				password: getStringParameter.call(this, 'password', i),
 			},
 		});
 		return toItems(response, i);
@@ -576,7 +581,7 @@ export async function executeAccountOperation(
 	}
 
 	if (operation === 'verifyMfaAuthenticator') {
-		const otp = this.getNodeParameter('accountOtp', i) as string;
+		const otp = getStringParameter.call(this, 'accountOtp', i);
 		const response = await asSession('PUT', TOTP_PATH, { body: { otp } });
 		return toItems(response, i);
 	}

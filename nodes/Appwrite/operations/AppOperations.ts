@@ -4,9 +4,11 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getOptionalResourceId,
 	getResourceId,
 	getStringListParameter,
+	getStringParameter,
 	parseStringList,
 	simplifyItems,
 	toItems,
@@ -88,11 +90,11 @@ export async function executeAppOperation(
 	const appId = (): string => getResourceId.call(this, 'appId', i, 'app', 'App');
 	const appPath = (): string => `/apps/${encodeURIComponent(appId())}`;
 	const installationPath = (): string =>
-		`${appPath()}/installations/${encodeURIComponent(this.getNodeParameter('installationId', i) as string)}`;
+		`${appPath()}/installations/${encodeURIComponent(getStringParameter.call(this, 'installationId', i))}`;
 	const keyPath = (): string =>
-		`${appPath()}/keys/${encodeURIComponent(this.getNodeParameter('appKeyId', i) as string)}`;
+		`${appPath()}/keys/${encodeURIComponent(getStringParameter.call(this, 'appKeyId', i))}`;
 	const secretPath = (): string =>
-		`${appPath()}/secrets/${encodeURIComponent(this.getNodeParameter('appSecretId', i) as string)}`;
+		`${appPath()}/secrets/${encodeURIComponent(getStringParameter.call(this, 'appSecretId', i))}`;
 
 	const simplified = (data: IDataObject | IDataObject[]) =>
 		this.getNodeParameter('simplify', i, false) ? simplifyItems(data, SIMPLIFY_FIELDS) : data;
@@ -135,12 +137,12 @@ export async function executeAppOperation(
 			'/apps',
 			{
 				body: {
-					appId: resolveId(this.getNodeParameter('appId', i, '') as string),
-					name: this.getNodeParameter('name', i) as string,
+					appId: resolveId(getStringParameter.call(this, 'appId', i, '')),
+					name: getStringParameter.call(this, 'name', i),
 					// Required by Appwrite even when empty.
 					redirectUris: getStringListParameter.call(this, 'redirectUris', i, 'Redirect URIs'),
 					teamId: teamId === '' ? undefined : teamId,
-					...details(this.getNodeParameter('options', i, {}) as IDataObject, true),
+					...details(getCollectionParameter.call(this, 'options', i), true),
 				},
 			},
 			i,
@@ -183,7 +185,7 @@ export async function executeAppOperation(
 			{
 				deleted: true,
 				appId: appId(),
-				installationId: this.getNodeParameter('installationId', i) as string,
+				installationId: getStringParameter.call(this, 'installationId', i),
 			},
 			i,
 		);
@@ -192,7 +194,7 @@ export async function executeAppOperation(
 	if (operation === 'deleteKey') {
 		await appwriteApiRequest.call(this, 'DELETE', keyPath(), {}, i);
 		return toItems(
-			{ deleted: true, appId: appId(), keyId: this.getNodeParameter('appKeyId', i) as string },
+			{ deleted: true, appId: appId(), keyId: getStringParameter.call(this, 'appKeyId', i) },
 			i,
 		);
 	}
@@ -203,7 +205,7 @@ export async function executeAppOperation(
 			{
 				deleted: true,
 				appId: appId(),
-				secretId: this.getNodeParameter('appSecretId', i) as string,
+				secretId: getStringParameter.call(this, 'appSecretId', i),
 			},
 			i,
 		);
@@ -278,10 +280,7 @@ export async function executeAppOperation(
 		const current = await appwriteApiRequest.call(this, 'GET', path, {}, i);
 		const body: IDataObject = {};
 		for (const { key } of Object.values(APP_DETAILS)) body[key] = current[key];
-		Object.assign(
-			body,
-			details(this.getNodeParameter('updateFields', i, {}) as IDataObject, false),
-		);
+		Object.assign(body, details(getCollectionParameter.call(this, 'updateFields', i), false));
 
 		const response = await appwriteApiRequest.call(this, 'PUT', path, { body }, i);
 		return toItems(response, i);

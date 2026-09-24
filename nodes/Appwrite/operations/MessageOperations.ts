@@ -4,6 +4,8 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
+	getStringParameter,
 	lookupEnum,
 	parseJsonParameter,
 	parseStringList,
@@ -88,20 +90,17 @@ export async function executeMessageOperation(
 	};
 
 	const getRecipients = () => {
-		const topics = listOrUndefined(this.getNodeParameter('topics', i, '') as string, 'Topic IDs');
-		const users = listOrUndefined(this.getNodeParameter('users', i, '') as string, 'User IDs');
-		const targets = listOrUndefined(
-			this.getNodeParameter('targets', i, '') as string,
-			'Target IDs',
-		);
+		const topics = listOrUndefined(getStringParameter.call(this, 'topics', i, ''), 'Topic IDs');
+		const users = listOrUndefined(getStringParameter.call(this, 'users', i, ''), 'User IDs');
+		const targets = listOrUndefined(getStringParameter.call(this, 'targets', i, ''), 'Target IDs');
 		return { topics, users, targets };
 	};
 
 	if (operation === 'createEmail') {
-		const messageId = resolveId(this.getNodeParameter('messageId', i, '') as string);
-		const subject = this.getNodeParameter('subject', i) as string;
-		const content = this.getNodeParameter('content', i) as string;
-		const options = this.getNodeParameter('options', i, {}) as EmailMessageFields;
+		const messageId = resolveId(getStringParameter.call(this, 'messageId', i, ''));
+		const subject = getStringParameter.call(this, 'subject', i);
+		const content = getStringParameter.call(this, 'content', i);
+		const options = getCollectionParameter.call(this, 'options', i) as EmailMessageFields;
 		const { topics, users, targets } = getRecipients();
 		if (!topics && !users && !targets && options.draft !== true) {
 			throw new NodeOperationError(
@@ -140,10 +139,10 @@ export async function executeMessageOperation(
 	}
 
 	if (operation === 'createPush') {
-		const messageId = resolveId(this.getNodeParameter('messageId', i, '') as string);
-		const title = this.getNodeParameter('title', i, '') as string;
-		const body = this.getNodeParameter('body', i, '') as string;
-		const options = this.getNodeParameter('options', i, {}) as PushMessageFields;
+		const messageId = resolveId(getStringParameter.call(this, 'messageId', i, ''));
+		const title = getStringParameter.call(this, 'title', i, '');
+		const body = getStringParameter.call(this, 'body', i, '');
+		const options = getCollectionParameter.call(this, 'options', i) as PushMessageFields;
 		const { topics, users, targets } = getRecipients();
 		if (!topics && !users && !targets && options.draft !== true) {
 			throw new NodeOperationError(
@@ -195,9 +194,9 @@ export async function executeMessageOperation(
 	}
 
 	if (operation === 'createSMS') {
-		const messageId = resolveId(this.getNodeParameter('messageId', i, '') as string);
-		const content = this.getNodeParameter('content', i) as string;
-		const options = this.getNodeParameter('options', i, {}) as SmsMessageFields;
+		const messageId = resolveId(getStringParameter.call(this, 'messageId', i, ''));
+		const content = getStringParameter.call(this, 'content', i);
+		const options = getCollectionParameter.call(this, 'options', i) as SmsMessageFields;
 		const { topics, users, targets } = getRecipients();
 		if (!topics && !users && !targets && options.draft !== true) {
 			throw new NodeOperationError(
@@ -231,7 +230,7 @@ export async function executeMessageOperation(
 	}
 
 	if (operation === 'delete') {
-		const messageId = this.getNodeParameter('messageId', i) as string;
+		const messageId = getStringParameter.call(this, 'messageId', i);
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -243,7 +242,7 @@ export async function executeMessageOperation(
 	}
 
 	if (operation === 'get') {
-		const messageId = this.getNodeParameter('messageId', i) as string;
+		const messageId = getStringParameter.call(this, 'messageId', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -257,7 +256,8 @@ export async function executeMessageOperation(
 
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
@@ -295,7 +295,7 @@ export async function executeMessageOperation(
 	}
 
 	if (operation === 'getManyTargets') {
-		const messageId = this.getNodeParameter('messageId', i) as string;
+		const messageId = getStringParameter.call(this, 'messageId', i);
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
 		const queries = buildQueries.call(this, i);
 
@@ -329,8 +329,8 @@ export async function executeMessageOperation(
 	}
 
 	if (operation === 'updateEmail') {
-		const messageId = this.getNodeParameter('messageId', i) as string;
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as EmailMessageFields;
+		const messageId = getStringParameter.call(this, 'messageId', i);
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i) as EmailMessageFields;
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
@@ -356,8 +356,8 @@ export async function executeMessageOperation(
 	}
 
 	if (operation === 'updatePush') {
-		const messageId = this.getNodeParameter('messageId', i) as string;
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as PushMessageFields;
+		const messageId = getStringParameter.call(this, 'messageId', i);
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i) as PushMessageFields;
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
@@ -396,8 +396,8 @@ export async function executeMessageOperation(
 	}
 
 	if (operation === 'updateSMS') {
-		const messageId = this.getNodeParameter('messageId', i) as string;
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as SmsMessageFields;
+		const messageId = getStringParameter.call(this, 'messageId', i);
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i) as SmsMessageFields;
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',

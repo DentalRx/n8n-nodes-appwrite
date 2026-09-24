@@ -1,4 +1,10 @@
-import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
+import type {
+	IDataObject,
+	IExecuteFunctions,
+	INodeExecutionData,
+	INodeProperties,
+	INodePropertyCollection,
+} from 'n8n-workflow';
 import { NodeOperationError, jsonParse } from 'n8n-workflow';
 
 import { Query, extractId } from './helpers/appwrite';
@@ -54,6 +60,106 @@ export function getResourceId(
 		});
 	}
 	return id;
+}
+
+/**
+ * Read a text parameter as a string. An expression resolves to its natural
+ * type even in a text field (`{{ 42 }}` is the number 42), and Appwrite rejects
+ * a number or boolean where it expects text, so the value is converted here.
+ */
+export function getStringParameter(
+	this: IExecuteFunctions,
+	parameterName: string,
+	itemIndex: number,
+	fallback?: string,
+): string {
+	const value =
+		fallback === undefined
+			? this.getNodeParameter(parameterName, itemIndex)
+			: this.getNodeParameter(parameterName, itemIndex, fallback);
+	if (value === undefined || value === null) return fallback ?? '';
+	return typeof value === 'object' ? JSON.stringify(value) : String(value);
+}
+
+/** The node's parameter definitions, registered once by the resource registry. */
+const parameterDefinitions: INodeProperties[] = [];
+
+export function registerParameterDefinitions(properties: INodeProperties[]): void {
+	parameterDefinitions.splice(0, parameterDefinitions.length, ...properties);
+}
+
+/**
+ * Convert the numbers and booleans an expression put in a text field of a
+ * collection (and of any collection inside it) to strings.
+ */
+function textFieldsAsStrings(value: IDataObject, fields: INodeProperties[]): IDataObject {
+	const result: IDataObject = { ...value };
+	for (const [key, entry] of Object.entries(value)) {
+		const matching = fields.filter((field) => field.name === key);
+		if (matching.length === 0) continue;
+		if (
+			(typeof entry === 'number' || typeof entry === 'boolean') &&
+			matching.every((field) => field.type === 'string')
+		) {
+			result[key] = String(entry);
+		} else if (entry !== null && typeof entry === 'object' && !Array.isArray(entry)) {
+			result[key] = collectionAsStrings(entry as IDataObject, matching);
+		}
+	}
+	return result;
+}
+
+/** textFieldsAsStrings for a collection or fixed collection value, given its definitions. */
+function collectionAsStrings(value: IDataObject, definitions: INodeProperties[]): IDataObject {
+	const fields = definitions.filter((definition) => definition.type === 'collection');
+	let result = textFieldsAsStrings(
+		value,
+		fields.flatMap((definition) => (definition.options ?? []) as INodeProperties[]),
+	);
+	for (const definition of definitions.filter(
+		(candidate) => candidate.type === 'fixedCollection',
+	)) {
+		for (const group of (definition.options ?? []) as INodePropertyCollection[]) {
+			const entries = result[group.name];
+			if (entries === null || typeof entries !== 'object') continue;
+			result = {
+				...result,
+				[group.name]: Array.isArray(entries)
+					? (entries as IDataObject[]).map((entry) => textFieldsAsStrings(entry, group.values))
+					: textFieldsAsStrings(entries as IDataObject, group.values),
+			};
+		}
+	}
+	return result;
+}
+
+/**
+ * Read a collection or fixed collection parameter with its text fields as
+ * strings, as getStringParameter does for a top-level text field. Fields of
+ * other types (numbers, toggles, lists) keep the type their expression gave.
+ */
+export function getCollectionParameter(
+	this: IExecuteFunctions,
+	parameterName: string,
+	itemIndex: number,
+): IDataObject {
+	const value = this.getNodeParameter(parameterName, itemIndex, {});
+	if (value === null || typeof value !== 'object' || Array.isArray(value)) return {};
+	const resource = String(this.getNodeParameter('resource', itemIndex, ''));
+	const operation = String(this.getNodeParameter('operation', itemIndex, ''));
+	const shownHere = (definition: INodeProperties): boolean => {
+		const show = definition.displayOptions?.show;
+		return (
+			(show?.resource === undefined || show.resource.includes(resource)) &&
+			(show?.operation === undefined || show.operation.includes(operation))
+		);
+	};
+	return collectionAsStrings(
+		value as IDataObject,
+		parameterDefinitions.filter(
+			(definition) => definition.name === parameterName && shownHere(definition),
+		),
+	);
 }
 
 /**

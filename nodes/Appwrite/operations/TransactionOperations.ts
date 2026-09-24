@@ -4,6 +4,7 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getStringParameter,
 	parseJsonArrayParameter,
 	toItems,
 	withLimit,
@@ -39,7 +40,7 @@ export async function executeTransactionAction(
 ): Promise<INodeExecutionData[]> {
 	const transactionsPath = `${apiPath}/transactions`;
 	const transactionPath = (): string =>
-		`${transactionsPath}/${encodeURIComponent(this.getNodeParameter('transactionId', i) as string)}`;
+		`${transactionsPath}/${encodeURIComponent(getStringParameter.call(this, 'transactionId', i))}`;
 
 	if (action === 'create') {
 		const ttl = this.getNodeParameter('ttl', i, 300) as number;
@@ -120,7 +121,7 @@ export async function executeTransactionAction(
 	}
 
 	// The one action left is 'delete'.
-	const transactionId = this.getNodeParameter('transactionId', i) as string;
+	const transactionId = getStringParameter.call(this, 'transactionId', i);
 	await appwriteApiRequest.call(
 		this,
 		'DELETE',

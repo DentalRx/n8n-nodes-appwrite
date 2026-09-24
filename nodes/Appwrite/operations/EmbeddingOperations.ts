@@ -1,7 +1,7 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { toItems } from '../GenericFunctions';
+import { getCollectionParameter, toItems } from '../GenericFunctions';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeEmbeddingOperation(
@@ -15,7 +15,7 @@ export async function executeEmbeddingOperation(
 		// and brackets are ordinary content in text to embed.
 		const raw = this.getNodeParameter('embeddingText', i) as unknown;
 		const texts = Array.isArray(raw) ? raw.map((text) => String(text)) : [String(raw ?? '')];
-		const options = this.getNodeParameter('options', i, {}) as { embeddingModel?: string };
+		const options = getCollectionParameter.call(this, 'options', i) as { embeddingModel?: string };
 
 		const response = await appwriteApiRequest.call(
 			this,

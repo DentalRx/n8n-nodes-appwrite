@@ -67,6 +67,7 @@ import { wafRuleFields, wafRuleOperations } from './descriptions/WafRuleDescript
 import { webhookFields, webhookOperations } from './descriptions/WebhookDescription';
 import { DOCUMENTS_DB, VECTORS_DB } from './helpers/documentDatabases';
 import { executeAccountOperation } from './operations/AccountOperations';
+import { registerParameterDefinitions } from './GenericFunctions';
 import { executeActivityOperation } from './operations/ActivityOperations';
 import { executeAdvisorOperation } from './operations/AdvisorOperations';
 import { executeApiKeyOperation } from './operations/ApiKeyOperations';
@@ -589,6 +590,7 @@ export const properties: INodeProperties[] = [
 	...sorted.flatMap((resource) => resource.operations),
 	...sorted.flatMap((resource) => resource.fields),
 ];
+registerParameterDefinitions(properties);
 
 const executors = new Map<string, OperationExecutor>(
 	RESOURCES.map((resource) => [resource.option.value, resource.execute]),

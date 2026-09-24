@@ -4,7 +4,9 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getResourceId,
+	getStringParameter,
 	simplifyItems,
 	toItems,
 	withLimit,
@@ -86,15 +88,15 @@ export async function executeDatabaseOperation(
 		return `/tablesdb/${encodeURIComponent(databaseId)}`;
 	};
 	const migrationPath = (): string => {
-		const migrationId = this.getNodeParameter('databaseMigrationId', i) as string;
+		const migrationId = getStringParameter.call(this, 'databaseMigrationId', i);
 		return `${databasePath()}/migrations/${encodeURIComponent(migrationId)}`;
 	};
 	const simplified = (data: IDataObject | IDataObject[], fields: string[]) =>
 		(this.getNodeParameter('simplify', i, false) as boolean) ? simplifyItems(data, fields) : data;
 
 	if (operation === 'create') {
-		const databaseId = resolveId(this.getNodeParameter('databaseId', i, '') as string);
-		const name = this.getNodeParameter('name', i) as string;
+		const databaseId = resolveId(getStringParameter.call(this, 'databaseId', i, ''));
+		const name = getStringParameter.call(this, 'name', i);
 		const enabled = this.getNodeParameter('enabled', i, true) as boolean;
 		const response = await appwriteApiRequest.call(
 			this,
@@ -118,7 +120,7 @@ export async function executeDatabaseOperation(
 	}
 
 	if (operation === 'createFailover') {
-		const { targetReplicaId } = this.getNodeParameter('options', i, {}) as {
+		const { targetReplicaId } = getCollectionParameter.call(this, 'options', i) as {
 			targetReplicaId?: string;
 		};
 		const response = await appwriteApiRequest.call(
@@ -132,8 +134,10 @@ export async function executeDatabaseOperation(
 	}
 
 	if (operation === 'createMigration') {
-		const specification = this.getNodeParameter('databaseSpecification', i) as string;
-		const { autoCutover } = this.getNodeParameter('options', i, {}) as { autoCutover?: boolean };
+		const specification = getStringParameter.call(this, 'databaseSpecification', i);
+		const { autoCutover } = getCollectionParameter.call(this, 'options', i) as {
+			autoCutover?: boolean;
+		};
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
@@ -146,7 +150,7 @@ export async function executeDatabaseOperation(
 
 	if (operation === 'deleteMigration') {
 		const databaseId = getResourceId.call(this, 'databaseId', i, 'database', 'Database');
-		const migrationId = this.getNodeParameter('databaseMigrationId', i) as string;
+		const migrationId = getStringParameter.call(this, 'databaseMigrationId', i);
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -171,7 +175,8 @@ export async function executeDatabaseOperation(
 
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
@@ -219,7 +224,7 @@ export async function executeDatabaseOperation(
 		const path = `${databasePath()}/operations`;
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
 		const max = returnAll ? Infinity : (this.getNodeParameter('limit', i, 50) as number);
-		const { operationStatus } = this.getNodeParameter('options', i, {}) as {
+		const { operationStatus } = getCollectionParameter.call(this, 'options', i) as {
 			operationStatus?: string;
 		};
 
@@ -271,8 +276,10 @@ export async function executeDatabaseOperation(
 
 	if (operation === 'update') {
 		const databaseId = getResourceId.call(this, 'databaseId', i, 'database', 'Database');
-		const name = this.getNodeParameter('name', i) as string;
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as { enabled?: boolean };
+		const name = getStringParameter.call(this, 'name', i);
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i) as {
+			enabled?: boolean;
+		};
 		// PUT /tablesdb/{id} treats an omitted `enabled` as its default (true), so
 		// a plain rename would silently re-enable a disabled database. Read the
 		// current value when the user leaves the option out.

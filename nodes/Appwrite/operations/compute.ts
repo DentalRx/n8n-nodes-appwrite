@@ -4,7 +4,9 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getResourceId,
+	getStringParameter,
 	simplifyItems,
 	toItems,
 	withLimit,
@@ -85,11 +87,11 @@ export async function executeComputeOperation(
 		getResourceId.call(this, resource.idParameter, i, resource.kind, resource.label);
 	const recordPath = (): string => `${resource.path}/${encodeURIComponent(recordId())}`;
 	const deploymentPath = (): string => {
-		const deploymentId = this.getNodeParameter('deploymentId', i) as string;
+		const deploymentId = getStringParameter.call(this, 'deploymentId', i);
 		return `${recordPath()}/deployments/${encodeURIComponent(deploymentId)}`;
 	};
 	const variablePath = (): string => {
-		const variableId = this.getNodeParameter('variableId', i) as string;
+		const variableId = getStringParameter.call(this, 'variableId', i);
 		return `${recordPath()}/variables/${encodeURIComponent(variableId)}`;
 	};
 	const simplified = (data: IDataObject | IDataObject[]): IDataObject | IDataObject[] =>
@@ -98,7 +100,7 @@ export async function executeComputeOperation(
 			: data;
 
 	if (operation === 'activateDeployment') {
-		const deploymentId = this.getNodeParameter('deploymentId', i) as string;
+		const deploymentId = getStringParameter.call(this, 'deploymentId', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
@@ -121,7 +123,7 @@ export async function executeComputeOperation(
 	}
 
 	if (operation === 'createDeployment') {
-		const binaryPropertyName = this.getNodeParameter('inputBinaryField', i) as string;
+		const binaryPropertyName = getStringParameter.call(this, 'inputBinaryField', i);
 		this.helpers.assertBinaryData(i, binaryPropertyName);
 		const content = await this.helpers.getBinaryDataBuffer(i, binaryPropertyName);
 		// Appwrite checks the package only by its file name, which is replaced
@@ -139,7 +141,7 @@ export async function executeComputeOperation(
 		}
 
 		const activate = this.getNodeParameter('activate', i, false) as boolean;
-		const options = this.getNodeParameter('options', i, {}) as IDataObject;
+		const options = getCollectionParameter.call(this, 'options', i);
 		const fields: Array<[string, string]> = [['activate', String(activate)]];
 		for (const name of resource.uploadOptions) {
 			// A blank option leaves the setting to the function or site, as an
@@ -167,7 +169,7 @@ export async function executeComputeOperation(
 	}
 
 	if (operation === 'createDuplicateDeployment') {
-		const deploymentId = this.getNodeParameter('deploymentId', i) as string;
+		const deploymentId = getStringParameter.call(this, 'deploymentId', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
@@ -185,11 +187,11 @@ export async function executeComputeOperation(
 			`${recordPath()}/deployments/template`,
 			{
 				body: {
-					owner: this.getNodeParameter('templateOwner', i) as string,
-					repository: this.getNodeParameter('templateRepository', i) as string,
-					rootDirectory: this.getNodeParameter('templateRootDirectory', i) as string,
-					type: this.getNodeParameter('gitReferenceType', i) as string,
-					reference: this.getNodeParameter('gitReference', i) as string,
+					owner: getStringParameter.call(this, 'templateOwner', i),
+					repository: getStringParameter.call(this, 'templateRepository', i),
+					rootDirectory: getStringParameter.call(this, 'templateRootDirectory', i),
+					type: getStringParameter.call(this, 'gitReferenceType', i),
+					reference: getStringParameter.call(this, 'gitReference', i),
 					activate: this.getNodeParameter('activate', i, false) as boolean,
 				},
 			},
@@ -205,8 +207,8 @@ export async function executeComputeOperation(
 			`${recordPath()}/deployments/vcs`,
 			{
 				body: {
-					type: this.getNodeParameter('gitReferenceType', i) as string,
-					reference: this.getNodeParameter('gitReference', i) as string,
+					type: getStringParameter.call(this, 'gitReferenceType', i),
+					reference: getStringParameter.call(this, 'gitReference', i),
 					activate: this.getNodeParameter('activate', i, false) as boolean,
 				},
 			},
@@ -216,14 +218,16 @@ export async function executeComputeOperation(
 	}
 
 	if (operation === 'deleteDeployment') {
-		const deploymentId = this.getNodeParameter('deploymentId', i) as string;
+		const deploymentId = getStringParameter.call(this, 'deploymentId', i);
 		await appwriteApiRequest.call(this, 'DELETE', deploymentPath(), {}, i);
 		return toItems({ deleted: true, [resource.idParameter]: recordId(), deploymentId }, i);
 	}
 
 	if (operation === 'downloadDeployment') {
-		const deploymentId = this.getNodeParameter('deploymentId', i) as string;
-		const options = this.getNodeParameter('options', i, {}) as { deploymentContent?: string };
+		const deploymentId = getStringParameter.call(this, 'deploymentId', i);
+		const options = getCollectionParameter.call(this, 'options', i) as {
+			deploymentContent?: string;
+		};
 		const type = options.deploymentContent ?? 'source';
 		const content = await appwriteApiRequestBinary.call(
 			this,
@@ -240,7 +244,7 @@ export async function executeComputeOperation(
 			`${deploymentId}-${type}${gzip ? '.tar.gz' : ''}`,
 			gzip ? 'application/gzip' : 'application/octet-stream',
 		);
-		const outputBinaryField = this.getNodeParameter('outputBinaryField', i, 'data') as string;
+		const outputBinaryField = getStringParameter.call(this, 'outputBinaryField', i, 'data');
 		return [
 			{
 				json: { [resource.idParameter]: recordId(), deploymentId, type },
@@ -257,7 +261,8 @@ export async function executeComputeOperation(
 
 	if (operation === 'getManyDeployments') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
@@ -291,7 +296,9 @@ export async function executeComputeOperation(
 	}
 
 	if (operation === 'getManySpecifications') {
-		const options = this.getNodeParameter('options', i, {}) as { specificationType?: string };
+		const options = getCollectionParameter.call(this, 'options', i) as {
+			specificationType?: string;
+		};
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -303,9 +310,9 @@ export async function executeComputeOperation(
 	}
 
 	if (operation === 'createVariable') {
-		const variableId = resolveId(this.getNodeParameter('variableId', i, '') as string);
-		const key = this.getNodeParameter('key', i) as string;
-		const value = this.getNodeParameter('value', i) as string;
+		const variableId = resolveId(getStringParameter.call(this, 'variableId', i, ''));
+		const key = getStringParameter.call(this, 'key', i);
+		const value = getStringParameter.call(this, 'value', i);
 		const secret = this.getNodeParameter('secret', i, true) as boolean;
 		const response = await appwriteApiRequest.call(
 			this,
@@ -318,7 +325,7 @@ export async function executeComputeOperation(
 	}
 
 	if (operation === 'deleteVariable') {
-		const variableId = this.getNodeParameter('variableId', i) as string;
+		const variableId = getStringParameter.call(this, 'variableId', i);
 		await appwriteApiRequest.call(this, 'DELETE', variablePath(), {}, i);
 		return toItems({ deleted: true, [resource.idParameter]: recordId(), variableId }, i);
 	}
@@ -376,7 +383,7 @@ export async function executeComputeOperation(
 
 	if (operation === 'updateVariable') {
 		const key = String(this.getNodeParameter('key', i, '') ?? '');
-		const value = this.getNodeParameter('value', i, '') as string;
+		const value = getStringParameter.call(this, 'value', i, '');
 		const secret = this.getNodeParameter('secret', i, false) as boolean;
 		const response = await appwriteApiRequest.call(
 			this,

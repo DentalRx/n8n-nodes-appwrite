@@ -9,7 +9,9 @@ import { NodeOperationError, jsonParse } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getResourceId,
+	getStringParameter,
 	parseStringList,
 	simplifyItems,
 	toItems,
@@ -278,7 +280,7 @@ export async function executeDedicatedDatabaseOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const engineValue = this.getNodeParameter('databaseEngine', i) as string;
+	const engineValue = getStringParameter.call(this, 'databaseEngine', i);
 	const engine = findEngine(engineValue);
 	if (engine === undefined) {
 		throw new NodeOperationError(this.getNode(), `Unknown database engine "${engineValue}"`, {
@@ -310,7 +312,7 @@ export async function executeDedicatedDatabaseOperation(
 	const databasePath = (): string => `${engine.path}/${encodeURIComponent(databaseId())}`;
 
 	const subRecordId = (record: SubRecord): string => {
-		const id = this.getNodeParameter(record.parameter, i) as string;
+		const id = getStringParameter.call(this, record.parameter, i);
 		if (id === '') {
 			throw new NodeOperationError(this.getNode(), `The '${record.label}' parameter is empty`, {
 				description: 'Enter a value, or check that the expression resolves to one.',
@@ -380,7 +382,7 @@ export async function executeDedicatedDatabaseOperation(
 		listKey: string,
 		simplify: string[],
 	): Promise<INodeExecutionData[]> => {
-		const filters = this.getNodeParameter('options', i, {}) as IDataObject;
+		const filters = getCollectionParameter.call(this, 'options', i);
 		if (this.getNodeParameter('returnAll', i, false) as boolean) {
 			const all: IDataObject[] = [];
 			for (;;) {
@@ -420,11 +422,11 @@ export async function executeDedicatedDatabaseOperation(
 	}
 
 	if (operation === 'create') {
-		const options = this.getNodeParameter('options', i, {}) as IDataObject;
+		const options = getCollectionParameter.call(this, 'options', i);
 		const response = await request('POST', engine.path, {
 			body: {
-				databaseId: resolveId(this.getNodeParameter('dedicatedDatabaseId', i, '') as string),
-				name: this.getNodeParameter('name', i) as string,
+				databaseId: resolveId(getStringParameter.call(this, 'dedicatedDatabaseId', i, '')),
+				name: getStringParameter.call(this, 'name', i),
 				...settings(options),
 			},
 		});
@@ -432,17 +434,17 @@ export async function executeDedicatedDatabaseOperation(
 	}
 
 	if (operation === 'createBackup') {
-		const type = this.getNodeParameter('backupType', i) as string;
+		const type = getStringParameter.call(this, 'backupType', i);
 		return toItems(await request('POST', `${databasePath()}/backups`, { body: { type } }), i);
 	}
 
 	if (operation === 'createBackupPolicy') {
-		const options = this.getNodeParameter('options', i, {}) as IDataObject;
+		const options = getCollectionParameter.call(this, 'options', i);
 		const response = await request('POST', `${databasePath()}/backups/policies`, {
 			body: {
-				policyId: resolveId(this.getNodeParameter('backupPolicyId', i, '') as string),
-				name: this.getNodeParameter('name', i) as string,
-				schedule: this.getNodeParameter('backupSchedule', i) as string,
+				policyId: resolveId(getStringParameter.call(this, 'backupPolicyId', i, '')),
+				name: getStringParameter.call(this, 'name', i),
+				schedule: getStringParameter.call(this, 'backupSchedule', i),
 				retention: this.getNodeParameter('backupRetentionDays', i) as number,
 				...settings(options),
 			},
@@ -451,10 +453,10 @@ export async function executeDedicatedDatabaseOperation(
 	}
 
 	if (operation === 'createBranch') {
-		const options = this.getNodeParameter('options', i, {}) as { ttl?: number };
+		const options = getCollectionParameter.call(this, 'options', i) as { ttl?: number };
 		const response = await request('POST', `${databasePath()}/branches`, {
 			body: {
-				branchId: resolveId(this.getNodeParameter('branchId', i, '') as string),
+				branchId: resolveId(getStringParameter.call(this, 'branchId', i, '')),
 				ttl: options.ttl,
 			},
 		});
@@ -476,7 +478,7 @@ export async function executeDedicatedDatabaseOperation(
 				itemIndex: i,
 			});
 		}
-		const options = this.getNodeParameter('options', i, {}) as {
+		const options = getCollectionParameter.call(this, 'options', i) as {
 			bindings?: unknown;
 			output?: string;
 			timeoutSeconds?: number;
@@ -533,10 +535,10 @@ export async function executeDedicatedDatabaseOperation(
 	}
 
 	if (operation === 'migrate') {
-		const options = this.getNodeParameter('options', i, {}) as IDataObject;
+		const options = getCollectionParameter.call(this, 'options', i);
 		const response = await request('POST', `${databasePath()}/migrations`, {
 			body: {
-				targetType: this.getNodeParameter('migrationTargetType', i) as string,
+				targetType: getStringParameter.call(this, 'migrationTargetType', i),
 				...settings(options),
 			},
 		});
@@ -544,16 +546,14 @@ export async function executeDedicatedDatabaseOperation(
 	}
 
 	if (operation === 'restore') {
-		const type = this.getNodeParameter('restorationType', i) as string;
-		const options = this.getNodeParameter('options', i, {}) as IDataObject;
+		const type = getStringParameter.call(this, 'restorationType', i);
+		const options = getCollectionParameter.call(this, 'options', i);
 		const response = await request('POST', `${databasePath()}/restorations`, {
 			body: {
 				type,
 				backupId: type === 'backup' ? subRecordId(BACKUP) : undefined,
 				targetTime:
-					type === 'pitr'
-						? (this.getNodeParameter('restorationTargetTime', i) as string)
-						: undefined,
+					type === 'pitr' ? getStringParameter.call(this, 'restorationTargetTime', i) : undefined,
 				...settings(options),
 			},
 		});
@@ -565,7 +565,7 @@ export async function executeDedicatedDatabaseOperation(
 	}
 
 	if (operation === 'triggerFailover') {
-		const options = this.getNodeParameter('options', i, {}) as IDataObject;
+		const options = getCollectionParameter.call(this, 'options', i);
 		const response = await request('POST', `${databasePath()}/failovers`, {
 			body: settings(options),
 		});
@@ -573,24 +573,24 @@ export async function executeDedicatedDatabaseOperation(
 	}
 
 	if (operation === 'update') {
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as IDataObject;
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i);
 		return toItems(await request('PATCH', databasePath(), { body: settings(updateFields) }), i);
 	}
 
 	if (operation === 'updateBackupPolicy') {
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as IDataObject;
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i);
 		const path = `${databasePath()}/backups/policies/${encodeURIComponent(subRecordId(BACKUP_POLICY))}`;
 		return toItems(await request('PATCH', path, { body: settings(updateFields) }), i);
 	}
 
 	if (operation === 'updateBackupStorage') {
-		const options = this.getNodeParameter('options', i, {}) as IDataObject;
+		const options = getCollectionParameter.call(this, 'options', i);
 		const response = await request('PUT', `${databasePath()}/backups/storage`, {
 			body: {
-				provider: this.getNodeParameter('backupStorageProvider', i) as string,
-				bucket: this.getNodeParameter('backupStorageBucket', i) as string,
-				accessKey: this.getNodeParameter('backupStorageAccessKey', i) as string,
-				secretKey: this.getNodeParameter('backupStorageSecretKey', i) as string,
+				provider: getStringParameter.call(this, 'backupStorageProvider', i),
+				bucket: getStringParameter.call(this, 'backupStorageBucket', i),
+				accessKey: getStringParameter.call(this, 'backupStorageAccessKey', i),
+				secretKey: getStringParameter.call(this, 'backupStorageSecretKey', i),
 				...settings(options),
 			},
 		});
@@ -600,7 +600,7 @@ export async function executeDedicatedDatabaseOperation(
 	if (operation === 'updateMaintenanceWindow') {
 		const response = await request('PATCH', `${databasePath()}/maintenance`, {
 			body: {
-				day: this.getNodeParameter('maintenanceDay', i) as string,
+				day: getStringParameter.call(this, 'maintenanceDay', i),
 				hourUtc: this.getNodeParameter('maintenanceHourUtc', i) as number,
 			},
 		});
@@ -608,7 +608,7 @@ export async function executeDedicatedDatabaseOperation(
 	}
 
 	if (operation === 'updatePooler') {
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as IDataObject;
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i);
 		const body: IDataObject = { ...updateFields };
 		// An override emptied in the UI means "back to the default", which the
 		// API applies for null; leaving it out would keep the old override.
@@ -620,7 +620,7 @@ export async function executeDedicatedDatabaseOperation(
 
 	if (operation === 'upgrade') {
 		const response = await request('POST', `${databasePath()}/upgrades`, {
-			body: { targetVersion: this.getNodeParameter('targetVersion', i) as string },
+			body: { targetVersion: getStringParameter.call(this, 'targetVersion', i) },
 		});
 		return toItems(response, i);
 	}

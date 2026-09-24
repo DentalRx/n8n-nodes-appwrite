@@ -4,7 +4,9 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getResourceId,
+	getStringParameter,
 	lookupEnum,
 	parseJsonParameter,
 	toItems,
@@ -77,21 +79,21 @@ export async function executeProviderOperation(
 ): Promise<INodeExecutionData[]> {
 	/** The chosen provider type, and the path its create and update endpoints share. */
 	const getProviderType = (): { providerType: string; typePath: string } => {
-		const providerType = this.getNodeParameter('providerType', i) as string;
+		const providerType = getStringParameter.call(this, 'providerType', i);
 		const segment = lookupEnum(this, PROVIDER_PATHS, providerType, 'provider type', i);
 		return { providerType, typePath: `/messaging/providers/${segment}` };
 	};
 
 	if (operation === 'create') {
 		const { providerType, typePath } = getProviderType();
-		const options = this.getNodeParameter('options', i, {}) as IDataObject;
+		const options = getCollectionParameter.call(this, 'options', i);
 		const body: IDataObject = {
-			providerId: resolveId(this.getNodeParameter('providerId', i, '') as string),
-			name: this.getNodeParameter('name', i) as string,
+			providerId: resolveId(getStringParameter.call(this, 'providerId', i, '')),
+			name: getStringParameter.call(this, 'name', i),
 			...settingsBody.call(this, options, i),
 		};
 		if (providerType === 'smtp') {
-			body.host = this.getNodeParameter('smtpHost', i) as string;
+			body.host = getStringParameter.call(this, 'smtpHost', i);
 		}
 		// Appwrite enables a Mailgun provider only once its region is set, even
 		// to the default US region, which the Console always sends. Leaving EU
@@ -129,7 +131,8 @@ export async function executeProviderOperation(
 
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
@@ -165,7 +168,7 @@ export async function executeProviderOperation(
 	if (operation === 'update') {
 		const providerId = getResourceId.call(this, 'providerId', i, 'provider', 'Provider');
 		const { typePath } = getProviderType();
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as IDataObject;
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',

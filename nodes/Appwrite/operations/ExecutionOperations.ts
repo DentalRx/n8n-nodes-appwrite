@@ -4,7 +4,9 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getResourceId,
+	getStringParameter,
 	lookupEnum,
 	parseJsonParameter,
 	simplifyItems,
@@ -45,9 +47,9 @@ export async function executeExecutionOperation(
 			: data;
 
 	if (operation === 'create') {
-		const body = this.getNodeParameter('body', i, '') as string;
+		const body = getStringParameter.call(this, 'body', i, '');
 		const async = this.getNodeParameter('async', i, false) as boolean;
-		const options = this.getNodeParameter('options', i, {}) as ExecutionCreateOptions;
+		const options = getCollectionParameter.call(this, 'options', i) as ExecutionCreateOptions;
 		const headers =
 			options.headers === undefined
 				? undefined
@@ -76,7 +78,7 @@ export async function executeExecutionOperation(
 	}
 
 	if (operation === 'delete') {
-		const executionId = this.getNodeParameter('executionId', i) as string;
+		const executionId = getStringParameter.call(this, 'executionId', i);
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -88,7 +90,7 @@ export async function executeExecutionOperation(
 	}
 
 	if (operation === 'get') {
-		const executionId = this.getNodeParameter('executionId', i) as string;
+		const executionId = getStringParameter.call(this, 'executionId', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',

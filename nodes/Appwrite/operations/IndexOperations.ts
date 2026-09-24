@@ -4,7 +4,9 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getResourceId,
+	getStringParameter,
 	lookupEnum,
 	parseStringList,
 	toItems,
@@ -30,7 +32,7 @@ export function getIndexOrdersAndLengths(
 	this: IExecuteFunctions,
 	i: number,
 ): { orders?: string[]; lengths?: number[] } {
-	const options = this.getNodeParameter('options', i, {}) as {
+	const options = getCollectionParameter.call(this, 'options', i) as {
 		lengths?: string;
 		orders?: string;
 	};
@@ -71,11 +73,11 @@ export async function executeIndexOperation(
 	)}/indexes`;
 
 	if (operation === 'create') {
-		const key = this.getNodeParameter('key', i) as string;
-		const typeRaw = this.getNodeParameter('indexType', i) as string;
+		const key = getStringParameter.call(this, 'key', i);
+		const typeRaw = getStringParameter.call(this, 'indexType', i);
 		const columns = parseStringList.call(
 			this,
-			this.getNodeParameter('columns', i, '') as string,
+			getStringParameter.call(this, 'columns', i, ''),
 			'Columns',
 			i,
 		);
@@ -100,7 +102,7 @@ export async function executeIndexOperation(
 	}
 
 	if (operation === 'get') {
-		const key = this.getNodeParameter('key', i) as string;
+		const key = getStringParameter.call(this, 'key', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -145,7 +147,7 @@ export async function executeIndexOperation(
 	}
 
 	if (operation === 'delete') {
-		const key = this.getNodeParameter('key', i) as string;
+		const key = getStringParameter.call(this, 'key', i);
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',

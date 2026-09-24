@@ -5,6 +5,7 @@ import {
 	buildQueries,
 	fetchAllPages,
 	getResourceId,
+	getStringParameter,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
@@ -23,7 +24,7 @@ export async function executeTokenOperation(
 	};
 
 	if (operation === 'create') {
-		const expire = this.getNodeParameter('expire', i, '') as string;
+		const expire = getStringParameter.call(this, 'expire', i, '');
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
@@ -35,7 +36,7 @@ export async function executeTokenOperation(
 	}
 
 	if (operation === 'get') {
-		const tokenId = this.getNodeParameter('tokenId', i) as string;
+		const tokenId = getStringParameter.call(this, 'tokenId', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -75,8 +76,8 @@ export async function executeTokenOperation(
 	}
 
 	if (operation === 'update') {
-		const tokenId = this.getNodeParameter('tokenId', i) as string;
-		const expire = this.getNodeParameter('expire', i, '') as string;
+		const tokenId = getStringParameter.call(this, 'tokenId', i);
+		const expire = getStringParameter.call(this, 'expire', i, '');
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
@@ -88,7 +89,7 @@ export async function executeTokenOperation(
 	}
 
 	if (operation === 'delete') {
-		const tokenId = this.getNodeParameter('tokenId', i) as string;
+		const tokenId = getStringParameter.call(this, 'tokenId', i);
 		await appwriteApiRequest.call(this, 'DELETE', `/tokens/${encodeURIComponent(tokenId)}`, {}, i);
 		return toItems({ deleted: true, tokenId }, i);
 	}

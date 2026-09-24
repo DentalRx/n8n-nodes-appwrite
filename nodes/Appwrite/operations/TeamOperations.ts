@@ -4,9 +4,11 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getOptionalResourceId,
 	getResourceId,
 	getStringListParameter,
+	getStringParameter,
 	parseJsonParameter,
 	toItems,
 	withLimit,
@@ -31,8 +33,8 @@ export async function executeTeamOperation(
 		`/teams/${encodeURIComponent(getResourceId.call(this, 'teamId', i, 'team', 'Team'))}`;
 
 	if (operation === 'create') {
-		const teamId = resolveId(this.getNodeParameter('teamId', i, '') as string);
-		const name = this.getNodeParameter('name', i) as string;
+		const teamId = resolveId(getStringParameter.call(this, 'teamId', i, ''));
+		const name = getStringParameter.call(this, 'name', i);
 		const roles = getStringListParameter.call(this, 'roles', i, 'Roles');
 		const response = await appwriteApiRequest.call(
 			this,
@@ -47,10 +49,13 @@ export async function executeTeamOperation(
 	if (operation === 'createMembership') {
 		const path = `${teamPath()}/memberships`;
 		const roles = getStringListParameter.call(this, 'roles', i, 'Roles');
-		const email = this.getNodeParameter('email', i, '') as string;
+		const email = getStringParameter.call(this, 'email', i, '');
 		const userId = getOptionalResourceId.call(this, 'userId', i, 'user');
-		const phone = this.getNodeParameter('phone', i, '') as string;
-		const options = this.getNodeParameter('options', i, {}) as { name?: string; url?: string };
+		const phone = getStringParameter.call(this, 'phone', i, '');
+		const options = getCollectionParameter.call(this, 'options', i) as {
+			name?: string;
+			url?: string;
+		};
 		const url = options.url ?? '';
 		const name = options.name ?? '';
 		const response = await appwriteApiRequest.call(
@@ -80,7 +85,7 @@ export async function executeTeamOperation(
 
 	if (operation === 'deleteMembership') {
 		const teamId = getResourceId.call(this, 'teamId', i, 'team', 'Team');
-		const membershipId = this.getNodeParameter('membershipId', i) as string;
+		const membershipId = getStringParameter.call(this, 'membershipId', i);
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -98,7 +103,8 @@ export async function executeTeamOperation(
 
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const searchArg = search === '' ? undefined : search;
 		const queries = buildQueries.call(this, i);
 
@@ -134,7 +140,8 @@ export async function executeTeamOperation(
 	if (operation === 'getManyMemberships') {
 		const path = `${teamPath()}/memberships`;
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const searchArg = search === '' ? undefined : search;
 		const queries = buildQueries.call(this, i);
 
@@ -168,7 +175,7 @@ export async function executeTeamOperation(
 	}
 
 	if (operation === 'getMembership') {
-		const membershipId = this.getNodeParameter('membershipId', i) as string;
+		const membershipId = getStringParameter.call(this, 'membershipId', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -185,7 +192,7 @@ export async function executeTeamOperation(
 	}
 
 	if (operation === 'updateMembership') {
-		const membershipId = this.getNodeParameter('membershipId', i) as string;
+		const membershipId = getStringParameter.call(this, 'membershipId', i);
 		const path = `${teamPath()}/memberships/${encodeURIComponent(membershipId)}`;
 		const roles = getStringListParameter.call(this, 'roles', i, 'Roles');
 		const response = await appwriteApiRequest.call(this, 'PATCH', path, { body: { roles } }, i);
@@ -212,7 +219,7 @@ export async function executeTeamOperation(
 
 	if (operation === 'updateName') {
 		const path = teamPath();
-		const name = this.getNodeParameter('name', i) as string;
+		const name = getStringParameter.call(this, 'name', i);
 		const response = await appwriteApiRequest.call(this, 'PUT', path, { body: { name } }, i);
 		return toItems(response, i);
 	}

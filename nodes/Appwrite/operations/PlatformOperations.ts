@@ -6,7 +6,9 @@ import { PLATFORM_TYPES } from '../descriptions/PlatformDescription';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getResourceId,
+	getStringParameter,
 	lookupEnum,
 	toItems,
 	withLimit,
@@ -27,7 +29,7 @@ export async function executePlatformOperation(
 	const platformId = (): string =>
 		getResourceId.call(this, 'platformId', i, 'platform', 'Platform');
 	const platformType = (): PlatformType =>
-		lookupEnum(this, TYPES, this.getNodeParameter('platformType', i) as string, 'platform type', i);
+		lookupEnum(this, TYPES, getStringParameter.call(this, 'platformType', i), 'platform type', i);
 
 	if (operation === 'create') {
 		const type = platformType();
@@ -37,9 +39,9 @@ export async function executePlatformOperation(
 			`/project/platforms/${type.value}`,
 			{
 				body: {
-					platformId: resolveId(this.getNodeParameter('platformId', i, '') as string),
-					name: this.getNodeParameter('name', i) as string,
-					[type.identifier.body]: this.getNodeParameter('platformIdentifier', i) as string,
+					platformId: resolveId(getStringParameter.call(this, 'platformId', i, '')),
+					name: getStringParameter.call(this, 'name', i),
+					[type.identifier.body]: getStringParameter.call(this, 'platformIdentifier', i),
 				},
 			},
 			i,
@@ -106,7 +108,7 @@ export async function executePlatformOperation(
 	if (operation === 'update') {
 		const type = platformType();
 		const id = encodeURIComponent(platformId());
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as {
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i) as {
 			name?: string;
 			platformIdentifier?: string;
 		};

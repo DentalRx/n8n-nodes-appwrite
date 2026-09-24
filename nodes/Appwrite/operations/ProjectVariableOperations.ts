@@ -1,7 +1,14 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { buildQueries, fetchAllPages, toItems, withLimit } from '../GenericFunctions';
+import {
+	buildQueries,
+	fetchAllPages,
+	getCollectionParameter,
+	getStringParameter,
+	toItems,
+	withLimit,
+} from '../GenericFunctions';
 import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
@@ -30,9 +37,9 @@ export async function executeProjectVariableOperation(
 			'/project/variables',
 			{
 				body: {
-					variableId: resolveId(this.getNodeParameter('variableId', i, '') as string),
-					key: this.getNodeParameter('key', i) as string,
-					value: this.getNodeParameter('value', i) as string,
+					variableId: resolveId(getStringParameter.call(this, 'variableId', i, '')),
+					key: getStringParameter.call(this, 'key', i),
+					value: getStringParameter.call(this, 'value', i),
 					secret: this.getNodeParameter('secret', i, true) as boolean,
 				},
 			},
@@ -85,7 +92,7 @@ export async function executeProjectVariableOperation(
 	}
 
 	if (operation === 'update') {
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as {
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i) as {
 			key?: string;
 			secret?: boolean;
 			value?: string;

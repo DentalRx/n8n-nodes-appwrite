@@ -133,6 +133,13 @@ const COLUMN_DEFAULTS: Record<string, string> = {
 	polygon: '[[[0, 0], [1, 0], [1, 1], [0, 0]]]',
 };
 
+/** Values Appwrite would offer in dropdowns whose options load from it. */
+const LOADED_OPTION_VALUES: Record<string, string> = {
+	buildRuntime: 'node-22',
+	runtime: 'node-22',
+	siteFramework: 'nextjs',
+};
+
 /**
  * A realistic non-empty value for a property, or its default when `filled` is
  * off. `context` holds the top-level values chosen so far, for the few fields
@@ -164,12 +171,16 @@ function valueFor(
 			if (name === 'countryCode') return 'us';
 			if (name === 'serviceAccountJSON') return '{"type": "service_account"}';
 			if (name === 'emailTemplateLocale') return 'en';
+			if (name === 'locale') return 'en-US';
+			if (name === 'timezone') return 'America/New_York';
+			if (name === 'scopes' || name === 'keyScopes') return 'users.read, files.read';
 			if (/expire|scheduledAt|date/i.test(name)) return '2030-01-01T00:00:00.000+00:00';
 			return `${name}-value`;
 		}
 		case 'options': {
 			if (property.typeOptions?.loadOptionsMethod !== undefined) {
-				return filled ? `${name}-id` : property.default;
+				if (!filled) return property.default;
+				return LOADED_OPTION_VALUES[name] ?? `${name}-id`;
 			}
 			if (property.default !== '' && property.default !== undefined) return property.default;
 			return (property.options as INodePropertyOptions[] | undefined)?.[0]?.value ?? '';

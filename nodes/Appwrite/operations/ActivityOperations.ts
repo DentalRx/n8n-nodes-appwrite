@@ -4,6 +4,7 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPagesByOffset,
+	getStringParameter,
 	simplifyItems,
 	toItems,
 	withLimit,
@@ -35,7 +36,7 @@ export async function executeActivityOperation(
 			: data;
 
 	if (operation === 'getEvent') {
-		const eventId = this.getNodeParameter('eventId', i) as string;
+		const eventId = getStringParameter.call(this, 'eventId', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',

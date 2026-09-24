@@ -856,7 +856,7 @@ export const accountFields: INodeProperties[] = [
 			},
 			{
 				name: 'Recovery Code',
-				value: 'recoveryCode',
+				value: 'recoverycode',
 				description: 'One of the MFA recovery codes of the user',
 			},
 		],

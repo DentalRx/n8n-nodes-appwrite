@@ -4,7 +4,9 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getResourceId,
+	getStringParameter,
 	parseStringList,
 	simplifyItems,
 	toItems,
@@ -73,14 +75,14 @@ export async function executeSiteOperation(
 	const siteId = (): string => getResourceId.call(this, 'siteId', i, 'site', 'Site');
 	const sitePath = (): string => `/sites/${encodeURIComponent(siteId())}`;
 	const logPath = (): string => {
-		const logId = this.getNodeParameter('logId', i) as string;
+		const logId = getStringParameter.call(this, 'logId', i);
 		return `${sitePath()}/logs/${encodeURIComponent(logId)}`;
 	};
 	const simplified = (data: IDataObject | IDataObject[], fields: string[]) =>
 		(this.getNodeParameter('simplify', i, false) as boolean) ? simplifyItems(data, fields) : data;
 
 	const getConfigOptionArgs = (current?: IDataObject): IDataObject => {
-		const options = this.getNodeParameter('options', i, {}) as SiteConfigOptions;
+		const options = getCollectionParameter.call(this, 'options', i) as SiteConfigOptions;
 		// An option the user never added keeps whatever the site already has
 		// (`current` is set on update only); an option added and left blank clears it.
 		const text = (raw: string | undefined, key: string) =>
@@ -104,13 +106,13 @@ export async function executeSiteOperation(
 	};
 
 	if (operation === 'create') {
-		const newSiteId = resolveId(this.getNodeParameter('siteId', i, '') as string);
-		const name = this.getNodeParameter('name', i) as string;
+		const newSiteId = resolveId(getStringParameter.call(this, 'siteId', i, ''));
+		const name = getStringParameter.call(this, 'name', i);
 		// Framework and runtime keys are passed through as-is: Appwrite adds
 		// both with its releases, and the node must not restrict them to a
 		// fixed list.
-		const framework = this.getNodeParameter('siteFramework', i) as string;
-		const buildRuntime = this.getNodeParameter('buildRuntime', i) as string;
+		const framework = getStringParameter.call(this, 'siteFramework', i);
+		const buildRuntime = getStringParameter.call(this, 'buildRuntime', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
@@ -129,7 +131,7 @@ export async function executeSiteOperation(
 	}
 
 	if (operation === 'deleteLog') {
-		const logId = this.getNodeParameter('logId', i) as string;
+		const logId = getStringParameter.call(this, 'logId', i);
 		await appwriteApiRequest.call(this, 'DELETE', logPath(), {}, i);
 		return toItems({ deleted: true, siteId: siteId(), logId }, i);
 	}
@@ -146,7 +148,8 @@ export async function executeSiteOperation(
 
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
@@ -219,8 +222,8 @@ export async function executeSiteOperation(
 	}
 
 	if (operation === 'update') {
-		const name = this.getNodeParameter('name', i) as string;
-		const options = this.getNodeParameter('options', i, {}) as SiteConfigOptions;
+		const name = getStringParameter.call(this, 'name', i);
+		const options = getCollectionParameter.call(this, 'options', i) as SiteConfigOptions;
 		// PUT /sites/{id} is a full replace: any field left out of the body is
 		// reset to the API's own default rather than kept, which would silently
 		// clear the build commands, the rendering and the linked Git

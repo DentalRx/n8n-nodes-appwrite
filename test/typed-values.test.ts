@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { parseStringList, smartParseValue, stripHexHash } from '../nodes/Appwrite/GenericFunctions';
 import { extractId, resolveId } from '../nodes/Appwrite/helpers/appwrite';
-import { createExecuteContext } from './helpers/mock-context';
+import type { IDataObject } from 'n8n-workflow';
+
+import { createExecuteContext, node } from './helpers/mock-context';
 
 /**
  * n8n evaluates an expression to its natural type even when the parameter is
@@ -39,5 +41,26 @@ describe('typed values from expressions', () => {
 	it('reads a numeric colour', () => {
 		expect(stripHexHash(123456)).toBe('123456');
 		expect(stripHexHash('')).toBeUndefined();
+	});
+
+	it('sends numbers and booleans from text fields, in collections too, as text', async () => {
+		const { context, requests } = createExecuteContext({
+			parameters: {
+				resource: 'webhook',
+				operation: 'create',
+				name: 42,
+				url: 'https://example.com/hook',
+				webhookEvents: 'users.*.create',
+				options: { authUsername: 1001, authPassword: true, tls: false, enabled: true },
+			},
+		});
+		await node.execute.call(context);
+		const body = requests[0].body as IDataObject;
+		expect(body.name).toBe('42');
+		expect(body.authUsername).toBe('1001');
+		expect(body.authPassword).toBe('true');
+		// Toggles are not text fields and keep their type.
+		expect(body.tls).toBe(false);
+		expect(body.enabled).toBe(true);
 	});
 });

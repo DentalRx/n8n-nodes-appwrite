@@ -4,7 +4,9 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getResourceId,
+	getStringParameter,
 	simplifyItems,
 	toItems,
 	withLimit,
@@ -110,9 +112,9 @@ export function documentDatabaseExecutor(type: DocumentDatabaseType) {
 			(this.getNodeParameter('simplify', i, false) as boolean) ? simplifyItems(data, fields) : data;
 
 		if (operation === 'create') {
-			const databaseId = resolveId(this.getNodeParameter('databaseId', i, '') as string);
-			const name = this.getNodeParameter('name', i) as string;
-			const options = this.getNodeParameter('options', i, {}) as DatabaseSettings;
+			const databaseId = resolveId(getStringParameter.call(this, 'databaseId', i, ''));
+			const name = getStringParameter.call(this, 'name', i);
+			const options = getCollectionParameter.call(this, 'options', i) as DatabaseSettings;
 			const response = await appwriteApiRequest.call(
 				this,
 				'POST',
@@ -172,8 +174,8 @@ export function documentDatabaseExecutor(type: DocumentDatabaseType) {
 
 		if (operation === 'update') {
 			const path = databasePath();
-			const name = this.getNodeParameter('name', i) as string;
-			const updateFields = this.getNodeParameter('updateFields', i, {}) as DatabaseSettings;
+			const name = getStringParameter.call(this, 'name', i);
+			const updateFields = getCollectionParameter.call(this, 'updateFields', i) as DatabaseSettings;
 			// PUT treats an omitted `enabled` as its default (true), so a plain
 			// rename would silently re-enable a disabled database. Read the
 			// current value when the user leaves the option out.
@@ -235,7 +237,9 @@ export function documentDatabaseExecutor(type: DocumentDatabaseType) {
 		}
 
 		if (operation === 'failover') {
-			const options = this.getNodeParameter('options', i, {}) as { targetReplicaId?: string };
+			const options = getCollectionParameter.call(this, 'options', i) as {
+				targetReplicaId?: string;
+			};
 			const response = await appwriteApiRequest.call(
 				this,
 				'POST',
@@ -250,7 +254,8 @@ export function documentDatabaseExecutor(type: DocumentDatabaseType) {
 			const path = `${databasePath()}/operations`;
 			const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
 			const status =
-				(this.getNodeParameter('options', i, {}) as { status?: string }).status || undefined;
+				(getCollectionParameter.call(this, 'options', i) as { status?: string }).status ||
+				undefined;
 			let operations: IDataObject[];
 
 			if (returnAll) {

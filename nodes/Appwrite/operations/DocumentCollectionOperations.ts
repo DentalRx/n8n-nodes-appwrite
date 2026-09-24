@@ -4,8 +4,10 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getPermissions,
 	getResourceId,
+	getStringParameter,
 	lookupEnum,
 	parseJsonArrayParameter,
 	parseStringList,
@@ -79,10 +81,10 @@ export function documentCollectionExecutor(type: DocumentDatabaseType) {
 		};
 
 		if (operation === 'create') {
-			const collectionId = resolveId(this.getNodeParameter('collectionId', i, '') as string);
-			const name = this.getNodeParameter('name', i) as string;
+			const collectionId = resolveId(getStringParameter.call(this, 'collectionId', i, ''));
+			const name = getStringParameter.call(this, 'name', i);
 			const permissions = getPermissions.call(this, i);
-			const options = this.getNodeParameter('options', i, {}) as CollectionSettings;
+			const options = getCollectionParameter.call(this, 'options', i) as CollectionSettings;
 			const body: IDataObject = {
 				collectionId,
 				name,
@@ -107,7 +109,8 @@ export function documentCollectionExecutor(type: DocumentDatabaseType) {
 
 		if (operation === 'getMany') {
 			const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-			const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+			const search =
+				(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 			const queries = buildQueries.call(this, i);
 			const searchArg = search === '' ? undefined : search;
 
@@ -142,9 +145,13 @@ export function documentCollectionExecutor(type: DocumentDatabaseType) {
 
 		if (operation === 'update') {
 			const path = collectionPath();
-			const name = this.getNodeParameter('name', i) as string;
+			const name = getStringParameter.call(this, 'name', i);
 			const permissions = getPermissions.call(this, i);
-			const updateFields = this.getNodeParameter('updateFields', i, {}) as CollectionSettings;
+			const updateFields = getCollectionParameter.call(
+				this,
+				'updateFields',
+				i,
+			) as CollectionSettings;
 			// PUT treats omitted `enabled`/`documentSecurity` as their defaults
 			// (true/false), so a plain rename would re-enable a disabled collection
 			// or turn document security off. Read the current values when the
@@ -181,17 +188,17 @@ export function documentCollectionExecutor(type: DocumentDatabaseType) {
 
 		if (operation === 'createIndex') {
 			const path = indexesPath();
-			const key = this.getNodeParameter('key', i) as string;
+			const key = getStringParameter.call(this, 'key', i);
 			const indexType = lookupEnum(
 				this,
 				type.vectors ? VECTORS_DB_INDEX_TYPES : DOCUMENTS_DB_INDEX_TYPES,
-				this.getNodeParameter('indexType', i) as string,
+				getStringParameter.call(this, 'indexType', i),
 				'index type',
 				i,
 			);
 			const attributes = parseStringList.call(
 				this,
-				this.getNodeParameter('indexAttributes', i, '') as string,
+				getStringParameter.call(this, 'indexAttributes', i, ''),
 				'Attributes',
 				i,
 			);
@@ -207,7 +214,7 @@ export function documentCollectionExecutor(type: DocumentDatabaseType) {
 		}
 
 		if (operation === 'getIndex') {
-			const key = this.getNodeParameter('key', i) as string;
+			const key = getStringParameter.call(this, 'key', i);
 			const response = await appwriteApiRequest.call(
 				this,
 				'GET',
@@ -248,7 +255,7 @@ export function documentCollectionExecutor(type: DocumentDatabaseType) {
 
 		if (operation === 'deleteIndex') {
 			const collectionId = getResourceId.call(this, 'collectionId', i, 'collection', 'Collection');
-			const key = this.getNodeParameter('key', i) as string;
+			const key = getStringParameter.call(this, 'key', i);
 			await appwriteApiRequest.call(
 				this,
 				'DELETE',

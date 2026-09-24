@@ -4,8 +4,10 @@ import { NodeOperationError } from 'n8n-workflow';
 import type { ProjectPolicy, ProjectPolicyField } from '../descriptions/projectPolicies';
 import { PROJECT_POLICIES } from '../descriptions/projectPolicies';
 import {
+	getCollectionParameter,
 	getManyByOffset,
 	getStringListParameter,
+	getStringParameter,
 	lookupEnum,
 	parseStringList,
 	simplifyItems,
@@ -83,7 +85,7 @@ export async function executeProjectOperation(
 ): Promise<INodeExecutionData[]> {
 	// Switches that turn one named part of the project on or off.
 	const toggle = async (path: string, idParameter: string): Promise<INodeExecutionData[]> => {
-		const id = this.getNodeParameter(idParameter, i) as string;
+		const id = getStringParameter.call(this, idParameter, i);
 		const enabled = this.getNodeParameter('enabled', i) as boolean;
 		const response = await appwriteApiRequest.call(
 			this,
@@ -121,7 +123,7 @@ export async function executeProjectOperation(
 	}
 
 	if (operation === 'getPolicy') {
-		const policyId = this.getNodeParameter('projectPolicy', i) as string;
+		const policyId = getStringParameter.call(this, 'projectPolicy', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -161,7 +163,7 @@ export async function executeProjectOperation(
 	}
 
 	if (operation === 'updateOAuth2Server') {
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as IDataObject;
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i);
 		// PUT replaces the whole configuration and resets anything left out to
 		// Appwrite's default, so read the current settings and resend the ones
 		// the user did not change.
@@ -195,7 +197,7 @@ export async function executeProjectOperation(
 		const policy = lookupEnum(
 			this,
 			POLICIES,
-			this.getNodeParameter('projectPolicy', i) as string,
+			getStringParameter.call(this, 'projectPolicy', i),
 			'policy',
 			i,
 		);
@@ -210,7 +212,7 @@ export async function executeProjectOperation(
 			) as IDataObject[string];
 		}
 		// Optional settings the user did not add keep their current values.
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as IDataObject;
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i);
 		for (const field of policy.optional) {
 			const value = updateFields[field.property.name];
 			if (value !== undefined) body[field.body] = toBody(field, value) as IDataObject[string];
@@ -234,7 +236,7 @@ export async function executeProjectOperation(
 	}
 
 	if (operation === 'updateSmtp') {
-		const smtp = this.getNodeParameter('updateFields', i, {}) as SmtpFields;
+		const smtp = getCollectionParameter.call(this, 'updateFields', i) as SmtpFields;
 		// Appwrite keeps every setting left out, and clears a text setting sent
 		// empty; the host is the exception, as an empty host is rejected.
 		const response = await appwriteApiRequest.call(

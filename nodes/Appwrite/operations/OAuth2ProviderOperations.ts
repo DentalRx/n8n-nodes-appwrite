@@ -3,7 +3,14 @@ import { NodeOperationError } from 'n8n-workflow';
 
 import type { OAuth2Provider } from '../descriptions/oauth2Providers';
 import { OAUTH2_PROVIDERS } from '../descriptions/oauth2Providers';
-import { getManyByOffset, lookupEnum, parseStringList, toItems } from '../GenericFunctions';
+import {
+	getCollectionParameter,
+	getManyByOffset,
+	getStringParameter,
+	lookupEnum,
+	parseStringList,
+	toItems,
+} from '../GenericFunctions';
 import { appwriteApiRequest } from '../transport';
 
 const PROVIDERS: Record<string, OAuth2Provider> = Object.fromEntries(
@@ -19,7 +26,7 @@ export async function executeOAuth2ProviderOperation(
 		lookupEnum(
 			this,
 			PROVIDERS,
-			this.getNodeParameter('oauth2Provider', i) as string,
+			getStringParameter.call(this, 'oauth2Provider', i),
 			'OAuth2 provider',
 			i,
 		);
@@ -48,7 +55,7 @@ export async function executeOAuth2ProviderOperation(
 
 	if (operation === 'update') {
 		const selected = provider();
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as IDataObject;
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i);
 		// Only the selected provider's own fields are read, under the body keys
 		// its endpoint expects; a field the user did not add keeps its value.
 		const body: IDataObject = {};

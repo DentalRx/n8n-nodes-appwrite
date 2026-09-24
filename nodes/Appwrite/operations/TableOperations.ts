@@ -4,8 +4,10 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getPermissions,
 	getResourceId,
+	getStringParameter,
 	simplifyItems,
 	toItems,
 	withLimit,
@@ -33,8 +35,8 @@ export async function executeTableOperation(
 	const tablesPath = `/tablesdb/${encodeURIComponent(databaseId)}/tables`;
 
 	if (operation === 'create') {
-		const tableId = resolveId(this.getNodeParameter('tableId', i, '') as string);
-		const name = this.getNodeParameter('name', i) as string;
+		const tableId = resolveId(getStringParameter.call(this, 'tableId', i, ''));
+		const name = getStringParameter.call(this, 'name', i);
 		const permissions = getPermissions.call(this, i);
 		const rowSecurity = this.getNodeParameter('rowSecurity', i, false) as boolean;
 		const enabled = this.getNodeParameter('enabled', i, true) as boolean;
@@ -63,7 +65,8 @@ export async function executeTableOperation(
 
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 		const simplify = this.getNodeParameter('simplify', i, false) as boolean;
@@ -101,9 +104,9 @@ export async function executeTableOperation(
 
 	if (operation === 'update') {
 		const tableId = getResourceId.call(this, 'tableId', i, 'table', 'Table');
-		const name = this.getNodeParameter('name', i) as string;
+		const name = getStringParameter.call(this, 'name', i);
 		const permissions = getPermissions.call(this, i);
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as {
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i) as {
 			enabled?: boolean;
 			rowSecurity?: boolean;
 		};

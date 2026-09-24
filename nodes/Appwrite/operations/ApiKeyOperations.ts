@@ -4,6 +4,7 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getResourceId,
 	getStringListParameter,
 	parseStringList,
@@ -99,7 +100,7 @@ export async function executeApiKeyOperation(
 
 	if (operation === 'update') {
 		const path = `/project/keys/${encodeURIComponent(keyId())}`;
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as {
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i) as {
 			expire?: string;
 			keyScopes?: string;
 			name?: string;

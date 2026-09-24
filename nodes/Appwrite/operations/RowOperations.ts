@@ -4,10 +4,12 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getPermissions,
 	getResourceId,
 	getRowData,
 	getSortQueries,
+	getStringParameter,
 	parseJsonArrayParameter,
 	toItems,
 	withLimit,
@@ -22,7 +24,7 @@ export async function executeRowOperation(
 ): Promise<INodeExecutionData[]> {
 	const databaseId = getResourceId.call(this, 'databaseId', i, 'database', 'Database');
 	const tableId = getResourceId.call(this, 'tableId', i, 'table', 'Table');
-	const options = this.getNodeParameter('options', i, {}) as {
+	const options = getCollectionParameter.call(this, 'options', i) as {
 		transactionId?: string;
 		min?: number;
 		max?: number;
@@ -32,7 +34,7 @@ export async function executeRowOperation(
 	const rowsPath = `/tablesdb/${encodeURIComponent(databaseId)}/tables/${encodeURIComponent(tableId)}/rows`;
 
 	if (operation === 'create') {
-		const rowId = resolveId(this.getNodeParameter('rowId', i, '') as string);
+		const rowId = resolveId(getStringParameter.call(this, 'rowId', i, ''));
 		const data = getRowData.call(this, i);
 		const permissions = getPermissions.call(this, i);
 		const response = await appwriteApiRequest.call(
@@ -148,7 +150,7 @@ export async function executeRowOperation(
 	}
 
 	if (operation === 'upsert') {
-		const rowId = resolveId(this.getNodeParameter('rowId', i, '') as string);
+		const rowId = resolveId(getStringParameter.call(this, 'rowId', i, ''));
 		const data = getRowData.call(this, i);
 		const permissions = getPermissions.call(this, i);
 		const response = await appwriteApiRequest.call(
@@ -213,7 +215,7 @@ export async function executeRowOperation(
 
 	if (operation === 'increment') {
 		const rowId = getResourceId.call(this, 'rowId', i, 'row', 'Row ID');
-		const column = this.getNodeParameter('column', i) as string;
+		const column = getStringParameter.call(this, 'column', i);
 		const value = this.getNodeParameter('amount', i, 1) as number;
 		const response = await appwriteApiRequest.call(
 			this,
@@ -227,7 +229,7 @@ export async function executeRowOperation(
 
 	if (operation === 'decrement') {
 		const rowId = getResourceId.call(this, 'rowId', i, 'row', 'Row ID');
-		const column = this.getNodeParameter('column', i) as string;
+		const column = getStringParameter.call(this, 'column', i);
 		const value = this.getNodeParameter('amount', i, 1) as number;
 		const response = await appwriteApiRequest.call(
 			this,

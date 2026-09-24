@@ -4,6 +4,8 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
+	getStringParameter,
 	simplifyItems,
 	toItems,
 	withLimit,
@@ -57,8 +59,8 @@ export async function executeBackupOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const archiveId = (): string => this.getNodeParameter('archiveId', i) as string;
-	const policyId = (): string => this.getNodeParameter('policyId', i) as string;
+	const archiveId = (): string => getStringParameter.call(this, 'archiveId', i);
+	const policyId = (): string => getStringParameter.call(this, 'policyId', i);
 	const services = (): string[] => this.getNodeParameter('backupServices', i, []) as string[];
 
 	const simplified = (data: IDataObject | IDataObject[], fields: string[]) =>
@@ -93,7 +95,7 @@ export async function executeBackupOperation(
 	};
 
 	if (operation === 'createArchive') {
-		const options = this.getNodeParameter('options', i, {}) as { resourceId?: string };
+		const options = getCollectionParameter.call(this, 'options', i) as { resourceId?: string };
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
@@ -105,7 +107,7 @@ export async function executeBackupOperation(
 	}
 
 	if (operation === 'createPolicy') {
-		const options = this.getNodeParameter('options', i, {}) as {
+		const options = getCollectionParameter.call(this, 'options', i) as {
 			enabled?: boolean;
 			name?: string;
 			resourceId?: string;
@@ -116,10 +118,10 @@ export async function executeBackupOperation(
 			'/backups/policies',
 			{
 				body: {
-					policyId: resolveId(this.getNodeParameter('policyId', i, '') as string),
+					policyId: resolveId(getStringParameter.call(this, 'policyId', i, '')),
 					services: services(),
 					retention: this.getNodeParameter('backupRetention', i) as number,
-					schedule: this.getNodeParameter('backupSchedule', i) as string,
+					schedule: getStringParameter.call(this, 'backupSchedule', i),
 					name: options.name || undefined,
 					enabled: options.enabled,
 					resourceId: options.resourceId || undefined,
@@ -131,7 +133,7 @@ export async function executeBackupOperation(
 	}
 
 	if (operation === 'createRestoration') {
-		const options = this.getNodeParameter('options', i, {}) as {
+		const options = getCollectionParameter.call(this, 'options', i) as {
 			newResourceId?: string;
 			newResourceName?: string;
 		};
@@ -211,7 +213,7 @@ export async function executeBackupOperation(
 	}
 
 	if (operation === 'getRestoration') {
-		const restorationId = this.getNodeParameter('restorationId', i) as string;
+		const restorationId = getStringParameter.call(this, 'restorationId', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -223,7 +225,7 @@ export async function executeBackupOperation(
 	}
 
 	if (operation === 'updatePolicy') {
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as {
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i) as {
 			enabled?: boolean;
 			name?: string;
 			retention?: number;

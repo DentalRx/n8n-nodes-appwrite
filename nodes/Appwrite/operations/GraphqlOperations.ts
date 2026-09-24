@@ -1,7 +1,12 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData, JsonObject } from 'n8n-workflow';
 import { NodeApiError, NodeOperationError } from 'n8n-workflow';
 
-import { parseJsonParameter, toItems } from '../GenericFunctions';
+import {
+	getCollectionParameter,
+	getStringParameter,
+	parseJsonParameter,
+	toItems,
+} from '../GenericFunctions';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeGraphqlOperation(
@@ -10,8 +15,8 @@ export async function executeGraphqlOperation(
 	i: number,
 ): Promise<INodeExecutionData[]> {
 	if (operation === 'executeMutation' || operation === 'executeQuery') {
-		const document = this.getNodeParameter('graphqlQuery', i) as string;
-		const options = this.getNodeParameter('options', i, {}) as {
+		const document = getStringParameter.call(this, 'graphqlQuery', i);
+		const options = getCollectionParameter.call(this, 'options', i) as {
 			operationName?: string;
 			variables?: unknown;
 		};

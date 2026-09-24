@@ -3,7 +3,9 @@ import { NodeOperationError } from 'n8n-workflow';
 import { createHash } from 'node:crypto';
 
 import {
+	getCollectionParameter,
 	getOptionalResourceId,
+	getStringParameter,
 	lookupEnum,
 	parseJsonParameter,
 	stripHexHash,
@@ -103,7 +105,7 @@ export async function executeAvatarOperation(
 		json: IDataObject,
 		mimeType = 'image/png',
 	): Promise<INodeExecutionData[]> => {
-		const outputBinaryField = this.getNodeParameter('outputBinaryField', i, 'data') as string;
+		const outputBinaryField = getStringParameter.call(this, 'outputBinaryField', i, 'data');
 		const binary = await this.helpers.prepareBinaryData(content, fileName, mimeType);
 		return [
 			{
@@ -119,8 +121,8 @@ export async function executeAvatarOperation(
 
 	if (operation === 'getBrowser' || operation === 'getCreditCard') {
 		const isBrowser = operation === 'getBrowser';
-		const code = this.getNodeParameter(isBrowser ? 'browserCode' : 'creditCardCode', i) as string;
-		const options = this.getNodeParameter('options', i, {}) as ImageOptions;
+		const code = getStringParameter.call(this, isBrowser ? 'browserCode' : 'creditCardCode', i);
+		const options = getCollectionParameter.call(this, 'options', i) as ImageOptions;
 
 		const allowed = isBrowser ? BROWSER_CODES : CREDIT_CARD_CODES;
 		if (!allowed.has(code)) {
@@ -145,7 +147,7 @@ export async function executeAvatarOperation(
 	}
 
 	if (operation === 'getFavicon') {
-		const url = this.getNodeParameter('url', i) as string;
+		const url = getStringParameter.call(this, 'url', i);
 		const content = await getImage('/avatars/favicon', { url });
 		// The favicon endpoint returns ICO and SVG favicons unconverted; sniff
 		// the bytes so the binary metadata matches the actual content.
@@ -162,8 +164,8 @@ export async function executeAvatarOperation(
 	}
 
 	if (operation === 'getFlag') {
-		const code = this.getNodeParameter('countryCode', i) as string;
-		const options = this.getNodeParameter('options', i, {}) as ImageOptions;
+		const code = getStringParameter.call(this, 'countryCode', i);
+		const options = getCollectionParameter.call(this, 'options', i) as ImageOptions;
 		const content = await getImage(`/avatars/flags/${encodeURIComponent(code)}`, {
 			width: options.width,
 			height: options.height,
@@ -173,8 +175,8 @@ export async function executeAvatarOperation(
 	}
 
 	if (operation === 'getImage') {
-		const url = this.getNodeParameter('url', i) as string;
-		const options = this.getNodeParameter('options', i, {}) as ImageOptions;
+		const url = getStringParameter.call(this, 'url', i);
+		const options = getCollectionParameter.call(this, 'options', i) as ImageOptions;
 		const content = await getImage('/avatars/image', {
 			url,
 			width: options.width,
@@ -184,8 +186,8 @@ export async function executeAvatarOperation(
 	}
 
 	if (operation === 'getInitials') {
-		const name = this.getNodeParameter('name', i, '') as string;
-		const options = this.getNodeParameter('options', i, {}) as {
+		const name = getStringParameter.call(this, 'name', i, '');
+		const options = getCollectionParameter.call(this, 'options', i) as {
 			width?: number;
 			height?: number;
 			background?: string;
@@ -214,7 +216,7 @@ export async function executeAvatarOperation(
 			});
 		}
 
-		const options = this.getNodeParameter('options', i, {}) as ImageOptions & {
+		const options = getCollectionParameter.call(this, 'options', i) as ImageOptions & {
 			output?: string;
 			rating?: string;
 		};
@@ -242,8 +244,8 @@ export async function executeAvatarOperation(
 	}
 
 	if (operation === 'getQr') {
-		const text = this.getNodeParameter('text', i) as string;
-		const options = this.getNodeParameter('options', i, {}) as {
+		const text = getStringParameter.call(this, 'text', i);
+		const options = getCollectionParameter.call(this, 'options', i) as {
 			size?: number;
 			margin?: number;
 		};
@@ -256,7 +258,7 @@ export async function executeAvatarOperation(
 	}
 
 	if (operation === 'getScreenshot') {
-		const url = this.getNodeParameter('url', i) as string;
+		const url = getStringParameter.call(this, 'url', i);
 		// The headers can carry credentials for the captured page, so they are
 		// sent but kept out of the output item.
 		const { headers: rawHeaders, ...options } = this.getNodeParameter(

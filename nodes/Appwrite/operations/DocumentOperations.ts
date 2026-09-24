@@ -4,10 +4,12 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getPermissions,
 	getResourceId,
 	getRowData,
 	getSortQueries,
+	getStringParameter,
 	lookupEnum,
 	parseJsonArrayParameter,
 	parseJsonParameter,
@@ -72,7 +74,7 @@ export function documentExecutor(type: DocumentDatabaseType) {
 	): Promise<INodeExecutionData[]> {
 		const databaseId = getResourceId.call(this, 'databaseId', i, 'database', 'Database');
 		const collectionId = getResourceId.call(this, 'collectionId', i, 'collection', 'Collection');
-		const options = this.getNodeParameter('options', i, {}) as {
+		const options = getCollectionParameter.call(this, 'options', i) as {
 			max?: number;
 			min?: number;
 			transactionId?: string;
@@ -91,7 +93,7 @@ export function documentExecutor(type: DocumentDatabaseType) {
 				: getRowData.call(this, i);
 
 		if (operation === 'create') {
-			const documentId = resolveId(this.getNodeParameter('documentId', i, '') as string);
+			const documentId = resolveId(getStringParameter.call(this, 'documentId', i, ''));
 			const data = getData(true);
 			const permissions = getPermissions.call(this, i);
 			const response = await appwriteApiRequest.call(
@@ -179,7 +181,7 @@ export function documentExecutor(type: DocumentDatabaseType) {
 			const similarity = lookupEnum(
 				this,
 				SIMILARITY_QUERIES,
-				this.getNodeParameter('similarityMetric', i, 'cosine') as string,
+				getStringParameter.call(this, 'similarityMetric', i, 'cosine'),
 				'similarity metric',
 				i,
 			);
@@ -234,7 +236,7 @@ export function documentExecutor(type: DocumentDatabaseType) {
 		}
 
 		if (operation === 'upsert') {
-			const documentId = resolveId(this.getNodeParameter('documentId', i, '') as string);
+			const documentId = resolveId(getStringParameter.call(this, 'documentId', i, ''));
 			const data = getData();
 			const permissions = getPermissions.call(this, i);
 			const response = await appwriteApiRequest.call(
@@ -275,7 +277,7 @@ export function documentExecutor(type: DocumentDatabaseType) {
 
 		if ((operation === 'increment' || operation === 'decrement') && !type.vectors) {
 			const documentId = getResourceId.call(this, 'documentId', i, 'document', 'Document ID');
-			const attribute = this.getNodeParameter('documentAttribute', i) as string;
+			const attribute = getStringParameter.call(this, 'documentAttribute', i);
 			const value = this.getNodeParameter('amount', i, 1) as number;
 			const bound = operation === 'increment' ? { max: options.max } : { min: options.min };
 			const response = await appwriteApiRequest.call(

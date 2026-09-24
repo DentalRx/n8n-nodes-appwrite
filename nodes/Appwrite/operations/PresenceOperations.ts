@@ -4,8 +4,10 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getPermissions,
 	getResourceId,
+	getStringParameter,
 	parseJsonParameter,
 	toItems,
 	withLimit,
@@ -28,7 +30,7 @@ export async function executePresenceOperation(
 	if (operation === 'upsert' || operation === 'update') {
 		// With an API key Appwrite needs to be told whose presence this is.
 		const userId = getResourceId.call(this, 'userId', i, 'user', 'User');
-		const options = this.getNodeParameter('presenceOptions', i, {}) as PresenceOptions;
+		const options = getCollectionParameter.call(this, 'presenceOptions', i) as PresenceOptions;
 		const metadata =
 			options.metadata === undefined
 				? undefined
@@ -67,7 +69,7 @@ export async function executePresenceOperation(
 	}
 
 	if (operation === 'delete') {
-		const presenceId = this.getNodeParameter('presenceId', i) as string;
+		const presenceId = getStringParameter.call(this, 'presenceId', i);
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -79,7 +81,7 @@ export async function executePresenceOperation(
 	}
 
 	if (operation === 'get') {
-		const presenceId = this.getNodeParameter('presenceId', i) as string;
+		const presenceId = getStringParameter.call(this, 'presenceId', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',

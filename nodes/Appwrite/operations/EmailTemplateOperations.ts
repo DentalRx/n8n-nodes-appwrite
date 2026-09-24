@@ -1,7 +1,12 @@
 import type { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { getManyByOffset, toItems } from '../GenericFunctions';
+import {
+	getCollectionParameter,
+	getManyByOffset,
+	getStringParameter,
+	toItems,
+} from '../GenericFunctions';
 import { appwriteApiRequest } from '../transport';
 
 interface TemplateFields {
@@ -18,7 +23,7 @@ export async function executeEmailTemplateOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const templateId = (): string => this.getNodeParameter('emailTemplateType', i) as string;
+	const templateId = (): string => getStringParameter.call(this, 'emailTemplateType', i);
 	// Left empty, Appwrite uses its default locale.
 	const locale = (): string | undefined =>
 		String(this.getNodeParameter('emailTemplateLocale', i, '') ?? '').trim() || undefined;
@@ -52,7 +57,7 @@ export async function executeEmailTemplateOperation(
 	}
 
 	if (operation === 'update') {
-		const fields = this.getNodeParameter('updateFields', i, {}) as TemplateFields;
+		const fields = getCollectionParameter.call(this, 'updateFields', i) as TemplateFields;
 		// Appwrite keeps every part left out, and clears one sent empty.
 		const response = await appwriteApiRequest.call(
 			this,

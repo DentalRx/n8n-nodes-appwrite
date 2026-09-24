@@ -1,7 +1,7 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { toItems } from '../GenericFunctions';
+import { getCollectionParameter, toItems } from '../GenericFunctions';
 import { appwriteApiRequest } from '../transport';
 
 /** Every health check is a plain GET; only the certificate check takes a parameter. */
@@ -53,7 +53,7 @@ export async function executeHealthOperation(
 
 	const qs: IDataObject = {};
 	if (operation === 'getCertificate') {
-		const { domain = '' } = this.getNodeParameter('options', i, {}) as { domain?: string };
+		const { domain = '' } = getCollectionParameter.call(this, 'options', i) as { domain?: string };
 		qs.domain = domain === '' ? undefined : domain;
 	}
 

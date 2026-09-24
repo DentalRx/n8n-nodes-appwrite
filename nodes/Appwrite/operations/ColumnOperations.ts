@@ -9,8 +9,10 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getResourceId,
 	getStringListParameter,
+	getStringParameter,
 	lookupEnum,
 	parseJsonArrayParameter,
 	toItems,
@@ -46,7 +48,7 @@ export async function executeColumnOperation(
 	)}/columns`;
 
 	if (operation === 'get') {
-		const key = this.getNodeParameter('key', i) as string;
+		const key = getStringParameter.call(this, 'key', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -58,7 +60,7 @@ export async function executeColumnOperation(
 	}
 
 	if (operation === 'delete') {
-		const key = this.getNodeParameter('key', i) as string;
+		const key = getStringParameter.call(this, 'key', i);
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -108,9 +110,9 @@ export async function executeColumnOperation(
 		});
 	}
 
-	const columnType = this.getNodeParameter('columnType', i) as string;
+	const columnType = getStringParameter.call(this, 'columnType', i);
 	const isCreate = operation === 'create';
-	const options = this.getNodeParameter('options', i, {}) as {
+	const options = getCollectionParameter.call(this, 'options', i) as {
 		array?: boolean;
 		defaultValue?: string;
 		encrypt?: boolean;
@@ -140,9 +142,9 @@ export async function executeColumnOperation(
 				'table',
 				'Related Table',
 			);
-			const typeRaw = this.getNodeParameter('relationshipType', i) as string;
+			const typeRaw = getStringParameter.call(this, 'relationshipType', i);
 			const twoWay = options.twoWay ?? false;
-			const relationshipKey = this.getNodeParameter('key', i, '') as string;
+			const relationshipKey = getStringParameter.call(this, 'key', i, '');
 			const twoWayKey = options.twoWayKey ?? '';
 			const response = await appwriteApiRequest.call(
 				this,
@@ -163,7 +165,7 @@ export async function executeColumnOperation(
 			return toItems(response, i);
 		}
 
-		const key = this.getNodeParameter('key', i) as string;
+		const key = getStringParameter.call(this, 'key', i);
 		const newKeyRaw = options.newKey ?? '';
 		const response = await appwriteApiRequest.call(
 			this,
@@ -187,7 +189,7 @@ export async function executeColumnOperation(
 	}
 
 	// All other column types share a common parameter set.
-	const key = this.getNodeParameter('key', i) as string;
+	const key = getStringParameter.call(this, 'key', i);
 	const required = this.getNodeParameter('columnRequired', i, false) as boolean;
 	const defaultRaw = options.defaultValue ?? '';
 	const array = isCreate ? (options.array ?? false) : undefined;

@@ -4,7 +4,9 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getResourceId,
+	getStringParameter,
 	parseJsonArrayParameter,
 	toItems,
 	withLimit,
@@ -27,7 +29,7 @@ export async function executeTeamInstallationOperation(
 ): Promise<INodeExecutionData[]> {
 	const teamId = getResourceId.call(this, 'teamId', i, 'team', 'Team');
 	const installationsPath = `/teams/${encodeURIComponent(teamId)}/installations`;
-	const installationId = (): string => this.getNodeParameter('installationId', i) as string;
+	const installationId = (): string => getStringParameter.call(this, 'installationId', i);
 	const installationPath = (): string =>
 		`${installationsPath}/${encodeURIComponent(installationId())}`;
 
@@ -45,7 +47,7 @@ export async function executeTeamInstallationOperation(
 				);
 
 	if (operation === 'createInstallation') {
-		const options = this.getNodeParameter('options', i, {}) as IDataObject;
+		const options = getCollectionParameter.call(this, 'options', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
@@ -105,7 +107,7 @@ export async function executeTeamInstallationOperation(
 	}
 
 	if (operation === 'updateInstallation') {
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as IDataObject;
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'PUT',

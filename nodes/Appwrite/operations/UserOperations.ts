@@ -4,8 +4,10 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getResourceId,
 	getStringListParameter,
+	getStringParameter,
 	lookupEnum,
 	parseJsonParameter,
 	simplifyItems,
@@ -48,12 +50,12 @@ export async function executeUserOperation(
 	// Resolved on first use: create and the list operations act on no existing user.
 	const userId = (): string => getResourceId.call(this, 'userId', i, 'user', 'User');
 	const userPath = (): string => `/users/${encodeURIComponent(userId())}`;
-	const targetId = (): string => this.getNodeParameter('targetId', i) as string;
+	const targetId = (): string => getStringParameter.call(this, 'targetId', i);
 	const targetPath = (): string => `${userPath()}/targets/${encodeURIComponent(targetId())}`;
 
 	if (operation === 'create') {
-		const createUserId = resolveId(this.getNodeParameter('userId', i, '') as string);
-		const options = this.getNodeParameter('options', i, {}) as {
+		const createUserId = resolveId(getStringParameter.call(this, 'userId', i, ''));
+		const options = getCollectionParameter.call(this, 'options', i) as {
 			email?: string;
 			name?: string;
 			password?: string;
@@ -78,7 +80,7 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'createJWT') {
-		const options = this.getNodeParameter('options', i, {}) as {
+		const options = getCollectionParameter.call(this, 'options', i) as {
 			duration?: number;
 			sessionId?: string;
 		};
@@ -109,7 +111,7 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'createTarget') {
-		const options = this.getNodeParameter('options', i, {}) as {
+		const options = getCollectionParameter.call(this, 'options', i) as {
 			name?: string;
 			providerId?: string;
 		};
@@ -119,9 +121,9 @@ export async function executeUserOperation(
 			`${userPath()}/targets`,
 			{
 				body: {
-					targetId: resolveId(this.getNodeParameter('targetId', i, '') as string),
-					providerType: this.getNodeParameter('targetProviderType', i) as string,
-					identifier: this.getNodeParameter('targetIdentifier', i) as string,
+					targetId: resolveId(getStringParameter.call(this, 'targetId', i, '')),
+					providerType: getStringParameter.call(this, 'targetProviderType', i),
+					identifier: getStringParameter.call(this, 'targetIdentifier', i),
 					providerId: options.providerId || undefined,
 					name: options.name || undefined,
 				},
@@ -132,7 +134,7 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'createToken') {
-		const options = this.getNodeParameter('options', i, {}) as {
+		const options = getCollectionParameter.call(this, 'options', i) as {
 			expire?: number;
 			length?: number;
 		};
@@ -147,30 +149,30 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'createWithPasswordHash') {
-		const algorithm = this.getNodeParameter('passwordHashAlgorithm', i) as string;
+		const algorithm = getStringParameter.call(this, 'passwordHashAlgorithm', i);
 		const path = lookupEnum(this, PASSWORD_HASH_PATHS, algorithm, 'hash algorithm', i);
-		const { name } = this.getNodeParameter('options', i, {}) as { name?: string };
+		const { name } = getCollectionParameter.call(this, 'options', i) as { name?: string };
 		const body: IDataObject = {
-			userId: resolveId(this.getNodeParameter('userId', i, '') as string),
-			email: this.getNodeParameter('email', i) as string,
-			password: this.getNodeParameter('passwordHash', i) as string,
+			userId: resolveId(getStringParameter.call(this, 'userId', i, '')),
+			email: getStringParameter.call(this, 'email', i),
+			password: getStringParameter.call(this, 'passwordHash', i),
 			name: name || undefined,
 		};
 
 		// Each algorithm's endpoint takes its own hashing parameters; the others
 		// are hidden in the UI and must not be read.
 		if (algorithm === 'scrypt') {
-			body.passwordSalt = this.getNodeParameter('passwordSalt', i) as string;
+			body.passwordSalt = getStringParameter.call(this, 'passwordSalt', i);
 			body.passwordCpu = this.getNodeParameter('passwordCpu', i) as number;
 			body.passwordMemory = this.getNodeParameter('passwordMemory', i) as number;
 			body.passwordParallel = this.getNodeParameter('passwordParallel', i) as number;
 			body.passwordLength = this.getNodeParameter('passwordLength', i) as number;
 		} else if (algorithm === 'scryptModified') {
-			body.passwordSalt = this.getNodeParameter('passwordSalt', i) as string;
-			body.passwordSaltSeparator = this.getNodeParameter('passwordSaltSeparator', i) as string;
-			body.passwordSignerKey = this.getNodeParameter('passwordSignerKey', i) as string;
+			body.passwordSalt = getStringParameter.call(this, 'passwordSalt', i);
+			body.passwordSaltSeparator = getStringParameter.call(this, 'passwordSaltSeparator', i);
+			body.passwordSignerKey = getStringParameter.call(this, 'passwordSignerKey', i);
 		} else if (algorithm === 'sha') {
-			body.passwordVersion = this.getNodeParameter('passwordVersion', i) as string;
+			body.passwordVersion = getStringParameter.call(this, 'passwordVersion', i);
 		}
 
 		const response = await appwriteApiRequest.call(this, 'POST', path, { body }, i);
@@ -183,7 +185,7 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'deleteIdentity') {
-		const identityId = this.getNodeParameter('identityId', i) as string;
+		const identityId = getStringParameter.call(this, 'identityId', i);
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -201,7 +203,7 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'deleteSession') {
-		const sessionId = this.getNodeParameter('sessionId', i) as string;
+		const sessionId = getStringParameter.call(this, 'sessionId', i);
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -230,7 +232,8 @@ export async function executeUserOperation(
 
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
@@ -269,7 +272,8 @@ export async function executeUserOperation(
 
 	if (operation === 'getManyIdentities') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
@@ -304,7 +308,8 @@ export async function executeUserOperation(
 
 	if (operation === 'getManyMemberships') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
@@ -371,7 +376,7 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'getMfaChallenge') {
-		const challengeId = this.getNodeParameter('mfaChallengeId', i) as string;
+		const challengeId = getStringParameter.call(this, 'mfaChallengeId', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -420,7 +425,7 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'updateEmail') {
-		const email = this.getNodeParameter('email', i) as string;
+		const email = getStringParameter.call(this, 'email', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
@@ -480,7 +485,7 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'updateName') {
-		const name = this.getNodeParameter('name', i) as string;
+		const name = getStringParameter.call(this, 'name', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
@@ -492,7 +497,7 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'updatePassword') {
-		const password = this.getNodeParameter('password', i) as string;
+		const password = getStringParameter.call(this, 'password', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
@@ -504,7 +509,7 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'updatePhone') {
-		const phone = this.getNodeParameter('phone', i) as string;
+		const phone = getStringParameter.call(this, 'phone', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
@@ -557,7 +562,7 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'updateTarget') {
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as {
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i) as {
 			name?: string;
 			providerId?: string;
 			targetIdentifier?: string;

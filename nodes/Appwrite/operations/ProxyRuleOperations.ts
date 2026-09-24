@@ -4,7 +4,9 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getResourceId,
+	getStringParameter,
 	simplifyItems,
 	toItems,
 	withLimit,
@@ -35,13 +37,13 @@ export async function executeProxyRuleOperation(
 		this.getNodeParameter('simplify', i, false) ? simplifyItems(data, SIMPLIFY_FIELDS) : data;
 
 	if (operation === 'create') {
-		const type = this.getNodeParameter('proxyRuleType', i) as string;
-		const domain = this.getNodeParameter('domain', i) as string;
+		const type = getStringParameter.call(this, 'proxyRuleType', i);
+		const domain = getStringParameter.call(this, 'domain', i);
 		const functionId = () => getResourceId.call(this, 'functionId', i, 'function', 'Function');
-		const siteId = () => this.getNodeParameter('proxyRuleSiteId', i) as string;
+		const siteId = () => getStringParameter.call(this, 'proxyRuleSiteId', i);
 		const branch = () =>
-			(this.getNodeParameter('options', i, {}) as { proxyRuleBranch?: string }).proxyRuleBranch ||
-			undefined;
+			(getCollectionParameter.call(this, 'options', i) as { proxyRuleBranch?: string })
+				.proxyRuleBranch || undefined;
 
 		// Each rule type has its own endpoint, taking the domain plus what it routes to.
 		let body: IDataObject;
@@ -52,11 +54,11 @@ export async function executeProxyRuleOperation(
 		} else if (type === 'site') {
 			body = { domain, siteId: siteId(), branch: branch() };
 		} else if (type === 'redirect') {
-			const resourceType = this.getNodeParameter('proxyRuleResourceType', i) as string;
+			const resourceType = getStringParameter.call(this, 'proxyRuleResourceType', i);
 			body = {
 				domain,
-				url: this.getNodeParameter('url', i) as string,
-				statusCode: this.getNodeParameter('proxyRedirectStatusCode', i) as string,
+				url: getStringParameter.call(this, 'url', i),
+				statusCode: getStringParameter.call(this, 'proxyRedirectStatusCode', i),
 				resourceType,
 				resourceId: resourceType === 'function' ? functionId() : siteId(),
 			};
@@ -128,20 +130,18 @@ export async function executeProxyRuleOperation(
 	}
 
 	if (operation === 'purgeCache') {
-		const type = this.getNodeParameter('proxyPurgeType', i) as string;
+		const type = getStringParameter.call(this, 'proxyPurgeType', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
 			'/proxy/invalidations',
 			{
 				body: {
-					domain: this.getNodeParameter('domain', i) as string,
+					domain: getStringParameter.call(this, 'domain', i),
 					type,
 					// Purging everything names no tag or path.
 					reference:
-						type === 'all'
-							? undefined
-							: (this.getNodeParameter('proxyPurgeReference', i) as string),
+						type === 'all' ? undefined : getStringParameter.call(this, 'proxyPurgeReference', i),
 				},
 			},
 			i,

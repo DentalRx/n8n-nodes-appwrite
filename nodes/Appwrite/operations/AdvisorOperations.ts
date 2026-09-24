@@ -4,6 +4,7 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getStringParameter,
 	simplifyItems,
 	toItems,
 	withLimit,
@@ -47,7 +48,7 @@ export async function executeAdvisorOperation(
 	i: number,
 ): Promise<INodeExecutionData[]> {
 	const reportPath = (): string =>
-		`/reports/${encodeURIComponent(this.getNodeParameter('reportId', i) as string)}`;
+		`/reports/${encodeURIComponent(getStringParameter.call(this, 'reportId', i))}`;
 
 	const simplified = (data: IDataObject | IDataObject[], fields: string[]) =>
 		(this.getNodeParameter('simplify', i, false) as boolean) ? simplifyItems(data, fields) : data;
@@ -81,7 +82,7 @@ export async function executeAdvisorOperation(
 	};
 
 	if (operation === 'deleteReport') {
-		const reportId = this.getNodeParameter('reportId', i) as string;
+		const reportId = getStringParameter.call(this, 'reportId', i);
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -93,7 +94,7 @@ export async function executeAdvisorOperation(
 	}
 
 	if (operation === 'getInsight') {
-		const insightId = this.getNodeParameter('insightId', i) as string;
+		const insightId = getStringParameter.call(this, 'insightId', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',

@@ -4,7 +4,9 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getResourceId,
+	getStringParameter,
 	parseStringList,
 	simplifyItems,
 	toItems,
@@ -61,7 +63,7 @@ export async function executeFunctionOperation(
 		getResourceId.call(this, 'functionId', i, 'function', 'Function');
 
 	const getConfigOptionArgs = (current?: IDataObject): IDataObject => {
-		const options = this.getNodeParameter('options', i, {}) as FunctionConfigOptions;
+		const options = getCollectionParameter.call(this, 'options', i) as FunctionConfigOptions;
 		// An option the user never added keeps whatever the function already has
 		// (`current` is set on update only); an option added and left blank clears it.
 		const list = (raw: string | undefined, name: string, key: string) =>
@@ -85,12 +87,12 @@ export async function executeFunctionOperation(
 	};
 
 	if (operation === 'create') {
-		const newFunctionId = resolveId(this.getNodeParameter('functionId', i, '') as string);
-		const name = this.getNodeParameter('name', i) as string;
+		const newFunctionId = resolveId(getStringParameter.call(this, 'functionId', i, ''));
+		const name = getStringParameter.call(this, 'name', i);
 		// The raw runtime ID string is the wire value, so it is passed through
 		// as-is: Appwrite adds runtimes with every release and the node must not
 		// restrict them to a fixed list.
-		const runtime = this.getNodeParameter('runtime', i) as string;
+		const runtime = getStringParameter.call(this, 'runtime', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
@@ -126,7 +128,8 @@ export async function executeFunctionOperation(
 
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
@@ -169,8 +172,8 @@ export async function executeFunctionOperation(
 	}
 
 	if (operation === 'update') {
-		const name = this.getNodeParameter('name', i) as string;
-		const options = this.getNodeParameter('options', i, {}) as FunctionConfigOptions;
+		const name = getStringParameter.call(this, 'name', i);
+		const options = getCollectionParameter.call(this, 'options', i) as FunctionConfigOptions;
 		// PUT /functions/{id} is a full replace: any field left out of the body is
 		// reset to the API's own default rather than kept, which would silently
 		// clear the schedule, event triggers, execute roles and the linked Git

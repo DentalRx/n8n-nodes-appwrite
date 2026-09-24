@@ -4,8 +4,10 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getResourceId,
 	getStringListParameter,
+	getStringParameter,
 	parseStringList,
 	simplifyItems,
 	toItems,
@@ -57,16 +59,16 @@ export async function executeWebhookOperation(
 			: data;
 
 	if (operation === 'create') {
-		const options = this.getNodeParameter('options', i, {}) as WebhookSettings;
+		const options = getCollectionParameter.call(this, 'options', i) as WebhookSettings;
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
 			'/webhooks',
 			{
 				body: {
-					webhookId: resolveId(this.getNodeParameter('webhookId', i, '') as string),
-					name: this.getNodeParameter('name', i) as string,
-					url: this.getNodeParameter('url', i) as string,
+					webhookId: resolveId(getStringParameter.call(this, 'webhookId', i, '')),
+					name: getStringParameter.call(this, 'name', i),
+					url: getStringParameter.call(this, 'url', i),
 					events: getStringListParameter.call(this, 'webhookEvents', i, 'Events'),
 					enabled: options.enabled,
 					tls: options.tls,
@@ -134,7 +136,7 @@ export async function executeWebhookOperation(
 
 	if (operation === 'update') {
 		const path = webhookPath();
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as WebhookSettings;
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i) as WebhookSettings;
 		// PUT /webhooks/{id} is a full replace: every setting left out of the
 		// body is reset to Appwrite's default, which would re-enable a disabled
 		// webhook, turn certificate verification off and drop its basic
@@ -169,7 +171,7 @@ export async function executeWebhookOperation(
 	}
 
 	if (operation === 'updateSecret') {
-		const secret = this.getNodeParameter('webhookSecret', i, '') as string;
+		const secret = getStringParameter.call(this, 'webhookSecret', i, '');
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
