@@ -6,7 +6,7 @@ This is an [n8n](https://n8n.io) community node. It lets you use [Appwrite](http
 
 Appwrite is an open-source backend platform providing databases, authentication, file storage, serverless functions, hosting and messaging through one REST API, available as Appwrite Cloud or self-hosted.
 
-The node covers the Appwrite server API as of **Appwrite 2.3**: TablesDB (tables, rows, columns, transactions), DocumentsDB and VectorsDB, dedicated MongoDB/MySQL/PostgreSQL databases, Storage, Functions and Sites, users, teams and the signed-in user's Account, Messaging, and project administration (API keys, platforms, OAuth2 providers, policies, webhooks, proxy and firewall rules, backups). It talks to the REST API through n8n's own HTTP helpers, so the package ships with **zero runtime dependencies** and nothing extra is installed into your n8n instance.
+The node covers the Appwrite server API as of **Appwrite 2.3**: TablesDB (tables, rows, columns, transactions), DocumentsDB and VectorsDB, dedicated MongoDB/MySQL/PostgreSQL databases, Storage, Functions and Sites, users, teams and the signed-in user's Account, Messaging, project administration (API keys, platforms, OAuth2 providers, policies, webhooks, proxy and firewall rules, backups), the project's own OAuth2 server, and organization administration (projects, members, domains and DNS) with an organization API key. It talks to the REST API through n8n's own HTTP helpers, so the package ships with **zero runtime dependencies** and nothing extra is installed into your n8n instance.
 
 [n8n](https://n8n.io/) is a [fair-code licensed](https://docs.n8n.io/sustainable-use-license/) workflow automation platform.
 
@@ -86,11 +86,12 @@ Row data can be entered field by field (numbers, booleans and JSON are typed aut
 
 ### Auth
 
-| Resource    | Operations                                                                                                                                                                                                                                                                                                                                                   |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **User**    | Create, Create with Password Hash (Argon2, Bcrypt, MD5, PHPass, Scrypt, Scrypt Modified, SHA), Delete, Get, Get Many, Preferences, Update Email/Name/Password/Phone/Status/Labels, Email and Phone Verification, Sessions, Tokens and JWTs, Identities, Memberships, Targets, MFA (factors, authenticators, recovery codes, challenges), Update Impersonator |
-| **Team**    | Create, Delete, Get, Get Many, Update Name, Preferences, Memberships (create, get, get many, update, delete), Accept Membership Invitation, App Installations                                                                                                                                                                                                |
-| **Account** | Acts as one of your users: Get, Preferences, Update Email/Name/Password/Phone/Status, Sessions, Identities, MFA, consents, email and phone verification. With the API key: Create, Create Email Password/Anonymous/ID Token Session, Create Session (from a token), Create Email/Magic URL/Phone Token, Create and Complete Password Recovery                |
+| Resource          | Operations                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **User**          | Create, Create with Password Hash (Argon2, Bcrypt, MD5, PHPass, Scrypt, Scrypt Modified, SHA), Delete, Get, Get Many, Preferences, Update Email/Name/Password/Phone/Status/Labels, Email and Phone Verification, Sessions, Tokens and JWTs, Identities, Memberships, Targets, MFA (factors, authenticators, recovery codes, challenges), Update Impersonator                                                       |
+| **Team**          | Create, Delete, Get, Get Many, Update Name, Preferences, Memberships (create, get, get many, update, delete), Accept Membership Invitation, App Installations                                                                                                                                                                                                                                                      |
+| **Account**       | Acts as one of your users: Get, Preferences, Update Email/Name/Password/Phone/Status, Sessions, Identities, MFA, consents, email and phone verification. With the API key: Create, Create Email Password/Anonymous/ID Token Session, Create Session (from a token), Create Email/Magic URL/Phone Token, Create and Complete Password Recovery. Get OAuth2 Login URL builds the sign-in link for the user's browser |
+| **OAuth2 Server** | Lets other apps sign users in through your project: Create Token (authorization code, device code, refresh token), Revoke Token, Create Device Authorization, Create Pushed Authorization Request, Get Authorization URL, Start Authorization, Create Device Grant, Get Grant, Approve Authorization, Reject Authorization                                                                                         |
 
 ### Messaging
 
@@ -119,6 +120,14 @@ Row data can be entered field by field (numbers, booleans and JSON are typed aut
 | **Activity**          | Get Event, Get Many Events (the project's audit trail)                                                                                                               |
 | **Advisor**           | Reports (get, get many, delete), Insights (get, get many)                                                                                                            |
 
+### Organization (organization API key)
+
+| Resource                 | Operations                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Organization**         | Get, Update Name, Delete, Memberships (create, get, get many, update, delete), App Installations (create, get, get many, update, delete). Appwrite Cloud                                                                                                                                                                                                                                                 |
+| **Organization Project** | Create, Delete, Get, Get Many, Update Name, API Keys (create ephemeral, get, get many, update, delete)                                                                                                                                                                                                                                                                                                   |
+| **Domain**               | Create, Delete, Get, Get Many, Check Availability (prices only; nothing is bought), Change Organization, Get Transfer Status, Update and Verify Nameservers, Get and Import Zone File, Add and Get Preset (Google Workspace, iCloud, Mailgun, Outlook, Proton Mail, Zoho Mail), DNS Records (create, get, get many, update, delete; A, AAAA, ALIAS, CAA, CNAME, HTTPS, MX, NS, SRV, TXT). Appwrite Cloud |
+
 ### Other
 
 | Resource      | Operations                                                                                                                                                |
@@ -133,6 +142,7 @@ Row data can be entered field by field (numbers, booleans and JSON are typed aut
 ### Not covered
 
 - **The legacy Databases API** (collections, attributes, documents): Appwrite deprecated all 70 of its endpoints in favour of TablesDB, which reads and writes the same data. Use the Database, Table, Column, Index and Row resources.
+- **Console-only endpoints**: Appwrite serves some endpoints only to a signed-in Console user, never to an API key: buying, transferring and renewing domains, domain suggestions, organization API keys, creating standard project API keys, and the OAuth2 server's organization and project lists for Console-issued tokens.
 - **Deprecated aliases**: where Appwrite kept an old method name on the same endpoint (`createSms`, `createMfaAuthenticator` and so on), the node calls the endpoint through its current name. The phone and magic URL session endpoints Appwrite deprecated in 1.6 are replaced by Account → Create Session.
 
 ## Credentials
@@ -149,6 +159,11 @@ You need an Appwrite project and an API key.
 | Project ID                   | Found in the Appwrite Console under **Settings → Project ID**                                                                                  |
 | API Key                      | The key created above                                                                                                                          |
 | Ignore SSL Issues (Insecure) | Off by default. Turn on only for a self-hosted Appwrite whose TLS certificate n8n cannot validate, such as a self-signed one                   |
+
+The **Organization**, **Organization Project** and **Domain** resources use a second credential, **Appwrite Organization API**, with the same Endpoint and Ignore SSL Issues fields plus:
+
+- **Organization ID**: the part after `organization-` in the organization's Console URL.
+- **Organization API Key**: an organization API key, which starts with `organization_`. A project's key does not work here. The credential test lists the organization's projects, so the key needs `projects.read`. Self-hosted Appwrite serves only Organization Project.
 
 A `401` or `403` from Appwrite usually means a missing scope on the key rather than a bad key: each operation needs the scope Appwrite documents for its endpoint (for example `rows.write` to create rows, `files.read` to download files). The credential test deliberately does not use `/ping`, which Appwrite answers for unauthenticated callers and which would therefore pass for any key.
 
@@ -221,6 +236,8 @@ The node sets `usableAsTool`, so you can attach it to an **AI Agent** node and l
 - **Delete confirmations**: delete operations output a single `{"deleted": true, ...}` item (with the deleted IDs echoed, or the `total` for Delete Many) so the next node always receives something to act on.
 - **Bulk writes**: Create, Upsert and Update Many output one item per row or document Appwrite returns. Inside a transaction Appwrite only stages them and returns none, so the node outputs one `{"total": ..., "transactionId": ...}` item and the next node (for example the transaction's Commit) still runs. Update Many and Delete Many refuse to run without a query that selects the records, unless **Apply to All Rows** (or Documents) is on.
 - **Secrets in the output**: some operations return credentials by design (a created webhook's signing secret, an app's client secret, an ephemeral API key, a dedicated database's connection string, a session secret). With the API key, Account's Create Email/Magic URL/Phone Token and Create Password Recovery return the live `secret` that signs the user in or resets their password, and Get Many Identities and Sessions include the OAuth providers' access and refresh tokens unless Simplify is on. Anyone who can read your execution history can use these, so treat their output as sensitive, or turn off saving successful executions for such workflows.
+- **Sign-in links**: Account → Get OAuth2 Login URL and OAuth2 Server → Get Authorization URL send no request. They output a `url` for the user's browser, because Appwrite answers those endpoints with a redirect.
+- **OAuth2 Server app calls**: Create Token, Revoke Token, Create Device Authorization and Create Pushed Authorization Request identify the app by its client ID (and secret, for a confidential app), not by the API key. Start Authorization, Create Device Grant and Approve or Reject Authorization act as the signed-in user, for the consent pages you set in Project → Update OAuth2 Server.
 - **Errors**: Appwrite's own error message and HTTP status are surfaced on the node error. With **Continue On Fail** enabled, the failed item carries `error`, `description` and `httpCode` fields for an error-handling branch.
 
 ## Resources
