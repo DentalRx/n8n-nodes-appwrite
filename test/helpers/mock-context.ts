@@ -9,7 +9,7 @@ import type {
 	INodeParameters,
 	INodeTypeDescription,
 } from 'n8n-workflow';
-import { NodeHelpers } from 'n8n-workflow';
+import { NodeHelpers, NodeOperationError } from 'n8n-workflow';
 
 import { Appwrite } from '../../nodes/Appwrite/Appwrite.node';
 
@@ -136,7 +136,11 @@ export function createExecuteContext(options: ExecuteContextOptions): ExecuteCon
 	const binaryFixture = (propertyName: string): BinaryFixture => {
 		const fixture = binary[propertyName];
 		if (fixture === undefined) {
-			throw new Error(`This operation expects binary data in the "${propertyName}" property`);
+			// n8n's assertBinaryData reports a missing property as a NodeOperationError.
+			throw new NodeOperationError(
+				testNode,
+				`This operation expects binary data in the "${propertyName}" property`,
+			);
 		}
 		return fixture;
 	};

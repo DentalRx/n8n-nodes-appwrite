@@ -110,11 +110,18 @@ const COLUMN_DEFAULTS: Record<string, string> = {
  * off. `context` holds the top-level values chosen so far, for the few fields
  * whose valid values depend on a sibling.
  */
-function valueFor(property: INodeProperties, filled: boolean, context: INodeParameters): unknown {
+function valueFor(
+	property: INodeProperties,
+	filled: boolean,
+	context: INodeParameters,
+	typed = false,
+): unknown {
 	const { name } = property;
 	switch (property.type) {
 		case 'string': {
 			if (!filled || name.endsWith('Json')) return property.default;
+			// An expression resolves to its natural type even in a text field.
+			if (typed) return 7;
 			if (name === 'defaultValue') return COLUMN_DEFAULTS[String(context.columnType)] ?? 'default';
 			if (name === 'orders') return 'asc';
 			if (name === 'lengths') return '255';
@@ -148,7 +155,7 @@ function valueFor(property: INodeProperties, filled: boolean, context: INodePara
 			if (!filled) return {};
 			const collection: IDataObject = {};
 			for (const option of property.options as INodeProperties[]) {
-				const value = valueFor(option, true, context);
+				const value = valueFor(option, true, context, typed);
 				if (value !== undefined) collection[option.name] = value as IDataObject[string];
 			}
 			return collection;
@@ -159,7 +166,7 @@ function valueFor(property: INodeProperties, filled: boolean, context: INodePara
 			for (const group of property.options as INodePropertyCollection[]) {
 				const entry: IDataObject = {};
 				for (const field of group.values) {
-					const value = valueFor(field, true, context);
+					const value = valueFor(field, true, context, typed);
 					if (value !== undefined) entry[field.name] = value as IDataObject[string];
 				}
 				collection[group.name] = property.typeOptions?.multipleValues ? [entry] : entry;
@@ -182,7 +189,7 @@ const isDisplayed = (values: INodeParameters, property: INodeProperties): boolea
  * Fill every displayed top-level property, repeating until no newly displayed
  * property appears (a filled dropdown can reveal dependent fields).
  */
-function fillDisplayed(base: INodeParameters, filled: boolean): INodeParameters {
+function fillDisplayed(base: INodeParameters, filled: boolean, typed = false): INodeParameters {
 	const values: INodeParameters = { ...base };
 	for (let pass = 0; pass < 4; pass++) {
 		const resolved = resolveParameters(values);
@@ -190,7 +197,7 @@ function fillDisplayed(base: INodeParameters, filled: boolean): INodeParameters 
 		for (const property of properties) {
 			if (property.name in values) continue;
 			if (!isDisplayed(resolved, property)) continue;
-			const value = valueFor(property, filled, values);
+			const value = valueFor(property, filled, values, typed);
 			if (value === undefined) continue;
 			values[property.name] = value as NodeParameterValueType;
 			changed = true;
@@ -204,6 +211,8 @@ export interface SmokeCase {
 	name: string;
 	filled: boolean;
 	parameters: INodeParameters;
+	/** Every text field holds a number, as an expression can resolve to one. */
+	typed?: boolean;
 	/** A value some request must carry in its path or body, e.g. an ID extracted from a URL. */
 	expectInPath?: string;
 }
@@ -216,6 +225,12 @@ export function casesFor(resource: string, operation: string): SmokeCase[] {
 			name: `${resource} › ${operation} (all fields)`,
 			filled: true,
 			parameters: fillDisplayed(base, true),
+		},
+		{
+			name: `${resource} › ${operation} (expressions resolve to numbers)`,
+			filled: true,
+			typed: true,
+			parameters: fillDisplayed(base, true, true),
 		},
 	];
 

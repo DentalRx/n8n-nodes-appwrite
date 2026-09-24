@@ -62,8 +62,10 @@ export function uniqueId(padding = 7): string {
  * Resolve an ID parameter: an empty value or the literal `unique()` means
  * "let Appwrite pick one".
  */
-export function resolveId(value: string): string {
-	return value === '' || value === 'unique()' ? uniqueId() : value;
+export function resolveId(value: unknown): string {
+	// An expression can resolve to a number; Appwrite IDs are always strings.
+	const id = value === undefined || value === null ? '' : String(value);
+	return id === '' || id === 'unique()' ? uniqueId() : id;
 }
 
 /**
@@ -71,8 +73,8 @@ export function resolveId(value: string): string {
  * Console URLs carry the ID as a `<kind>-<id>` path segment, e.g.
  * `.../databases/database-main/table-orders`.
  */
-export function extractId(value: string, kind: string): string {
-	const trimmed = value.trim();
+export function extractId(value: unknown, kind: string): string {
+	const trimmed = (value === undefined || value === null ? '' : String(value)).trim();
 	if (!/^https?:\/\//i.test(trimmed)) return trimmed;
 
 	const prefix = `${kind}-`;

@@ -1,5 +1,5 @@
 import type { IDataObject } from 'n8n-workflow';
-import { NodeOperationError } from 'n8n-workflow';
+import { NodeApiError, NodeOperationError } from 'n8n-workflow';
 import { describe, expect, it } from 'vitest';
 
 import { BASE_URL, createExecuteContext, node } from './helpers/mock-context';
@@ -39,6 +39,16 @@ async function runCase(smokeCase: SmokeCase): Promise<void> {
 	// A blank node may legitimately refuse to run: the outcome must then be a
 	// friendly validation error raised before anything was sent.
 	if (!smokeCase.filled && outcome.error instanceof NodeOperationError && requests.length === 0) {
+		expect(outcome.error.message).toMatch(/\S/);
+		return;
+	}
+	// A number where a text field expects text may be refused, but only with a
+	// node or API error that names the problem, never a crash such as a
+	// TypeError from calling a string method on it.
+	if (
+		smokeCase.typed &&
+		(outcome.error instanceof NodeOperationError || outcome.error instanceof NodeApiError)
+	) {
 		expect(outcome.error.message).toMatch(/\S/);
 		return;
 	}

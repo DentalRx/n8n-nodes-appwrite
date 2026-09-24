@@ -60,9 +60,9 @@ export function getResourceId(
  * Strip a leading `#` from a hex colour: Appwrite's colour parameters expect
  * bare hex digits, but colour pickers and humans both write `#fd366e`.
  */
-export function stripHexHash(value?: string): string | undefined {
-	if (value === undefined || value === '') return undefined;
-	return value.replace(/^#/, '');
+export function stripHexHash(value?: unknown): string | undefined {
+	if (value === undefined || value === null || value === '') return undefined;
+	return String(value).replace(/^#/, '');
 }
 
 /**
@@ -187,14 +187,21 @@ export function parseJsonArrayParameter(
  */
 export function parseStringList(
 	this: IExecuteFunctions,
-	raw: string | string[] | undefined,
+	raw: unknown,
 	parameterName: string,
 	itemIndex: number,
 ): string[] {
 	if (raw === undefined || raw === null) return [];
 	if (Array.isArray(raw)) return raw.map((entry) => String(entry));
+	if (typeof raw === 'object') {
+		throw new NodeOperationError(this.getNode(), `Parameter '${parameterName}' must be a list`, {
+			description: 'Provide a comma-separated list or a JSON array like ["a", "b"], not an object.',
+			itemIndex,
+		});
+	}
 
-	const trimmed = raw.trim();
+	// An expression can resolve to a number or boolean even in a text field.
+	const trimmed = String(raw).trim();
 	if (trimmed === '') return [];
 	if (trimmed.startsWith('[')) {
 		return parseJsonArrayParameter
@@ -217,7 +224,7 @@ export function getStringListParameter(
 	itemIndex: number,
 	displayName = parameterName,
 ): string[] {
-	const raw = this.getNodeParameter(parameterName, itemIndex, '') as string | string[];
+	const raw = this.getNodeParameter(parameterName, itemIndex, '');
 	return parseStringList.call(this, raw, displayName, itemIndex);
 }
 
@@ -245,9 +252,15 @@ export function withLimit(queries: string[], limit: number): string[] {
 
 /**
  * Interpret a UI string value with smart typing: numbers, booleans, null and
- * JSON arrays/objects are parsed, anything else stays a string.
+ * JSON arrays/objects are parsed, anything else stays a string. An expression
+ * can hand over an already-typed value even for a text field; that value is
+ * kept as it is (or stringified when the user asked for a string).
  */
-export function smartParseValue(value: string, treatAsString: boolean): unknown {
+export function smartParseValue(value: unknown, treatAsString: boolean): unknown {
+	if (typeof value !== 'string') {
+		if (!treatAsString || value === null || value === undefined) return value;
+		return typeof value === 'object' ? JSON.stringify(value) : String(value);
+	}
 	if (treatAsString) return value;
 	const trimmed = value.trim();
 	if (trimmed === '') return value;
@@ -280,8 +293,9 @@ export function smartParseValue(value: string, treatAsString: boolean): unknown 
 interface QueryCondition {
 	type: string;
 	column?: string;
-	value?: string;
-	value2?: string;
+	/** Typed by the user, or whatever an expression resolved to. */
+	value?: unknown;
+	value2?: unknown;
 	treatValueAsString?: boolean;
 }
 
@@ -321,6 +335,7 @@ function buildSingleQuery(
 	const value = () => smartParseValue(condition.value ?? '', treatAsString);
 	const value2 = () => smartParseValue(condition.value2 ?? '', treatAsString);
 	const scalar = (v: unknown) => v as string | number;
+	const text = (v: unknown): string => (v === undefined || v === null ? '' : String(v));
 	// Column lists (Select) accept the same comma-separated form as every other
 	// list-valued field in this node, as well as a JSON array.
 	const columnList = (): string[] =>
@@ -346,11 +361,11 @@ function buildSingleQuery(
 		case 'isNotNull':
 			return Query.isNotNull(column);
 		case 'startsWith':
-			return Query.startsWith(column, condition.value ?? '');
+			return Query.startsWith(column, text(condition.value));
 		case 'endsWith':
-			return Query.endsWith(column, condition.value ?? '');
+			return Query.endsWith(column, text(condition.value));
 		case 'search':
-			return Query.search(column, condition.value ?? '');
+			return Query.search(column, text(condition.value));
 		case 'contains':
 			return Query.contains(column, value() as string);
 		case 'select':
@@ -385,9 +400,9 @@ function buildSingleQuery(
 			return isLimit ? Query.limit(parsed) : Query.offset(parsed);
 		}
 		case 'cursorAfter':
-			return Query.cursorAfter(condition.value ?? '');
+			return Query.cursorAfter(text(condition.value));
 		case 'cursorBefore':
-			return Query.cursorBefore(condition.value ?? '');
+			return Query.cursorBefore(text(condition.value));
 		default:
 			throw new NodeOperationError(this.getNode(), `Unknown query type "${type}"`, { itemIndex });
 	}
@@ -424,12 +439,12 @@ export function getPermissions(
 	itemIndex: number,
 	parameterName = 'permissions',
 ): string[] | undefined {
-	const raw = this.getNodeParameter(parameterName, itemIndex, '') as string | string[];
+	const raw: unknown = this.getNodeParameter(parameterName, itemIndex, '');
 	if (raw === undefined || raw === null) return undefined;
 
 	if (Array.isArray(raw)) return raw.map((p) => String(p));
 
-	const trimmed = raw.trim();
+	const trimmed = String(raw).trim();
 	if (trimmed === '') return undefined;
 
 	if (trimmed.startsWith('[')) {
@@ -460,13 +475,14 @@ export function getRowData(this: IExecuteFunctions, itemIndex: number): IDataObj
 	}
 
 	const fields = this.getNodeParameter('dataFieldsUi', itemIndex, {}) as {
-		fieldValues?: Array<{ fieldName: string; fieldValue: string; treatValueAsString?: boolean }>;
+		fieldValues?: Array<{ fieldName: unknown; fieldValue: unknown; treatValueAsString?: boolean }>;
 	};
 
 	const data: IDataObject = {};
 	for (const field of fields.fieldValues ?? []) {
-		if (!field.fieldName) continue;
-		data[field.fieldName] = smartParseValue(
+		if (field.fieldName === undefined || field.fieldName === null || field.fieldName === '')
+			continue;
+		data[String(field.fieldName)] = smartParseValue(
 			field.fieldValue ?? '',
 			field.treatValueAsString ?? false,
 		) as IDataObject[string];
