@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file. Dates are d
 
 #### Unreleased
 
+- Cover the Appwrite 2.3 server API, pick records with resource locators, and check every request against Appwrite's OpenAPI description [`#14`](https://github.com/DentalRx/n8n-nodes-appwrite/pull/14)
 - Fix all defects from the verification-readiness review [`#7`](https://github.com/DentalRx/n8n-nodes-appwrite/pull/7)
 - Fix config-destroying updates, query/pagination bugs, and silent enum failures [`#6`](https://github.com/DentalRx/n8n-nodes-appwrite/pull/6)
 - Meet n8n node UI design standards and verification guidelines [`#5`](https://github.com/DentalRx/n8n-nodes-appwrite/pull/5)
