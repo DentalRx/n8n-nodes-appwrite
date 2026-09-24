@@ -9,6 +9,7 @@ import {
 	searchTeams,
 	searchTopics,
 	searchUsers,
+	searchWebhooks,
 } from './listSearch';
 import { getColumns, getFrameworks, getRuntimes, getSiteBuildRuntimes } from './loadOptions';
 
@@ -24,6 +25,7 @@ export const listSearch = {
 	searchTeams,
 	searchTopics,
 	searchUsers,
+	searchWebhooks,
 };
 
 /** The dropdowns whose options load from Appwrite. */

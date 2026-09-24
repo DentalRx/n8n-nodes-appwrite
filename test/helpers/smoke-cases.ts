@@ -37,6 +37,7 @@ export const operationsOf = (resource: string): string[] => {
 };
 
 const LIST_KEYS = [
+	'archives',
 	'buckets',
 	'columns',
 	'continents',
@@ -44,12 +45,15 @@ const LIST_KEYS = [
 	'currencies',
 	'databases',
 	'deployments',
+	'embeddings',
+	'events',
 	'executions',
 	'files',
 	'frameworks',
 	'functions',
 	'identities',
 	'indexes',
+	'insights',
 	'languages',
 	'localeCodes',
 	'locales',
@@ -59,7 +63,11 @@ const LIST_KEYS = [
 	'migrations',
 	'operations',
 	'phones',
+	'policies',
+	'presences',
 	'providers',
+	'reports',
+	'restorations',
 	'rows',
 	'runtimes',
 	'sessions',
@@ -74,6 +82,7 @@ const LIST_KEYS = [
 	'transactions',
 	'users',
 	'variables',
+	'webhooks',
 ];
 
 /** One plausible Appwrite answer for any endpoint: a model with every list key populated. */
@@ -258,11 +267,12 @@ export function casesFor(resource: string, operation: string): SmokeCase[] {
 		}
 
 		if (property.type === 'resourceLocator') {
-			// By URL mode: the ID must come out of a pasted Console link.
-			const kind = /\/(\w+)-\(/.exec(
+			// By URL mode: the ID must come out of a pasted Console link, where it
+			// follows either a `<kind>-` prefix or a bare `<segment>/`.
+			const prefix = /\/(\w+-|\w+\/)\(/.exec(
 				String(property.modes?.find((mode) => mode.name === 'url')?.extractValue?.regex ?? ''),
 			)?.[1];
-			if (kind !== undefined) {
+			if (prefix !== undefined) {
 				cases.push({
 					name: `${resource} › ${operation} (${property.name} by URL)`,
 					filled: true,
@@ -272,7 +282,7 @@ export function casesFor(resource: string, operation: string): SmokeCase[] {
 							[property.name]: {
 								__rl: true,
 								mode: 'url',
-								value: `https://cloud.appwrite.io/console/project-fra-p/${kind}-${property.name}Url?tab=x`,
+								value: `https://cloud.appwrite.io/console/project-fra-p/${prefix}${property.name}Url?tab=x`,
 							},
 						},
 						true,

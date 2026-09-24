@@ -5,7 +5,8 @@ import type { IDisplayOptions, INodeProperties } from 'n8n-workflow';
  * each offers a searchable From List mode (the default, as the n8n UX
  * guidelines ask), an ID mode, and a By URL mode that accepts a link copied
  * out of the Appwrite Console, whose path carries IDs as `<kind>-<id>`
- * segments (e.g. `.../databases/database-main/table-orders`).
+ * segments (e.g. `.../databases/database-main/table-orders`) or, on a few
+ * pages, as a bare segment (e.g. `.../settings/webhooks/order-sync`).
  */
 export interface LocatorOptions {
 	/** Parameter name, e.g. `databaseId`. */
@@ -14,6 +15,12 @@ export interface LocatorOptions {
 	displayName: string;
 	/** The Console URL segment prefix that carries the ID, e.g. `database`. */
 	kind: string;
+	/**
+	 * For Console pages that carry the ID as a bare segment instead of as
+	 * `<kind>-<id>`: the path segment right before the ID, e.g. `webhooks` for
+	 * `.../settings/webhooks/<id>`.
+	 */
+	urlSegment?: string;
 	/** The listSearch method that fills the From List mode. */
 	searchListMethod: string;
 	/** Example ID for the ID mode's placeholder. */
@@ -34,7 +41,7 @@ export function resourceLocator(
 	options: LocatorOptions,
 	show: IDisplayOptions['show'],
 ): INodeProperties {
-	const { kind } = options;
+	const idPrefix = options.urlSegment === undefined ? `${options.kind}-` : `${options.urlSegment}/`;
 	return {
 		displayName: options.displayName,
 		name: options.name,
@@ -63,14 +70,14 @@ export function resourceLocator(
 					{
 						type: 'regex',
 						properties: {
-							regex: `^https?://.*/${kind}-${ID_PATTERN}(?:[/?#].*)?$`,
+							regex: `^https?://.*/${idPrefix}${ID_PATTERN}(?:[/?#].*)?$`,
 							errorMessage: `Not a valid Appwrite Console ${options.displayName.toLowerCase()} URL`,
 						},
 					},
 				],
 				extractValue: {
 					type: 'regex',
-					regex: `/${kind}-(${ID_PATTERN})(?:[/?#]|$)`,
+					regex: `/${idPrefix}(${ID_PATTERN})(?:[/?#]|$)`,
 				},
 			},
 			{
@@ -238,6 +245,21 @@ export const userLocator = (
 			urlPlaceholder: `e.g. ${CONSOLE}/auth/user-6650f1a2003e4b5c6d7e`,
 			description: 'The user to use',
 			...overrides,
+		},
+		show,
+	);
+
+export const webhookLocator = (show: IDisplayOptions['show']): INodeProperties =>
+	resourceLocator(
+		{
+			name: 'webhookId',
+			displayName: 'Webhook',
+			kind: 'webhook',
+			urlSegment: 'webhooks',
+			searchListMethod: 'searchWebhooks',
+			placeholder: 'e.g. order-sync',
+			urlPlaceholder: `e.g. ${CONSOLE}/settings/webhooks/order-sync`,
+			description: 'The webhook to use',
 		},
 		show,
 	);

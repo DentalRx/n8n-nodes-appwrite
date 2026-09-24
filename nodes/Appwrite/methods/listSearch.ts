@@ -173,3 +173,23 @@ export async function searchUsers(
 		paginationToken,
 	);
 }
+
+export async function searchWebhooks(
+	this: ILoadOptionsFunctions,
+	filter?: string,
+	paginationToken?: string,
+): Promise<INodeListSearchResult> {
+	// The webhooks list takes no search parameter, so the typed filter is
+	// matched against each page's names and IDs here instead.
+	const page = await searchList(this, '/webhooks', 'webhooks', byName, undefined, paginationToken);
+	if (!filter) return page;
+	const needle = filter.toLowerCase();
+	return {
+		...page,
+		results: page.results.filter(
+			(entry) =>
+				entry.name.toLowerCase().includes(needle) ||
+				String(entry.value).toLowerCase().includes(needle),
+		),
+	};
+}

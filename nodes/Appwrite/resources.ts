@@ -5,17 +5,23 @@ import type {
 	INodePropertyOptions,
 } from 'n8n-workflow';
 
+import { activityFields, activityOperations } from './descriptions/ActivityDescription';
+import { advisorFields, advisorOperations } from './descriptions/AdvisorDescription';
 import { avatarFields, avatarOperations } from './descriptions/AvatarDescription';
+import { backupFields, backupOperations } from './descriptions/BackupDescription';
 import { bucketFields, bucketOperations } from './descriptions/BucketDescription';
 import { columnFields, columnOperations } from './descriptions/ColumnDescription';
 import { databaseFields, databaseOperations } from './descriptions/DatabaseDescription';
+import { embeddingFields, embeddingOperations } from './descriptions/EmbeddingDescription';
 import { executionFields, executionOperations } from './descriptions/ExecutionDescription';
 import { fileFields, fileOperations } from './descriptions/FileDescription';
 import { functionFields, functionOperations } from './descriptions/FunctionDescription';
+import { graphqlFields, graphqlOperations } from './descriptions/GraphqlDescription';
 import { healthFields, healthOperations } from './descriptions/HealthDescription';
 import { indexFields, indexOperations } from './descriptions/IndexDescription';
 import { localeFields, localeOperations } from './descriptions/LocaleDescription';
 import { messageFields, messageOperations } from './descriptions/MessageDescription';
+import { presenceFields, presenceOperations } from './descriptions/PresenceDescription';
 import { providerFields, providerOperations } from './descriptions/ProviderDescription';
 import { rowFields, rowOperations } from './descriptions/RowDescription';
 import { siteFields, siteOperations } from './descriptions/SiteDescription';
@@ -25,17 +31,24 @@ import { tokenFields, tokenOperations } from './descriptions/TokenDescription';
 import { topicFields, topicOperations } from './descriptions/TopicDescription';
 import { transactionFields, transactionOperations } from './descriptions/TransactionDescription';
 import { userFields, userOperations } from './descriptions/UserDescription';
+import { webhookFields, webhookOperations } from './descriptions/WebhookDescription';
+import { executeActivityOperation } from './operations/ActivityOperations';
+import { executeAdvisorOperation } from './operations/AdvisorOperations';
 import { executeAvatarOperation } from './operations/AvatarOperations';
+import { executeBackupOperation } from './operations/BackupOperations';
 import { executeBucketOperation } from './operations/BucketOperations';
 import { executeColumnOperation } from './operations/ColumnOperations';
 import { executeDatabaseOperation } from './operations/DatabaseOperations';
+import { executeEmbeddingOperation } from './operations/EmbeddingOperations';
 import { executeExecutionOperation } from './operations/ExecutionOperations';
 import { executeFileOperation } from './operations/FileOperations';
 import { executeFunctionOperation } from './operations/FunctionOperations';
+import { executeGraphqlOperation } from './operations/GraphqlOperations';
 import { executeHealthOperation } from './operations/HealthOperations';
 import { executeIndexOperation } from './operations/IndexOperations';
 import { executeLocaleOperation } from './operations/LocaleOperations';
 import { executeMessageOperation } from './operations/MessageOperations';
+import { executePresenceOperation } from './operations/PresenceOperations';
 import { executeProviderOperation } from './operations/ProviderOperations';
 import { executeRowOperation } from './operations/RowOperations';
 import { executeSiteOperation } from './operations/SiteOperations';
@@ -45,6 +58,7 @@ import { executeTokenOperation } from './operations/TokenOperations';
 import { executeTopicOperation } from './operations/TopicOperations';
 import { executeTransactionOperation } from './operations/TransactionOperations';
 import { executeUserOperation } from './operations/UserOperations';
+import { executeWebhookOperation } from './operations/WebhookOperations';
 
 /** Runs one operation of a resource for one input item. */
 export type OperationExecutor = (
@@ -71,6 +85,27 @@ interface ResourceDefinition {
 const RESOURCES: ResourceDefinition[] = [
 	{
 		option: {
+			name: 'Activity',
+			value: 'activity',
+			description:
+				"Read the project's audit trail, which replaces the user logs removed in Appwrite 2.2",
+		},
+		operations: activityOperations,
+		fields: activityFields,
+		execute: executeActivityOperation,
+	},
+	{
+		option: {
+			name: 'Advisor',
+			value: 'advisor',
+			description: "Read Advisor's analysis reports and the insights they contain",
+		},
+		operations: advisorOperations,
+		fields: advisorFields,
+		execute: executeAdvisorOperation,
+	},
+	{
+		option: {
 			name: 'Avatar',
 			value: 'avatar',
 			description:
@@ -79,6 +114,17 @@ const RESOURCES: ResourceDefinition[] = [
 		operations: avatarOperations,
 		fields: avatarFields,
 		execute: executeAvatarOperation,
+	},
+	{
+		option: {
+			name: 'Backup',
+			value: 'backup',
+			description:
+				'Manage backup policies, archives, and restorations (Appwrite Cloud, Pro plan and above)',
+		},
+		operations: backupOperations,
+		fields: backupFields,
+		execute: executeBackupOperation,
 	},
 	{
 		option: { name: 'Bucket', value: 'bucket', description: 'Manage storage buckets' },
@@ -101,6 +147,16 @@ const RESOURCES: ResourceDefinition[] = [
 		operations: databaseOperations,
 		fields: databaseFields,
 		execute: executeDatabaseOperation,
+	},
+	{
+		option: {
+			name: 'Embedding',
+			value: 'embedding',
+			description: 'Generate vector embeddings from text',
+		},
+		operations: embeddingOperations,
+		fields: embeddingFields,
+		execute: executeEmbeddingOperation,
 	},
 	{
 		option: {
@@ -131,6 +187,16 @@ const RESOURCES: ResourceDefinition[] = [
 		operations: functionOperations,
 		fields: functionFields,
 		execute: executeFunctionOperation,
+	},
+	{
+		option: {
+			name: 'GraphQL',
+			value: 'graphql',
+			description: "Run GraphQL queries and mutations against the project's API",
+		},
+		operations: graphqlOperations,
+		fields: graphqlFields,
+		execute: executeGraphqlOperation,
 	},
 	{
 		option: {
@@ -167,6 +233,16 @@ const RESOURCES: ResourceDefinition[] = [
 		operations: messageOperations,
 		fields: messageFields,
 		execute: executeMessageOperation,
+	},
+	{
+		option: {
+			name: 'Presence',
+			value: 'presence',
+			description: 'Read and remove the real-time presence of users',
+		},
+		operations: presenceOperations,
+		fields: presenceFields,
+		execute: executePresenceOperation,
 	},
 	{
 		option: {
@@ -249,6 +325,16 @@ const RESOURCES: ResourceDefinition[] = [
 		operations: userOperations,
 		fields: userFields,
 		execute: executeUserOperation,
+	},
+	{
+		option: {
+			name: 'Webhook',
+			value: 'webhook',
+			description: 'Manage webhooks that send project events to other services',
+		},
+		operations: webhookOperations,
+		fields: webhookFields,
+		execute: executeWebhookOperation,
 	},
 ];
 
