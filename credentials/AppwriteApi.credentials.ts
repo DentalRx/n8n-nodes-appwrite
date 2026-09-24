@@ -48,6 +48,14 @@ export class AppwriteApi implements ICredentialType {
 			description:
 				'An Appwrite API key with the scopes required for the operations you want to run. Create one in the Appwrite Console under Overview > Integrations > API Keys.',
 		},
+		{
+			displayName: 'Ignore SSL Issues (Insecure)',
+			name: 'ignoreSslIssues',
+			type: 'boolean',
+			default: false,
+			description:
+				'Whether to connect even if SSL certificate validation is not possible, e.g. to a self-hosted Appwrite with a self-signed certificate',
+		},
 	];
 
 	authenticate: IAuthenticateGeneric = {
@@ -70,6 +78,7 @@ export class AppwriteApi implements ICredentialType {
 			baseURL: '={{$credentials.endpoint.replace(new RegExp("/+$"), "")}}',
 			url: '/tablesdb',
 			method: 'GET',
+			skipSslCertificateValidation: '={{$credentials.ignoreSslIssues}}',
 		},
 	};
 }

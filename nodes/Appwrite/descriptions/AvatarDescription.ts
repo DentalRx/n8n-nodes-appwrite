@@ -541,7 +541,7 @@ export const avatarFields: INodeProperties[] = [
 				type: 'json',
 				default: '{}',
 				description:
-					'HTTP headers the browser sends with the page request, as a JSON object, e.g. {"Authorization": "Bearer token"}',
+					'HTTP headers the browser sends with the page request, as a JSON object, e.g. {"Authorization": "Bearer token"}. Appwrite takes them in the request URL, where proxies and logs can see them, so prefer short-lived credentials.',
 			},
 			{
 				displayName: 'Height',

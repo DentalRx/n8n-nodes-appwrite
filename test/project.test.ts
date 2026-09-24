@@ -275,6 +275,32 @@ describe('Project', () => {
 		});
 	});
 
+	it('sends the settings Appwrite requires on a project whose server was never set up', async () => {
+		const unset = () => ({ oAuth2ServerEnabled: null, oAuth2ServerAuthorizationUrl: '' });
+		const { context, requests } = createExecuteContext({
+			parameters: {
+				resource: 'project',
+				operation: 'updateOAuth2Server',
+				updateFields: { oauth2ServerVerificationUrl: 'https://example.com/device' },
+			},
+			respond: unset,
+		});
+		await expect(node.execute.call(context)).rejects.toThrow(
+			'The OAuth2 server has no Authorization URL',
+		);
+		expect(requests.map((request) => request.method)).toEqual(['GET']);
+
+		const { body } = await run(
+			{
+				resource: 'project',
+				operation: 'updateOAuth2Server',
+				updateFields: { oauth2ServerAuthorizationUrl: 'https://example.com/consent' },
+			},
+			unset,
+		);
+		expect(body(1)).toEqual({ enabled: false, authorizationUrl: 'https://example.com/consent' });
+	});
+
 	it('maps every OAuth2 server setting to a key the endpoint accepts', async () => {
 		const { body } = await run({
 			resource: 'project',

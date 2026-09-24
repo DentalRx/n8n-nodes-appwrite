@@ -324,7 +324,7 @@ export const projectFields: INodeProperties[] = [
 		placeholder: 'Add field',
 		default: {},
 		description:
-			'The OAuth2 server settings to change. Settings you do not add keep their current values.',
+			'The OAuth2 server settings to change. Settings you do not add keep their current values. Appwrite needs an Authorization URL, so add one if the project has none yet.',
 		displayOptions: { show: show('updateOAuth2Server') },
 		options: [
 			{

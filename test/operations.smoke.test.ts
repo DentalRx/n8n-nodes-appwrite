@@ -48,8 +48,13 @@ async function runCase(smokeCase: SmokeCase): Promise<void> {
 	);
 
 	// A blank node may legitimately refuse to run: the outcome must then be a
-	// friendly validation error raised before anything was sent.
-	if (!smokeCase.filled && outcome.error instanceof NodeOperationError && requests.length === 0) {
+	// friendly validation error raised before anything was changed (a node may
+	// read the current record first).
+	if (
+		!smokeCase.filled &&
+		outcome.error instanceof NodeOperationError &&
+		requests.every((request) => request.method === 'GET')
+	) {
 		expect(outcome.error.message).toMatch(/\S/);
 		return;
 	}

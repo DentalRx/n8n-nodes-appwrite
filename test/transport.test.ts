@@ -1,4 +1,4 @@
-import type { IHttpRequestOptions } from 'n8n-workflow';
+import type { IDataObject, IHttpRequestOptions } from 'n8n-workflow';
 import { NodeApiError, NodeOperationError } from 'n8n-workflow';
 import { describe, expect, it } from 'vitest';
 
@@ -8,7 +8,13 @@ import {
 	appwriteFileUpload,
 	flattenQueryParameters,
 } from '../nodes/Appwrite/transport';
-import { BASE_URL, createExecuteContext, testNode } from './helpers/mock-context';
+import {
+	BASE_URL,
+	CREDENTIALS,
+	createExecuteContext,
+	node,
+	testNode,
+} from './helpers/mock-context';
 
 const PARAMETERS = { resource: 'database', operation: 'getMany' };
 
@@ -268,5 +274,44 @@ describe('appwriteFileUpload', () => {
 		await expect(upload(Buffer.from('x'), 'a.pdf', () => '<html>')).rejects.toThrow(
 			NodeOperationError,
 		);
+	});
+});
+
+describe('Ignore SSL Issues', () => {
+	it('skips certificate validation on API-key, user and upload requests only when set', async () => {
+		const sent = async (ignoreSslIssues: boolean, parameters: IDataObject) => {
+			const { context, requests } = createExecuteContext({
+				parameters: parameters as never,
+				credentials: { appwriteApi: { ...CREDENTIALS, ignoreSslIssues } },
+				binary: {
+					data: { buffer: Buffer.from('hello'), fileName: 'a.txt', mimeType: 'text/plain' },
+				},
+			});
+			await node.execute.call(context).catch(() => undefined);
+			return requests.map((request) => request.skipSslCertificateValidation);
+		};
+		const operations: IDataObject[] = [
+			{
+				resource: 'database',
+				operation: 'get',
+				databaseId: { __rl: true, mode: 'id', value: 'main' },
+			},
+			{
+				resource: 'account',
+				operation: 'get',
+				accountAuthentication: 'jwt',
+				accountJwt: 'user-jwt',
+			},
+			{
+				resource: 'file',
+				operation: 'upload',
+				bucketId: { __rl: true, mode: 'id', value: 'photos' },
+				inputBinaryField: 'data',
+			},
+		];
+		for (const parameters of operations) {
+			expect(await sent(true, parameters)).toEqual([true]);
+			expect(await sent(false, parameters)).toEqual([undefined]);
+		}
 	});
 });

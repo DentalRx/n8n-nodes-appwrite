@@ -48,6 +48,14 @@ export class AppwriteOrganizationApi implements ICredentialType {
 			description:
 				"An API key of the organization (it starts with organization_), with the scopes required for the operations you want to run, such as projects.read or domains.write. A project's API key does not work here.",
 		},
+		{
+			displayName: 'Ignore SSL Issues (Insecure)',
+			name: 'ignoreSslIssues',
+			type: 'boolean',
+			default: false,
+			description:
+				'Whether to connect even if SSL certificate validation is not possible, e.g. to a self-hosted Appwrite with a self-signed certificate',
+		},
 	];
 
 	// An organization API key belongs to an organization, not to a project. In
@@ -77,6 +85,7 @@ export class AppwriteOrganizationApi implements ICredentialType {
 			baseURL: '={{$credentials.endpoint.replace(new RegExp("/+$"), "")}}',
 			url: '/organization/projects',
 			method: 'GET',
+			skipSslCertificateValidation: '={{$credentials.ignoreSslIssues}}',
 		},
 	};
 }

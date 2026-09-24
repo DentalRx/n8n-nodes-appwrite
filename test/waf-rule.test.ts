@@ -142,7 +142,7 @@ describe('Firewall Rule', () => {
 			wafInterval: 60,
 		});
 		expect(body).toMatchObject({ limit: 10, interval: 60, resourceType: 'api' });
-		// An API rule has no resource ID, and without conditions none are sent.
+		// An API rule has no resource ID, and no conditions means every request.
 		expect(body).not.toHaveProperty('resourceId');
 		expect(body).not.toHaveProperty('conditions');
 	});

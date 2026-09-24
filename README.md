@@ -143,11 +143,12 @@ You need an Appwrite project and an API key.
 2. Under **Overview → Integrations → API Keys**, create an API key and give it the scopes for the operations you plan to use. The credential test lists databases, so the key needs at least `databases.read`.
 3. In n8n, create an **Appwrite API** credential:
 
-| Field      | Description                                                                                                                                    |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Endpoint   | `https://cloud.appwrite.io/v1`, your region endpoint (for example `https://nyc.cloud.appwrite.io/v1`), or the URL of your self-hosted instance |
-| Project ID | Found in the Appwrite Console under **Settings → Project ID**                                                                                  |
-| API Key    | The key created above                                                                                                                          |
+| Field                        | Description                                                                                                                                    |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Endpoint                     | `https://cloud.appwrite.io/v1`, your region endpoint (for example `https://nyc.cloud.appwrite.io/v1`), or the URL of your self-hosted instance |
+| Project ID                   | Found in the Appwrite Console under **Settings → Project ID**                                                                                  |
+| API Key                      | The key created above                                                                                                                          |
+| Ignore SSL Issues (Insecure) | Off by default. Turn on only for a self-hosted Appwrite whose TLS certificate n8n cannot validate, such as a self-signed one                   |
 
 A `401` or `403` from Appwrite usually means a missing scope on the key rather than a bad key: each operation needs the scope Appwrite documents for its endpoint (for example `rows.write` to create rows, `files.read` to download files). The credential test deliberately does not use `/ping`, which Appwrite answers for unauthenticated callers and which would therefore pass for any key.
 

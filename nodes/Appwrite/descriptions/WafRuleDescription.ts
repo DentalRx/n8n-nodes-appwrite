@@ -639,7 +639,7 @@ export const wafRuleFields: INodeProperties[] = [
 	},
 	{
 		...conditionsProperty(
-			'The requests the rule applies to. A request must match every condition, and a rule without conditions matches no request.',
+			'The requests the rule applies to. A request must match every condition; a rule without conditions applies to every request in its scope.',
 		),
 		displayOptions: {
 			show: {

@@ -42,19 +42,28 @@ function endpointOf(credentials: IDataObject): string {
  */
 export async function getProject(
 	this: AppwriteContext,
-): Promise<{ baseUrl: string; projectId: string }> {
+): Promise<{ baseUrl: string; projectId: string; skipSslCertificateValidation: boolean }> {
 	const credentials = await this.getCredentials('appwriteApi');
 	return {
 		baseUrl: endpointOf(credentials),
 		projectId: credentials.projectId as string,
+		skipSslCertificateValidation: credentials.ignoreSslIssues === true,
 	};
 }
 
-async function getBaseUrl(
+/**
+ * The endpoint to call, and whether the credential allows an endpoint whose
+ * TLS certificate cannot be validated (e.g. a self-signed one).
+ */
+async function getConnection(
 	this: AppwriteContext,
 	credentialType: AppwriteCredentialType = 'appwriteApi',
-): Promise<string> {
-	return endpointOf(await this.getCredentials(credentialType));
+): Promise<{ baseUrl: string; skipSslCertificateValidation: boolean }> {
+	const credentials = await this.getCredentials(credentialType);
+	return {
+		baseUrl: endpointOf(credentials),
+		skipSslCertificateValidation: credentials.ignoreSslIssues === true,
+	};
 }
 
 /**
@@ -253,8 +262,12 @@ async function request(
 ): Promise<unknown> {
 	assertPathHasNoEmptyId(context, path, itemIndex);
 	const credentialType = options.credentialType ?? 'appwriteApi';
-	const baseUrl = await getBaseUrl.call(context, credentialType);
+	const { baseUrl, skipSslCertificateValidation } = await getConnection.call(
+		context,
+		credentialType,
+	);
 	const requestOptions = buildRequestOptions(baseUrl, method, path, options, binary);
+	if (skipSslCertificateValidation) requestOptions.skipSslCertificateValidation = true;
 
 	try {
 		return await context.helpers.httpRequestWithAuthentication.call(
@@ -327,8 +340,9 @@ export async function appwriteUserRequest(
 	itemIndex?: number,
 ): Promise<IDataObject> {
 	assertPathHasNoEmptyId(this, path, itemIndex);
-	const { baseUrl, projectId } = await getProject.call(this);
+	const { baseUrl, projectId, skipSslCertificateValidation } = await getProject.call(this);
 	const requestOptions = buildRequestOptions(baseUrl, method, path, options, false);
+	if (skipSslCertificateValidation) requestOptions.skipSslCertificateValidation = true;
 	requestOptions.headers = {
 		...requestOptions.headers,
 		'X-Appwrite-Project': projectId,
@@ -440,7 +454,7 @@ export async function appwriteFileUpload(
 	itemIndex: number,
 ): Promise<IDataObject> {
 	assertPathHasNoEmptyId(this, path, itemIndex);
-	const baseUrl = await getBaseUrl.call(this);
+	const { baseUrl, skipSslCertificateValidation } = await getConnection.call(this);
 	const url = `${baseUrl}${path}`;
 	const total = file.content.length;
 
@@ -475,6 +489,7 @@ export async function appwriteFileUpload(
 				body,
 				json: false,
 				returnFullResponse: false,
+				...(skipSslCertificateValidation ? { skipSslCertificateValidation } : {}),
 			})) as IDataObject;
 		} catch (error) {
 			toNodeApiError(this, error, itemIndex);

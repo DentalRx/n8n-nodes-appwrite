@@ -183,6 +183,16 @@ export async function executeProjectOperation(
 				body[key] = value;
 			}
 		}
+		// Appwrite requires both on every update, even on a project whose server
+		// was never set up.
+		body.enabled ??= false;
+		if (body.authorizationUrl === undefined || body.authorizationUrl === '') {
+			throw new NodeOperationError(this.getNode(), 'The OAuth2 server has no Authorization URL', {
+				description:
+					'Add Authorization URL under Update Fields: the page of your app that shows users the consent screen. Appwrite requires it on every update.',
+				itemIndex: i,
+			});
+		}
 		const response = await appwriteApiRequest.call(
 			this,
 			'PUT',

@@ -29,7 +29,8 @@ export const backupOperations: INodeProperties[] = [
 			{
 				name: 'Create Restoration',
 				value: 'createRestoration',
-				description: 'Restore data from a backup archive',
+				description:
+					'Restore data from a backup archive, overwriting the current data unless a new resource ID is given',
 				action: 'Create backup restoration',
 			},
 			{
@@ -270,6 +271,19 @@ export const backupFields: INodeProperties[] = [
 			},
 			RESOURCE_ID_OPTION,
 		],
+	},
+	{
+		displayName:
+			'Without a New Resource ID (under Options), the restore overwrites the archived resource in place, replacing its current data',
+		name: 'restorationNotice',
+		type: 'notice',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['backup'],
+				operation: ['createRestoration'],
+			},
+		},
 	},
 	{
 		displayName: 'Options',
