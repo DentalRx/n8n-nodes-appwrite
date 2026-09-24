@@ -67,6 +67,13 @@ export const healthOperations: INodeProperties[] = [
 				description: 'Check the Appwrite server time is synced with the remote NTP server',
 				action: 'Get server time health status',
 			},
+			{
+				name: 'Ping',
+				value: 'ping',
+				description:
+					'Check the endpoint and project are reachable. Appwrite answers any caller, so this does not test the API key.',
+				action: 'Ping project',
+			},
 		],
 		default: 'get',
 	},

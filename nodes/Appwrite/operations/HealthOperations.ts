@@ -35,6 +35,15 @@ export async function executeHealthOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
+	if (operation === 'ping') {
+		// Appwrite answers a ping with the plain text "Pong!" rather than JSON.
+		const response: unknown = await appwriteApiRequest.call(this, 'GET', '/ping', {}, i);
+		return toItems(
+			typeof response === 'string' ? { message: response } : (response as IDataObject),
+			i,
+		);
+	}
+
 	const path = healthPath(operation);
 	if (path === undefined) {
 		throw new NodeOperationError(this.getNode(), `Unknown health operation "${operation}"`, {

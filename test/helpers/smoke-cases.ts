@@ -56,6 +56,7 @@ const LIST_KEYS = [
 	'logs',
 	'memberships',
 	'messages',
+	'migrations',
 	'operations',
 	'phones',
 	'rows',

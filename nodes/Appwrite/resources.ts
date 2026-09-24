@@ -71,7 +71,8 @@ const RESOURCES: ResourceDefinition[] = [
 		option: {
 			name: 'Avatar',
 			value: 'avatar',
-			description: 'Generate icons, flags, QR codes, and initials images',
+			description:
+				'Generate icons, flags, QR codes, initials, user photos, and webpage screenshots',
 		},
 		operations: avatarOperations,
 		fields: avatarFields,

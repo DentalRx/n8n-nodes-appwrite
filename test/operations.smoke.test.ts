@@ -68,7 +68,8 @@ async function runCase(smokeCase: SmokeCase): Promise<void> {
 		const carried = requests.some(
 			(request) =>
 				request.url.includes(`/${smokeCase.expectInPath}`) ||
-				JSON.stringify(request.body ?? {}).includes(`"${smokeCase.expectInPath}"`),
+				JSON.stringify(request.body ?? {}).includes(`"${smokeCase.expectInPath}"`) ||
+				Object.values((request.qs ?? {}) as IDataObject).includes(smokeCase.expectInPath),
 		);
 		expect(carried, `the ID extracted from the URL reaches the request`).toBe(true);
 	}
