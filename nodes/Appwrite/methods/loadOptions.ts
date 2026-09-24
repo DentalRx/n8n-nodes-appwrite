@@ -73,6 +73,23 @@ function dependency(context: ILoadOptionsFunctions, name: string, kind: string):
 	return typeof value === 'string' ? extractId(value, kind) : '';
 }
 
+export async function getAppInstallationScopes(
+	this: ILoadOptionsFunctions,
+): Promise<INodePropertyOptions[]> {
+	const response = await appwriteApiRequest.call(this, 'GET', '/apps/scopes/installations');
+	const scopes = (response.scopes ?? []) as AppwriteListItem[];
+	// Appwrite keeps deprecated scopes working but asks that they not be
+	// offered for new grants.
+	return scopes
+		.filter((scope) => scope.deprecated !== true && typeof scope.value === 'string')
+		.map((scope) => ({
+			name: scope.value as string,
+			value: scope.value as string,
+			...(scope.description ? { description: scope.description as string } : {}),
+		}))
+		.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export async function getColumns(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 	const databaseId = dependency(this, 'databaseId', 'database');
 	const tableId = dependency(this, 'tableId', 'table');

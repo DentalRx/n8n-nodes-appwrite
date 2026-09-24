@@ -37,6 +37,7 @@ export const operationsOf = (resource: string): string[] => {
 };
 
 const LIST_KEYS = [
+	'apps',
 	'archives',
 	'backups',
 	'branches',
@@ -59,6 +60,8 @@ const LIST_KEYS = [
 	'identities',
 	'indexes',
 	'insights',
+	'installations',
+	'keys',
 	'languages',
 	'localeCodes',
 	'locales',
@@ -74,7 +77,10 @@ const LIST_KEYS = [
 	'reports',
 	'restorations',
 	'rows',
+	'rules',
 	'runtimes',
+	'scopes',
+	'secrets',
 	'sessions',
 	'sites',
 	'specifications',
@@ -166,6 +172,7 @@ function valueFor(
 		}
 		case 'multiOptions': {
 			if (!filled) return property.default;
+			if (property.typeOptions?.loadOptionsMethod !== undefined) return [`${name}-id`];
 			return (property.options as INodePropertyOptions[]).slice(0, 2).map((option) => option.value);
 		}
 		case 'color':

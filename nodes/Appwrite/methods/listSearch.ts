@@ -54,6 +54,31 @@ async function searchList(
 }
 
 /**
+ * searchList for endpoints without a `search` parameter: the typed filter is
+ * matched here, against the labels. A page without a match moves straight on
+ * to the next, so the picker is never left empty while more entries remain.
+ */
+async function searchListByLabel(
+	context: ILoadOptionsFunctions,
+	path: string,
+	listKey: string,
+	label: (entry: ListEntry) => string,
+	filter?: string,
+	paginationToken?: string,
+): Promise<INodeListSearchResult> {
+	const needle = (filter ?? '').toLowerCase();
+	let cursor = paginationToken;
+	for (;;) {
+		const page = await searchList(context, path, listKey, label, undefined, cursor);
+		const results = page.results.filter((result) => result.name.toLowerCase().includes(needle));
+		if (results.length > 0 || page.paginationToken === undefined) {
+			return { results, paginationToken: page.paginationToken };
+		}
+		cursor = page.paginationToken as string;
+	}
+}
+
+/**
  * The ID a dependent list needs from its parent locator, e.g. the database a
  * table belongs to. Returns '' until the parent has a value.
  */
@@ -63,6 +88,38 @@ function parentId(context: ILoadOptionsFunctions, name: string, kind: string): s
 }
 
 const byName = (entry: ListEntry): string => entry.name ?? '';
+
+export async function searchApps(
+	this: ILoadOptionsFunctions,
+	filter?: string,
+	paginationToken?: string,
+): Promise<INodeListSearchResult> {
+	return await searchListByLabel(this, '/apps', 'apps', byName, filter, paginationToken);
+}
+
+export async function searchProxyRules(
+	this: ILoadOptionsFunctions,
+	filter?: string,
+	paginationToken?: string,
+): Promise<INodeListSearchResult> {
+	// A proxy rule has no name; the Console lists it by its domain.
+	return await searchListByLabel(
+		this,
+		'/proxy/rules',
+		'rules',
+		(rule) => (rule.domain as string | undefined) ?? '',
+		filter,
+		paginationToken,
+	);
+}
+
+export async function searchWafRules(
+	this: ILoadOptionsFunctions,
+	filter?: string,
+	paginationToken?: string,
+): Promise<INodeListSearchResult> {
+	return await searchList(this, '/waf/rules', 'rules', byName, filter, paginationToken);
+}
 
 export async function searchDatabases(
 	this: ILoadOptionsFunctions,

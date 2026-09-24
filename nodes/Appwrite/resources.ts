@@ -8,6 +8,7 @@ import type {
 import { accountFields, accountOperations } from './descriptions/AccountDescription';
 import { activityFields, activityOperations } from './descriptions/ActivityDescription';
 import { advisorFields, advisorOperations } from './descriptions/AdvisorDescription';
+import { appFields, appOperations } from './descriptions/AppDescription';
 import { avatarFields, avatarOperations } from './descriptions/AvatarDescription';
 import { backupFields, backupOperations } from './descriptions/BackupDescription';
 import { bucketFields, bucketOperations } from './descriptions/BucketDescription';
@@ -37,6 +38,7 @@ import { localeFields, localeOperations } from './descriptions/LocaleDescription
 import { messageFields, messageOperations } from './descriptions/MessageDescription';
 import { presenceFields, presenceOperations } from './descriptions/PresenceDescription';
 import { providerFields, providerOperations } from './descriptions/ProviderDescription';
+import { proxyRuleFields, proxyRuleOperations } from './descriptions/ProxyRuleDescription';
 import { rowFields, rowOperations } from './descriptions/RowDescription';
 import { siteFields, siteOperations } from './descriptions/SiteDescription';
 import { tableFields, tableOperations } from './descriptions/TableDescription';
@@ -45,11 +47,13 @@ import { tokenFields, tokenOperations } from './descriptions/TokenDescription';
 import { topicFields, topicOperations } from './descriptions/TopicDescription';
 import { transactionFields, transactionOperations } from './descriptions/TransactionDescription';
 import { userFields, userOperations } from './descriptions/UserDescription';
+import { wafRuleFields, wafRuleOperations } from './descriptions/WafRuleDescription';
 import { webhookFields, webhookOperations } from './descriptions/WebhookDescription';
 import { DOCUMENTS_DB, VECTORS_DB } from './helpers/documentDatabases';
 import { executeAccountOperation } from './operations/AccountOperations';
 import { executeActivityOperation } from './operations/ActivityOperations';
 import { executeAdvisorOperation } from './operations/AdvisorOperations';
+import { executeAppOperation } from './operations/AppOperations';
 import { executeAvatarOperation } from './operations/AvatarOperations';
 import { executeBackupOperation } from './operations/BackupOperations';
 import { executeBucketOperation } from './operations/BucketOperations';
@@ -70,6 +74,7 @@ import { executeLocaleOperation } from './operations/LocaleOperations';
 import { executeMessageOperation } from './operations/MessageOperations';
 import { executePresenceOperation } from './operations/PresenceOperations';
 import { executeProviderOperation } from './operations/ProviderOperations';
+import { executeProxyRuleOperation } from './operations/ProxyRuleOperations';
 import { executeRowOperation } from './operations/RowOperations';
 import { executeSiteOperation } from './operations/SiteOperations';
 import { executeTableOperation } from './operations/TableOperations';
@@ -78,6 +83,7 @@ import { executeTokenOperation } from './operations/TokenOperations';
 import { executeTopicOperation } from './operations/TopicOperations';
 import { executeTransactionOperation } from './operations/TransactionOperations';
 import { executeUserOperation } from './operations/UserOperations';
+import { executeWafRuleOperation } from './operations/WafRuleOperations';
 import { executeWebhookOperation } from './operations/WebhookOperations';
 
 /** Runs one operation of a resource for one input item. */
@@ -133,6 +139,16 @@ const RESOURCES: ResourceDefinition[] = [
 		operations: advisorOperations,
 		fields: advisorFields,
 		execute: executeAdvisorOperation,
+	},
+	{
+		option: {
+			name: 'App',
+			value: 'app',
+			description: 'Manage OAuth2 apps with their keys, secrets, and team installations',
+		},
+		operations: appOperations,
+		fields: appFields,
+		execute: executeAppOperation,
 	},
 	{
 		option: {
@@ -250,6 +266,16 @@ const RESOURCES: ResourceDefinition[] = [
 	},
 	{
 		option: {
+			name: 'Firewall Rule',
+			value: 'wafRule',
+			description: 'Control which requests reach the API, functions, and sites',
+		},
+		operations: wafRuleOperations,
+		fields: wafRuleFields,
+		execute: executeWafRuleOperation,
+	},
+	{
+		option: {
 			name: 'Function',
 			value: 'function',
 			description: 'Manage Appwrite Functions, their deployments, and variables',
@@ -323,6 +349,16 @@ const RESOURCES: ResourceDefinition[] = [
 		operations: providerOperations,
 		fields: providerFields,
 		execute: executeProviderOperation,
+	},
+	{
+		option: {
+			name: 'Proxy Rule',
+			value: 'proxyRule',
+			description: 'Connect custom domains to the API, functions, and sites',
+		},
+		operations: proxyRuleOperations,
+		fields: proxyRuleFields,
+		execute: executeProxyRuleOperation,
 	},
 	{
 		option: {

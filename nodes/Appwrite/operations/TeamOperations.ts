@@ -13,12 +13,20 @@ import {
 } from '../GenericFunctions';
 import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
+import {
+	TEAM_INSTALLATION_OPERATIONS,
+	executeTeamInstallationOperation,
+} from './TeamInstallationOperations';
 
 export async function executeTeamOperation(
 	this: IExecuteFunctions,
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
+	if (TEAM_INSTALLATION_OPERATIONS.has(operation)) {
+		return await executeTeamInstallationOperation.call(this, operation, i);
+	}
+
 	const teamPath = (): string =>
 		`/teams/${encodeURIComponent(getResourceId.call(this, 'teamId', i, 'team', 'Team'))}`;
 

@@ -1,4 +1,5 @@
 import {
+	searchApps,
 	searchBuckets,
 	searchDatabases,
 	searchDedicatedDatabases,
@@ -7,6 +8,7 @@ import {
 	searchFiles,
 	searchFunctions,
 	searchProviders,
+	searchProxyRules,
 	searchSites,
 	searchTables,
 	searchTeams,
@@ -14,9 +16,11 @@ import {
 	searchUsers,
 	searchVectorsDbCollections,
 	searchVectorsDbDatabases,
+	searchWafRules,
 	searchWebhooks,
 } from './listSearch';
 import {
+	getAppInstallationScopes,
 	getAvailablePostgresqlExtensions,
 	getColumns,
 	getFrameworks,
@@ -27,6 +31,7 @@ import {
 
 /** The pickers behind the node's resource locators (From List mode). */
 export const listSearch = {
+	searchApps,
 	searchBuckets,
 	searchDatabases,
 	searchDedicatedDatabases,
@@ -35,6 +40,7 @@ export const listSearch = {
 	searchFiles,
 	searchFunctions,
 	searchProviders,
+	searchProxyRules,
 	searchSites,
 	searchTables,
 	searchTeams,
@@ -42,11 +48,13 @@ export const listSearch = {
 	searchUsers,
 	searchVectorsDbCollections,
 	searchVectorsDbDatabases,
+	searchWafRules,
 	searchWebhooks,
 };
 
 /** The dropdowns whose options load from Appwrite. */
 export const loadOptions = {
+	getAppInstallationScopes,
 	getAvailablePostgresqlExtensions,
 	getColumns,
 	getFrameworks,

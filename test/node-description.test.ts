@@ -206,10 +206,15 @@ describe('property references', () => {
 		for (const property of properties.filter((candidate) => candidate.type === 'resourceLocator')) {
 			expect(property.default, property.name).toEqual({ mode: 'list', value: '' });
 			expect(property.modes?.[0]?.name, property.name).toBe('list');
+			// Records the Console gives no page of their own (proxy and firewall
+			// rules, apps) have no URL to paste, so they offer no By URL mode.
 			expect(
-				property.modes?.map((mode) => mode.name),
+				[
+					['list', 'url', 'id'],
+					['list', 'id'],
+				],
 				property.name,
-			).toEqual(['list', 'url', 'id']);
+			).toContainEqual(property.modes?.map((mode) => mode.name));
 		}
 	});
 

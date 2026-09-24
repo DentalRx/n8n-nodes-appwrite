@@ -27,8 +27,12 @@ export interface LocatorOptions {
 	searchListMethod: string;
 	/** Example ID for the ID mode's placeholder. */
 	placeholder: string;
-	/** Example Console URL for the By URL mode's placeholder. */
-	urlPlaceholder: string;
+	/**
+	 * Example Console URL for the By URL mode's placeholder. Leave it out for
+	 * records the Console gives no page of their own (a proxy rule, a firewall
+	 * rule): the locator then offers only From List and ID.
+	 */
+	urlPlaceholder?: string;
 	/** Parameters the list depends on, e.g. `['databaseId.value']`. */
 	dependsOn?: string[];
 	description?: string;
@@ -44,7 +48,7 @@ export function resourceLocator(
 	show: IDisplayOptions['show'],
 ): INodeProperties {
 	const idPrefix = options.urlSegment === undefined ? `${options.kind}-` : `${options.urlSegment}/`;
-	return {
+	const property: INodeProperties = {
 		displayName: options.displayName,
 		name: options.name,
 		type: 'resourceLocator',
@@ -100,9 +104,31 @@ export function resourceLocator(
 		],
 		displayOptions: { show },
 	};
+	// A record the Console gives no page of its own has no URL to paste.
+	if (options.urlPlaceholder === undefined) {
+		property.modes = property.modes?.filter((mode) => mode.name !== 'url');
+	}
+	return property;
 }
 
 const CONSOLE = 'https://cloud.appwrite.io/console/project-fra-myproject';
+
+export const appLocator = (
+	show: IDisplayOptions['show'],
+	overrides: Partial<Pick<LocatorOptions, 'description'>> = {},
+): INodeProperties =>
+	resourceLocator(
+		{
+			name: 'appId',
+			displayName: 'App',
+			kind: 'app',
+			searchListMethod: 'searchApps',
+			placeholder: 'e.g. 6650f1a2003e4b5c6d7e',
+			description: 'The app to use',
+			...overrides,
+		},
+		show,
+	);
 
 export const databaseLocator = (show: IDisplayOptions['show']): INodeProperties =>
 	resourceLocator(
@@ -226,6 +252,32 @@ export const siteLocator = (show: IDisplayOptions['show']): INodeProperties =>
 			placeholder: 'e.g. marketing-site',
 			urlPlaceholder: `e.g. ${CONSOLE}/sites/site-marketing-site`,
 			description: 'The site to use',
+		},
+		show,
+	);
+
+export const proxyRuleLocator = (show: IDisplayOptions['show']): INodeProperties =>
+	resourceLocator(
+		{
+			name: 'proxyRuleId',
+			displayName: 'Proxy Rule',
+			kind: 'rule',
+			searchListMethod: 'searchProxyRules',
+			placeholder: 'e.g. 6650f1a2003e4b5c6d7e',
+			description: 'The proxy rule to use, listed by its domain',
+		},
+		show,
+	);
+
+export const wafRuleLocator = (show: IDisplayOptions['show']): INodeProperties =>
+	resourceLocator(
+		{
+			name: 'wafRuleId',
+			displayName: 'Firewall Rule',
+			kind: 'rule',
+			searchListMethod: 'searchWafRules',
+			placeholder: 'e.g. block-admin-paths',
+			description: 'The firewall rule to use',
 		},
 		show,
 	);

@@ -2,6 +2,7 @@ import type { INodeProperties } from 'n8n-workflow';
 
 import { teamLocator, userLocator } from './locators';
 import { listOptionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
+import { teamInstallationFields } from './TeamInstallationDescription';
 
 export const teamOperations: INodeProperties[] = [
 	{
@@ -22,6 +23,13 @@ export const teamOperations: INodeProperties[] = [
 				action: 'Create team',
 			},
 			{
+				name: 'Create Installation',
+				value: 'createInstallation',
+				description:
+					'Install an app on a team. The installation gets the scopes the app asks for now.',
+				action: 'Create team installation',
+			},
+			{
 				name: 'Create Membership',
 				value: 'createMembership',
 				description: 'Invite a new member to join a team',
@@ -32,6 +40,12 @@ export const teamOperations: INodeProperties[] = [
 				value: 'delete',
 				description: 'Delete a team permanently',
 				action: 'Delete team',
+			},
+			{
+				name: 'Delete Installation',
+				value: 'deleteInstallation',
+				description: 'Uninstall an app from a team and revoke the tokens of that installation',
+				action: 'Delete team installation',
 			},
 			{
 				name: 'Delete Membership',
@@ -46,10 +60,22 @@ export const teamOperations: INodeProperties[] = [
 				action: 'Get team',
 			},
 			{
+				name: 'Get Installation',
+				value: 'getInstallation',
+				description: 'Get an app installation on a team by ID',
+				action: 'Get team installation',
+			},
+			{
 				name: 'Get Many',
 				value: 'getMany',
 				description: 'List teams, with optional filters',
 				action: 'Get many teams',
+			},
+			{
+				name: 'Get Many Installations',
+				value: 'getManyInstallations',
+				description: 'List the apps installed on a team',
+				action: 'Get many team installations',
 			},
 			{
 				name: 'Get Many Memberships',
@@ -68,6 +94,13 @@ export const teamOperations: INodeProperties[] = [
 				value: 'getPrefs',
 				description: 'Get the shared preferences of a team',
 				action: 'Get team preferences',
+			},
+			{
+				name: 'Update Installation',
+				value: 'updateInstallation',
+				description:
+					"Change an installation's authorization details and refresh its scopes to the ones the app asks for now. Its tokens are revoked.",
+				action: 'Update team installation',
 			},
 			{
 				name: 'Update Membership',
@@ -96,18 +129,24 @@ export const teamFields: INodeProperties[] = [
 	teamLocator({
 		resource: ['team'],
 		operation: [
+			'createInstallation',
 			'createMembership',
 			'delete',
+			'deleteInstallation',
 			'deleteMembership',
 			'get',
+			'getInstallation',
+			'getManyInstallations',
 			'getManyMemberships',
 			'getMembership',
 			'getPrefs',
+			'updateInstallation',
 			'updateMembership',
 			'updateName',
 			'updatePrefs',
 		],
 	}),
+	...teamInstallationFields,
 	{
 		displayName: 'Name',
 		name: 'name',
@@ -220,8 +259,8 @@ export const teamFields: INodeProperties[] = [
 			},
 		},
 	},
-	...returnAllAndLimitProperties('team', ['getMany', 'getManyMemberships']),
-	...queriesProperties('team', ['getMany', 'getManyMemberships']),
+	...returnAllAndLimitProperties('team', ['getMany', 'getManyInstallations', 'getManyMemberships']),
+	...queriesProperties('team', ['getMany', 'getManyInstallations', 'getManyMemberships']),
 	{
 		displayName: 'Preferences',
 		name: 'prefs',
