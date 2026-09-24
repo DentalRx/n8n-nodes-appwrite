@@ -11,16 +11,29 @@ import { randomBytes } from 'node:crypto';
 
 export type AppwriteContext = IExecuteFunctions | ILoadOptionsFunctions;
 
+/**
+ * The credential a request authenticates with: a project API key, or an
+ * organization API key for the endpoints that act on a whole organization.
+ */
+export type AppwriteCredentialType = 'appwriteApi' | 'appwriteOrganizationApi';
+
 /** Appwrite accepts files up to 5 MB in a single request; larger ones are chunked. */
 const CHUNK_SIZE = 5 * 1024 * 1024;
 
-interface AppwriteRequestOptions {
+export interface AppwriteRequestOptions {
 	/** Query string parameters. Arrays are indexed (`queries[0]`) as Appwrite expects. */
 	qs?: IDataObject;
 	/** JSON request body. Keys with an `undefined` value are dropped. */
 	body?: IDataObject;
 	/** Extra headers to merge into the request. */
 	headers?: IDataObject;
+	/** The credential that authenticates the request. Defaults to the project's (`appwriteApi`). */
+	credentialType?: AppwriteCredentialType;
+}
+
+/** The API base URL a credential names, without its trailing slash. */
+function endpointOf(credentials: IDataObject): string {
+	return (credentials.endpoint as string).replace(/\/+$/, '');
 }
 
 /**
@@ -32,13 +45,16 @@ export async function getProject(
 ): Promise<{ baseUrl: string; projectId: string }> {
 	const credentials = await this.getCredentials('appwriteApi');
 	return {
-		baseUrl: (credentials.endpoint as string).replace(/\/+$/, ''),
+		baseUrl: endpointOf(credentials),
 		projectId: credentials.projectId as string,
 	};
 }
 
-async function getBaseUrl(this: AppwriteContext): Promise<string> {
-	return (await getProject.call(this)).baseUrl;
+async function getBaseUrl(
+	this: AppwriteContext,
+	credentialType: AppwriteCredentialType = 'appwriteApi',
+): Promise<string> {
+	return endpointOf(await this.getCredentials(credentialType));
 }
 
 /**
@@ -236,13 +252,14 @@ async function request(
 	itemIndex?: number,
 ): Promise<unknown> {
 	assertPathHasNoEmptyId(context, path, itemIndex);
-	const baseUrl = await getBaseUrl.call(context);
+	const credentialType = options.credentialType ?? 'appwriteApi';
+	const baseUrl = await getBaseUrl.call(context, credentialType);
 	const requestOptions = buildRequestOptions(baseUrl, method, path, options, binary);
 
 	try {
 		return await context.helpers.httpRequestWithAuthentication.call(
 			context,
-			'appwriteApi',
+			credentialType,
 			requestOptions,
 		);
 	} catch (error) {

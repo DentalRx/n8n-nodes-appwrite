@@ -55,7 +55,8 @@
 		"n8nNodesApiVersion": 1,
 		"strict": true,
 		"credentials": [
-			"dist/credentials/AppwriteApi.credentials.js"
+			"dist/credentials/AppwriteApi.credentials.js",
+			"dist/credentials/AppwriteOrganizationApi.credentials.js"
 		],
 		"nodes": [
 			"dist/nodes/Appwrite/Appwrite.node.js"

@@ -28,6 +28,7 @@ import {
 	documentDatabaseOperations,
 } from './descriptions/DocumentDatabaseDescription';
 import { documentFields, documentOperations } from './descriptions/DocumentDescription';
+import { domainFields, domainOperations } from './descriptions/DomainDescription';
 import {
 	emailTemplateFields,
 	emailTemplateOperations,
@@ -47,6 +48,11 @@ import {
 	oauth2ProviderOperations,
 } from './descriptions/OAuth2ProviderDescription';
 import { oauth2ServerFields, oauth2ServerOperations } from './descriptions/OAuth2ServerDescription';
+import { organizationFields, organizationOperations } from './descriptions/OrganizationDescription';
+import {
+	organizationProjectFields,
+	organizationProjectOperations,
+} from './descriptions/OrganizationProjectDescription';
 import { platformFields, platformOperations } from './descriptions/PlatformDescription';
 import { presenceFields, presenceOperations } from './descriptions/PresenceDescription';
 import { projectFields, projectOperations } from './descriptions/ProjectDescription';
@@ -82,6 +88,7 @@ import { executeDedicatedDatabaseOperation } from './operations/DedicatedDatabas
 import { documentCollectionExecutor } from './operations/DocumentCollectionOperations';
 import { documentDatabaseExecutor } from './operations/DocumentDatabaseOperations';
 import { documentExecutor } from './operations/DocumentOperations';
+import { executeDomainOperation } from './operations/DomainOperations';
 import { executeEmailTemplateOperation } from './operations/EmailTemplateOperations';
 import { executeEmbeddingOperation } from './operations/EmbeddingOperations';
 import { executeExecutionOperation } from './operations/ExecutionOperations';
@@ -95,6 +102,8 @@ import { executeMessageOperation } from './operations/MessageOperations';
 import { executeMockPhoneOperation } from './operations/MockPhoneOperations';
 import { executeOAuth2ProviderOperation } from './operations/OAuth2ProviderOperations';
 import { executeOAuth2ServerOperation } from './operations/OAuth2ServerOperations';
+import { executeOrganizationOperation } from './operations/OrganizationOperations';
+import { executeOrganizationProjectOperation } from './operations/OrganizationProjectOperations';
 import { executePlatformOperation } from './operations/PlatformOperations';
 import { executePresenceOperation } from './operations/PresenceOperations';
 import { executeProjectOperation } from './operations/ProjectOperations';
@@ -272,6 +281,17 @@ const RESOURCES: ResourceDefinition[] = [
 	},
 	{
 		option: {
+			name: 'Domain',
+			value: 'domain',
+			description:
+				"Manage the organization's domains and their DNS records (Appwrite Cloud, organization API key)",
+		},
+		operations: domainOperations,
+		fields: domainFields,
+		execute: executeDomainOperation,
+	},
+	{
+		option: {
 			name: 'Email Template',
 			value: 'emailTemplate',
 			description:
@@ -407,6 +427,28 @@ const RESOURCES: ResourceDefinition[] = [
 		operations: oauth2ServerOperations,
 		fields: oauth2ServerFields,
 		execute: executeOAuth2ServerOperation,
+	},
+	{
+		option: {
+			name: 'Organization',
+			value: 'organization',
+			description:
+				'Manage the organization, its members, and its app installations (Appwrite Cloud, organization API key)',
+		},
+		operations: organizationOperations,
+		fields: organizationFields,
+		execute: executeOrganizationOperation,
+	},
+	{
+		option: {
+			name: 'Organization Project',
+			value: 'organizationProject',
+			description:
+				"Create and manage the organization's projects and their API keys (organization API key)",
+		},
+		operations: organizationProjectOperations,
+		fields: organizationProjectFields,
+		execute: executeOrganizationProjectOperation,
 	},
 	{
 		option: {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { AppwriteApi } from '../credentials/AppwriteApi.credentials';
+import { AppwriteOrganizationApi } from '../credentials/AppwriteOrganizationApi.credentials';
 
 describe('AppwriteApi credential', () => {
 	const credential = new AppwriteApi();
@@ -44,5 +45,52 @@ describe('AppwriteApi credential', () => {
 		expect(credential.test.request.method).toBe('GET');
 		expect(credential.test.request.url).toBe('/tablesdb');
 		expect(credential.test.request.baseURL).toContain('$credentials.endpoint');
+	});
+});
+
+describe('AppwriteOrganizationApi credential', () => {
+	const credential = new AppwriteOrganizationApi();
+	const project = new AppwriteApi();
+
+	it('is named consistently with the node and documented like the project credential', () => {
+		expect(credential.name).toBe('appwriteOrganizationApi');
+		expect(credential.displayName).toBe('Appwrite Organization API');
+		expect(credential.documentationUrl).toBe(project.documentationUrl);
+		expect(credential.icon).toEqual(project.icon);
+	});
+
+	it('asks for the endpoint, organization ID and a masked organization API key', () => {
+		const names = credential.properties.map((property) => property.name);
+		expect(names).toEqual(['endpoint', 'organizationId', 'apiKey']);
+		for (const property of credential.properties) {
+			expect(property.required, `${property.name} is required`).toBe(true);
+			expect(property.description, `${property.name} has a description`).toBeTruthy();
+		}
+		const apiKey = credential.properties.find((property) => property.name === 'apiKey');
+		expect(apiKey?.displayName).toBe('Organization API Key');
+		expect(apiKey?.typeOptions).toEqual({ password: true });
+		// Both credentials ask for the endpoint the same way.
+		expect(credential.properties[0]).toEqual(project.properties[0]);
+	});
+
+	it("sends the key with the organization's ID, in the Console's own project", () => {
+		expect(credential.authenticate).toEqual({
+			type: 'generic',
+			properties: {
+				headers: {
+					'X-Appwrite-Project': 'console',
+					'X-Appwrite-Organization': '={{$credentials.organizationId}}',
+					'X-Appwrite-Key': '={{$credentials.apiKey}}',
+				},
+			},
+		});
+	});
+
+	it('tests the credential against an organization endpoint that needs a real scope', () => {
+		expect(credential.test.request).toEqual({
+			baseURL: project.test.request.baseURL,
+			url: '/organization/projects',
+			method: 'GET',
+		});
 	});
 });

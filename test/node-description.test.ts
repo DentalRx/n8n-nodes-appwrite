@@ -3,7 +3,9 @@ import { NodeHelpers } from 'n8n-workflow';
 import { describe, expect, it } from 'vitest';
 
 import { AppwriteApi } from '../credentials/AppwriteApi.credentials';
+import { AppwriteOrganizationApi } from '../credentials/AppwriteOrganizationApi.credentials';
 import codex from '../nodes/Appwrite/Appwrite.node.json';
+import { ORGANIZATION_RESOURCES } from '../nodes/Appwrite/helpers/organization';
 import packageJson from '../package.json';
 import tsconfig from '../tsconfig.json';
 import { description, node, resolveParameters, testNode } from './helpers/mock-context';
@@ -89,9 +91,45 @@ describe('node metadata', () => {
 		expect(tsconfig.include).toContain('nodes/**/*.json');
 	});
 
-	it('requires the credential type this package ships', () => {
-		const credential = new AppwriteApi();
-		expect(description.credentials).toEqual([{ name: credential.name, required: true }]);
+	it('requires the project credential, or the organization one for the organization-level resources', () => {
+		const project = new AppwriteApi();
+		const organization = new AppwriteOrganizationApi();
+		expect(description.credentials).toEqual([
+			{
+				name: project.name,
+				required: true,
+				displayOptions: { hide: { resource: ORGANIZATION_RESOURCES } },
+			},
+			{
+				name: organization.name,
+				required: true,
+				displayOptions: { show: { resource: ORGANIZATION_RESOURCES } },
+			},
+		]);
+		for (const resource of ORGANIZATION_RESOURCES) expect(resources).toContain(resource);
+		expect(packageJson.n8n.credentials).toEqual([
+			'dist/credentials/AppwriteApi.credentials.js',
+			'dist/credentials/AppwriteOrganizationApi.credentials.js',
+		]);
+	});
+
+	it('shows exactly one credential for every resource', () => {
+		for (const resource of resources) {
+			const shown = (description.credentials ?? []).filter((credential) =>
+				NodeHelpers.displayParameter(
+					resolveParameters({ resource }),
+					credential,
+					testNode,
+					description,
+				),
+			);
+			expect(
+				shown.map((credential) => credential.name),
+				resource,
+			).toEqual([
+				ORGANIZATION_RESOURCES.includes(resource) ? 'appwriteOrganizationApi' : 'appwriteApi',
+			]);
+		}
 	});
 
 	it('defaults the resource selector to one of its options', () => {

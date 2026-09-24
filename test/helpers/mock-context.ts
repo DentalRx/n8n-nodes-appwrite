@@ -23,6 +23,18 @@ export const CREDENTIALS: IDataObject = {
 	apiKey: 'test-api-key',
 };
 
+/** The Appwrite Organization API credential, for the organization-level resources. */
+export const ORGANIZATION_CREDENTIALS: IDataObject = {
+	endpoint: 'https://cloud.appwrite.io/v1/',
+	organizationId: 'test-organization',
+	apiKey: 'organization_test-key',
+};
+
+const CREDENTIALS_BY_TYPE: Record<string, IDataObject> = {
+	appwriteApi: CREDENTIALS,
+	appwriteOrganizationApi: ORGANIZATION_CREDENTIALS,
+};
+
 /** The endpoint above, as every request URL must start with it. */
 export const BASE_URL = 'https://cloud.appwrite.io/v1';
 
@@ -89,6 +101,29 @@ export function extractLocatorValue(
 	return match[1];
 }
 
+/**
+ * The credential of a type, as n8n hands it over: only when the node declares
+ * the type and shows it for the node's parameters (n8n refuses a credential
+ * whose displayOptions hide it). A plain Error rather than n8n's
+ * NodeOperationError, so that no test can mistake it for a validation message.
+ */
+function credentialFor(
+	type: string,
+	parameters: INodeParameters,
+	overrides: Record<string, IDataObject> = {},
+): IDataObject {
+	const declared = description.credentials?.find((credential) => credential.name === type);
+	const data = overrides[type] ?? CREDENTIALS_BY_TYPE[type];
+	if (
+		declared === undefined ||
+		data === undefined ||
+		!NodeHelpers.displayParameter(parameters, declared, testNode, description)
+	) {
+		throw new Error(`The node cannot use a "${type}" credential with these parameters`);
+	}
+	return { ...data };
+}
+
 function getByPath(source: unknown, path: string): unknown {
 	let current: unknown = source;
 	for (const segment of path.split('.')) {
@@ -112,6 +147,8 @@ export interface ExecuteContextOptions {
 	continueOnFail?: boolean;
 	/** Binary properties available on every input item, keyed by property name. */
 	binary?: Record<string, BinaryFixture>;
+	/** Credential data to use instead of the defaults above, keyed by credential type. */
+	credentials?: Record<string, IDataObject>;
 }
 
 export interface ExecuteContext {
@@ -124,6 +161,13 @@ export interface ExecuteContext {
 	 * rather than httpRequest, which sends only the headers the node set.
 	 */
 	withApiKey: boolean[];
+	/**
+	 * For each entry of `requests`, the credential type it authenticated with,
+	 * or undefined for a request sent without one.
+	 */
+	credentialTypes: Array<string | undefined>;
+	/** The credential types the node read, in order. */
+	credentialReads: string[];
 }
 
 /**
@@ -136,13 +180,17 @@ export function createExecuteContext(options: ExecuteContextOptions): ExecuteCon
 	const resolved = resolveParameters(options.parameters);
 	const requests: IHttpRequestOptions[] = [];
 	const withApiKey: boolean[] = [];
+	const credentialTypes: Array<string | undefined> = [];
+	const credentialReads: string[] = [];
 	const respond: Responder = options.respond ?? (() => ({}));
 	const items = options.items ?? [{ json: {} }];
 	const binary = options.binary ?? {};
 
-	const send = async (request: IHttpRequestOptions, apiKey: boolean): Promise<unknown> => {
+	const send = async (request: IHttpRequestOptions, credentialType?: string): Promise<unknown> => {
+		if (credentialType !== undefined) credentialFor(credentialType, resolved, options.credentials);
 		requests.push(request);
-		withApiKey.push(apiKey);
+		withApiKey.push(credentialType !== undefined);
+		credentialTypes.push(credentialType);
 		return await respond(request, requests.length - 1);
 	};
 
@@ -162,7 +210,10 @@ export function createExecuteContext(options: ExecuteContextOptions): ExecuteCon
 		getNode: () => testNode,
 		getInputData: () => items,
 		continueOnFail: () => options.continueOnFail ?? false,
-		getCredentials: async () => ({ ...CREDENTIALS }),
+		getCredentials: async (type: string) => {
+			credentialReads.push(type);
+			return credentialFor(type, resolved, options.credentials);
+		},
 		getNodeParameter: (
 			name: string,
 			_itemIndex: number,
@@ -177,11 +228,9 @@ export function createExecuteContext(options: ExecuteContextOptions): ExecuteCon
 			throw new Error(`Could not get parameter "${name}"`);
 		},
 		helpers: {
-			httpRequestWithAuthentication: async (
-				_credentialType: string,
-				request: IHttpRequestOptions,
-			) => await send(request, true),
-			httpRequest: async (request: IHttpRequestOptions) => await send(request, false),
+			httpRequestWithAuthentication: async (credentialType: string, request: IHttpRequestOptions) =>
+				await send(request, credentialType),
+			httpRequest: async (request: IHttpRequestOptions) => await send(request),
 			prepareBinaryData: async (
 				buffer: Buffer,
 				fileName?: string,
@@ -204,13 +253,21 @@ export function createExecuteContext(options: ExecuteContextOptions): ExecuteCon
 		},
 	};
 
-	return { context: context as unknown as IExecuteFunctions, requests, withApiKey };
+	return {
+		context: context as unknown as IExecuteFunctions,
+		requests,
+		withApiKey,
+		credentialTypes,
+		credentialReads,
+	};
 }
 
 export interface LoadOptionsContextOptions {
 	/** Values of the sibling parameters a dependent picker reads. */
 	current?: INodeParameters;
 	respond?: Responder;
+	/** Credential data to use instead of the defaults above, keyed by credential type. */
+	credentials?: Record<string, IDataObject>;
 }
 
 export interface LoadOptionsContext {
@@ -218,6 +275,8 @@ export interface LoadOptionsContext {
 	requests: IHttpRequestOptions[];
 	/** Whether each request went out with the API key, in order. */
 	withApiKey: boolean[];
+	/** For each entry of `requests`, the credential type it authenticated with, if any. */
+	credentialTypes: Array<string | undefined>;
 }
 
 export function createLoadOptionsContext(
@@ -225,29 +284,39 @@ export function createLoadOptionsContext(
 ): LoadOptionsContext {
 	const requests: IHttpRequestOptions[] = [];
 	const withApiKey: boolean[] = [];
+	const credentialTypes: Array<string | undefined> = [];
 	const respond: Responder = options.respond ?? (() => ({}));
 	const current = options.current ?? {};
-	const send = async (request: IHttpRequestOptions, apiKey: boolean): Promise<unknown> => {
+	const send = async (request: IHttpRequestOptions, credentialType?: string): Promise<unknown> => {
 		requests.push(request);
-		withApiKey.push(apiKey);
+		withApiKey.push(credentialType !== undefined);
+		credentialTypes.push(credentialType);
 		return await respond(request, requests.length - 1);
 	};
 
 	const context = {
 		getNode: () => testNode,
-		getCredentials: async () => ({ ...CREDENTIALS }),
+		getCredentials: async (type: string) => credentialFor(type, current, options.credentials),
 		getCurrentNodeParameter: (name: string, parameterOptions?: { extractValue?: boolean }) =>
 			parameterOptions?.extractValue
 				? extractLocatorValue(name, current[name], current)
 				: current[name],
 		helpers: {
 			httpRequestWithAuthentication: async (
-				_credentialType: string,
+				credentialType: string,
 				request: IHttpRequestOptions,
-			) => await send(request, true),
-			httpRequest: async (request: IHttpRequestOptions) => await send(request, false),
+			) => {
+				credentialFor(credentialType, current, options.credentials);
+				return await send(request, credentialType);
+			},
+			httpRequest: async (request: IHttpRequestOptions) => await send(request),
 		},
 	};
 
-	return { context: context as unknown as ILoadOptionsFunctions, requests, withApiKey };
+	return {
+		context: context as unknown as ILoadOptionsFunctions,
+		requests,
+		withApiKey,
+		credentialTypes,
+	};
 }

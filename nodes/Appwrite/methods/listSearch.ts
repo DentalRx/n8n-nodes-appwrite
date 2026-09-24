@@ -9,12 +9,13 @@ import { Query, extractId } from '../helpers/appwrite';
 import { findEngine } from '../helpers/dedicatedDatabases';
 import type { DocumentDatabaseType } from '../helpers/documentDatabases';
 import { DOCUMENTS_DB, VECTORS_DB } from '../helpers/documentDatabases';
+import type { AppwriteCredentialType } from '../transport';
 import { appwriteApiRequest } from '../transport';
 
 /** Entries fetched per page of a From List search. */
 const PAGE_SIZE = 100;
 
-interface ListEntry extends IDataObject {
+export interface ListEntry extends IDataObject {
 	$id?: string;
 	name?: string;
 }
@@ -24,13 +25,14 @@ interface ListEntry extends IDataObject {
  * mode. The typed filter goes to Appwrite's own `search` parameter, and the
  * last ID of a full page becomes the cursor n8n hands back for the next page.
  */
-async function searchList(
+export async function searchList(
 	context: ILoadOptionsFunctions,
 	path: string,
 	listKey: string,
 	label: (entry: ListEntry) => string,
 	filter?: string,
 	paginationToken?: string,
+	credentialType?: AppwriteCredentialType,
 ): Promise<INodeListSearchResult> {
 	const queries = [Query.limit(PAGE_SIZE)];
 	if (paginationToken) queries.push(Query.cursorAfter(paginationToken));
@@ -38,7 +40,7 @@ async function searchList(
 	const qs: IDataObject = { queries };
 	if (filter) qs.search = filter;
 
-	const response = await appwriteApiRequest.call(context, 'GET', path, { qs });
+	const response = await appwriteApiRequest.call(context, 'GET', path, { qs, credentialType });
 	const page = (response[listKey] ?? []) as ListEntry[];
 	const entries = page.filter((entry) => typeof entry.$id === 'string' && entry.$id !== '');
 
@@ -59,18 +61,19 @@ async function searchList(
  * straight on to the next, so the picker is never left empty while more
  * entries remain.
  */
-async function searchListByLabel(
+export async function searchListByLabel(
 	context: ILoadOptionsFunctions,
 	path: string,
 	listKey: string,
 	label: (entry: ListEntry) => string,
 	filter?: string,
 	paginationToken?: string,
+	credentialType?: AppwriteCredentialType,
 ): Promise<INodeListSearchResult> {
 	const needle = (filter ?? '').toLowerCase();
 	let cursor = paginationToken;
 	for (;;) {
-		const page = await searchList(context, path, listKey, label, undefined, cursor);
+		const page = await searchList(context, path, listKey, label, undefined, cursor, credentialType);
 		const results = page.results.filter(
 			(result) =>
 				result.name.toLowerCase().includes(needle) ||
@@ -87,12 +90,12 @@ async function searchListByLabel(
  * The ID a dependent list needs from its parent locator, e.g. the database a
  * table belongs to. Returns '' until the parent has a value.
  */
-function parentId(context: ILoadOptionsFunctions, name: string, kind: string): string {
+export function parentId(context: ILoadOptionsFunctions, name: string, kind: string): string {
 	const value = context.getCurrentNodeParameter(name, { extractValue: true });
 	return typeof value === 'string' ? extractId(value, kind) : '';
 }
 
-const byName = (entry: ListEntry): string => entry.name ?? '';
+export const byName = (entry: ListEntry): string => entry.name ?? '';
 
 export async function searchApps(
 	this: ILoadOptionsFunctions,

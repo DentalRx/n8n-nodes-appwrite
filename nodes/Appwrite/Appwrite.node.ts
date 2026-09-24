@@ -7,6 +7,7 @@ import type {
 } from 'n8n-workflow';
 import { NodeApiError, NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
+import { ORGANIZATION_RESOURCES } from './helpers/organization';
 import { listSearch, loadOptions } from './methods';
 import { getExecutor, properties } from './resources';
 
@@ -26,10 +27,19 @@ export class Appwrite implements INodeType {
 		inputs: [NodeConnectionTypes.Main],
 		outputs: [NodeConnectionTypes.Main],
 		usableAsTool: true,
+		// The organization-level resources authenticate with an organization API
+		// key instead of the project's, so each credential shows (and is
+		// required) only for the resources that use it.
 		credentials: [
 			{
 				name: 'appwriteApi',
 				required: true,
+				displayOptions: { hide: { resource: ORGANIZATION_RESOURCES } },
+			},
+			{
+				name: 'appwriteOrganizationApi',
+				required: true,
+				displayOptions: { show: { resource: ORGANIZATION_RESOURCES } },
 			},
 		],
 		properties,

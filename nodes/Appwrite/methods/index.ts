@@ -30,6 +30,12 @@ import {
 	getRuntimes,
 	getSiteBuildRuntimes,
 } from './loadOptions';
+import {
+	searchDnsRecords,
+	searchDomains,
+	searchOrganizationProjectKeys,
+	searchOrganizationProjects,
+} from './organizationListSearch';
 
 /** The pickers behind the node's resource locators (From List mode). */
 export const listSearch = {
@@ -38,10 +44,14 @@ export const listSearch = {
 	searchBuckets,
 	searchDatabases,
 	searchDedicatedDatabases,
+	searchDnsRecords,
 	searchDocumentsDbCollections,
 	searchDocumentsDbDatabases,
+	searchDomains,
 	searchFiles,
 	searchFunctions,
+	searchOrganizationProjectKeys,
+	searchOrganizationProjects,
 	searchPlatforms,
 	searchProviders,
 	searchProxyRules,
