@@ -91,7 +91,7 @@ function getRequiredSecret(
 	description: string,
 	itemIndex: number,
 ): string {
-	const value = (this.getNodeParameter(parameterName, itemIndex, '') as string).trim();
+	const value = String(this.getNodeParameter(parameterName, itemIndex, '') ?? '').trim();
 	if (value === '') {
 		throw new NodeOperationError(this.getNode(), `The '${label}' parameter is empty`, {
 			description,
@@ -204,7 +204,7 @@ export async function executeAccountOperation(
 	// ID, Delete Session would request /account/sessions/, which differs only
 	// by a trailing slash from the path that signs the user out on every device.
 	const requiredId = (parameterName: string, label: string): string => {
-		const id = (this.getNodeParameter(parameterName, i, '') as string).trim();
+		const id = String(this.getNodeParameter(parameterName, i, '') ?? '').trim();
 		if (id === '') {
 			throw new NodeOperationError(this.getNode(), `The '${label}' parameter is empty`, {
 				description: 'Enter the ID, or map it from a previous node with an expression.',
