@@ -108,6 +108,8 @@ export function gitSourceProperties(resource: string): INodeProperties[] {
 			options: [
 				{ name: 'Branch', value: 'branch' },
 				{ name: 'Commit', value: 'commit' },
+				// Appwrite deploys sites, but not functions, from a Git tag.
+				...(resource === 'site' ? [{ name: 'Tag', value: 'tag' }] : []),
 			],
 			default: 'branch',
 			description: 'The kind of Git reference to deploy',
@@ -245,7 +247,16 @@ export function variableProperties(resource: string): INodeProperties[] {
 			required: true,
 			default: '',
 			description: 'The variable key (environment variable name). Max length: 255 characters.',
-			displayOptions: show(resource, ['createVariable', 'updateVariable']),
+			displayOptions: show(resource, ['createVariable']),
+		},
+		{
+			displayName: 'Key',
+			name: 'key',
+			type: 'string',
+			default: '',
+			description:
+				'A new key (environment variable name) for the variable. Leave empty to keep the current key. Max length: 255 characters.',
+			displayOptions: show(resource, ['updateVariable']),
 		},
 		{
 			displayName: 'Value',
@@ -271,9 +282,18 @@ export function variableProperties(resource: string): INodeProperties[] {
 			displayName: 'Secret',
 			name: 'secret',
 			type: 'boolean',
+			// Appwrite's own default: a value is unreadable unless asked otherwise.
+			default: true,
+			description: `Whether the variable is secret. Secret variables can be updated or deleted, but only ${resource}s can read them during build and runtime, and a variable cannot be made readable again once it is secret.`,
+			displayOptions: show(resource, ['createVariable']),
+		},
+		{
+			displayName: 'Make Secret',
+			name: 'secret',
+			type: 'boolean',
 			default: false,
-			description: `Whether the variable is secret. Secret variables can be updated or deleted, but only ${resource}s can read them during build and runtime, and a variable cannot be made readable again once it is secret. When updating, leaving this off keeps the existing setting.`,
-			displayOptions: show(resource, ['createVariable', 'updateVariable']),
+			description: `Whether to make the variable secret. Only ${resource}s can then read it during build and runtime. This cannot be undone; leaving it off keeps the variable's current setting.`,
+			displayOptions: show(resource, ['updateVariable']),
 		},
 	];
 }

@@ -306,7 +306,7 @@ export async function executeComputeOperation(
 		const variableId = resolveId(this.getNodeParameter('variableId', i, '') as string);
 		const key = this.getNodeParameter('key', i) as string;
 		const value = this.getNodeParameter('value', i) as string;
-		const secret = this.getNodeParameter('secret', i, false) as boolean;
+		const secret = this.getNodeParameter('secret', i, true) as boolean;
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
@@ -375,7 +375,7 @@ export async function executeComputeOperation(
 	}
 
 	if (operation === 'updateVariable') {
-		const key = this.getNodeParameter('key', i) as string;
+		const key = String(this.getNodeParameter('key', i, '') ?? '');
 		const value = this.getNodeParameter('value', i, '') as string;
 		const secret = this.getNodeParameter('secret', i, false) as boolean;
 		const response = await appwriteApiRequest.call(
@@ -384,7 +384,7 @@ export async function executeComputeOperation(
 			variablePath(),
 			{
 				body: {
-					key,
+					key: key === '' ? undefined : key,
 					value: value === '' ? undefined : value,
 					// `secret` is one-way in Appwrite: once set it cannot be turned back
 					// off, and omitting it keeps the variable's current setting - which

@@ -78,7 +78,8 @@ async function runCase(smokeCase: SmokeCase): Promise<void> {
 		expect(request.url.startsWith(`${BASE_URL}/`)).toBe(true);
 		const path = request.url.slice(BASE_URL.length);
 		expect(path).not.toMatch(/undefined|null|\[object Object\]/);
-		if (smokeCase.filled) expect(path).not.toMatch(/\/\/|\/$/);
+		// An empty path segment is an empty ID; the transport must refuse it.
+		expect(path).not.toMatch(/\/\/|\/$/);
 
 		for (const [key, value] of Object.entries((request.qs ?? {}) as IDataObject)) {
 			expect(value, `query parameter ${key}`).not.toBeUndefined();

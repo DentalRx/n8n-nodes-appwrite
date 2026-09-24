@@ -149,6 +149,24 @@ function parseErrorBuffer(buffer: Buffer): JsonObject | undefined {
 }
 
 /**
+ * Refuse a request path with an empty segment. Every segment after the
+ * service name is an ID, so an empty one means an ID field resolved to
+ * nothing, typically an expression that found no value. Appwrite's router
+ * drops empty segments, so `DELETE .../rows/` would otherwise reach the bulk
+ * route `DELETE .../rows` and act on every row in the table.
+ */
+function assertPathHasNoEmptyId(context: AppwriteContext, path: string, itemIndex?: number): void {
+	const pathname = path.split('?')[0];
+	if (pathname.includes('//') || (pathname.length > 1 && pathname.endsWith('/'))) {
+		throw new NodeOperationError(context.getNode(), 'An ID for this operation is empty', {
+			description:
+				'One of the ID fields resolved to an empty value, so the request was not sent. Check the IDs and any expressions in them, e.g. {{ $json.$id }} rather than {{ $json.id }}.',
+			itemIndex,
+		});
+	}
+}
+
+/**
  * Shape a request the way every Appwrite call is sent: JSON in and out,
  * bracketed query parameters, and a body without undefined keys.
  */
@@ -200,6 +218,7 @@ async function request(
 	binary: boolean,
 	itemIndex?: number,
 ): Promise<unknown> {
+	assertPathHasNoEmptyId(context, path, itemIndex);
 	const baseUrl = await getBaseUrl.call(context);
 	const requestOptions = buildRequestOptions(baseUrl, method, path, options, binary);
 
@@ -273,6 +292,7 @@ export async function appwriteUserRequest(
 	options: AppwriteRequestOptions = {},
 	itemIndex?: number,
 ): Promise<IDataObject> {
+	assertPathHasNoEmptyId(this, path, itemIndex);
 	const { baseUrl, projectId } = await getProject.call(this);
 	const requestOptions = buildRequestOptions(baseUrl, method, path, options, false);
 	requestOptions.headers = {
@@ -316,15 +336,14 @@ function buildMultipartBody(
 	const parts: Buffer[] = [];
 
 	for (const [name, value] of fields) {
-		// A field value lands in the part's body, where a CRLF is only content
-		// and could not forge a part without also guessing the boundary. Strip
-		// it anyway: none of these values (IDs, permission strings) may span
-		// lines, so there is nothing to lose and one less thing to reason about.
+		// A field value lands in the part's body, where a line break is only
+		// content: forging a part would also take guessing the CSPRNG boundary.
+		// Values are sent as they are, so multi-line build commands survive.
 		parts.push(
 			Buffer.from(
 				`--${boundary}\r\nContent-Disposition: form-data; name="${escapeHeaderParameter(
 					name,
-				)}"\r\n\r\n${value.replace(/[\r\n]/g, '')}\r\n`,
+				)}"\r\n\r\n${value}\r\n`,
 			),
 		);
 	}
@@ -360,6 +379,7 @@ export async function appwriteFileUpload(
 	fields: Array<[string, string]>,
 	itemIndex: number,
 ): Promise<IDataObject> {
+	assertPathHasNoEmptyId(this, path, itemIndex);
 	const baseUrl = await getBaseUrl.call(this);
 	const url = `${baseUrl}${path}`;
 	const total = file.content.length;

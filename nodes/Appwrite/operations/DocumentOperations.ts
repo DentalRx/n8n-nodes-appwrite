@@ -15,7 +15,7 @@ import {
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
-import { Query, extractId, resolveId } from '../helpers/appwrite';
+import { Query, resolveId } from '../helpers/appwrite';
 import type { DocumentDatabaseType } from '../helpers/documentDatabases';
 import { EMBEDDINGS_ATTRIBUTE } from '../helpers/documentDatabases';
 import { appwriteApiRequest } from '../transport';
@@ -122,7 +122,7 @@ export function documentExecutor(type: DocumentDatabaseType) {
 		}
 
 		if (operation === 'get') {
-			const documentId = extractId(this.getNodeParameter('documentId', i) as string, 'document');
+			const documentId = getResourceId.call(this, 'documentId', i, 'document', 'Document ID');
 			const queries = buildQueries.call(this, i);
 			const response = await appwriteApiRequest.call(
 				this,
@@ -201,7 +201,7 @@ export function documentExecutor(type: DocumentDatabaseType) {
 		}
 
 		if (operation === 'update') {
-			const documentId = extractId(this.getNodeParameter('documentId', i) as string, 'document');
+			const documentId = getResourceId.call(this, 'documentId', i, 'document', 'Document ID');
 			const data = getData();
 			const permissions = getPermissions.call(this, i);
 			const response = await appwriteApiRequest.call(
@@ -248,7 +248,7 @@ export function documentExecutor(type: DocumentDatabaseType) {
 		}
 
 		if (operation === 'delete') {
-			const documentId = extractId(this.getNodeParameter('documentId', i) as string, 'document');
+			const documentId = getResourceId.call(this, 'documentId', i, 'document', 'Document ID');
 			// The spec declares transactionId a query-string parameter on DELETE.
 			await appwriteApiRequest.call(
 				this,
@@ -274,7 +274,7 @@ export function documentExecutor(type: DocumentDatabaseType) {
 		}
 
 		if ((operation === 'increment' || operation === 'decrement') && !type.vectors) {
-			const documentId = extractId(this.getNodeParameter('documentId', i) as string, 'document');
+			const documentId = getResourceId.call(this, 'documentId', i, 'document', 'Document ID');
 			const attribute = this.getNodeParameter('documentAttribute', i) as string;
 			const value = this.getNodeParameter('amount', i, 1) as number;
 			const bound = operation === 'increment' ? { max: options.max } : { min: options.min };

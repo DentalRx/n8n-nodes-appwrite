@@ -12,7 +12,7 @@ import {
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
-import { extractId, resolveId } from '../helpers/appwrite';
+import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeRowOperation(
@@ -63,7 +63,7 @@ export async function executeRowOperation(
 	}
 
 	if (operation === 'get') {
-		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
+		const rowId = getResourceId.call(this, 'rowId', i, 'row', 'Row ID');
 		const queries = buildQueries.call(this, i);
 		const response = await appwriteApiRequest.call(
 			this,
@@ -115,7 +115,7 @@ export async function executeRowOperation(
 	}
 
 	if (operation === 'update') {
-		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
+		const rowId = getResourceId.call(this, 'rowId', i, 'row', 'Row ID');
 		const data = getRowData.call(this, i);
 		const permissions = getPermissions.call(this, i);
 		const response = await appwriteApiRequest.call(
@@ -179,7 +179,7 @@ export async function executeRowOperation(
 	}
 
 	if (operation === 'delete') {
-		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
+		const rowId = getResourceId.call(this, 'rowId', i, 'row', 'Row ID');
 		// The spec declares transactionId a query-string parameter on DELETE.
 		await appwriteApiRequest.call(
 			this,
@@ -212,7 +212,7 @@ export async function executeRowOperation(
 	}
 
 	if (operation === 'increment') {
-		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
+		const rowId = getResourceId.call(this, 'rowId', i, 'row', 'Row ID');
 		const column = this.getNodeParameter('column', i) as string;
 		const value = this.getNodeParameter('amount', i, 1) as number;
 		const response = await appwriteApiRequest.call(
@@ -226,7 +226,7 @@ export async function executeRowOperation(
 	}
 
 	if (operation === 'decrement') {
-		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
+		const rowId = getResourceId.call(this, 'rowId', i, 'row', 'Row ID');
 		const column = this.getNodeParameter('column', i) as string;
 		const value = this.getNodeParameter('amount', i, 1) as number;
 		const response = await appwriteApiRequest.call(
