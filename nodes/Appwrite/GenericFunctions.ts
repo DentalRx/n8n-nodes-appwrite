@@ -135,6 +135,77 @@ export function getStringParameter(
 	return typeof value === 'object' ? JSON.stringify(value) : String(value);
 }
 
+/** A date and time without a UTC offset, as n8n's date picker stores it. */
+const LOCAL_DATE_TIME =
+	/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3})\d*)?)?)?$/;
+
+/** How far ahead of UTC the time zone's wall clock is at an instant, in milliseconds. */
+function utcOffsetAt(instant: number, timezone: string): number {
+	const parts = new Intl.DateTimeFormat('en-US', {
+		timeZone: timezone,
+		hourCycle: 'h23',
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+		hour: '2-digit',
+		minute: '2-digit',
+		second: '2-digit',
+	}).formatToParts(new Date(instant));
+	const part = (type: string): number =>
+		Number(parts.find((candidate) => candidate.type === type)?.value);
+	const wallClock = Date.UTC(
+		part('year'),
+		part('month') - 1,
+		part('day'),
+		part('hour'),
+		part('minute'),
+		part('second'),
+	);
+	return wallClock - (instant - (((instant % 1000) + 1000) % 1000));
+}
+
+/**
+ * A date and time as the UTC timestamp Appwrite expects. n8n's date picker
+ * stores the wall-clock time of the workflow's time zone without an offset,
+ * which Appwrite would read as UTC; such a value is converted from that time
+ * zone. A value with an offset, or one that is not a date, is kept as it is.
+ */
+export function dateTimeInZone(value: unknown, timezone: string): unknown {
+	if (value instanceof Date) return value.toISOString();
+	if (value !== null && typeof value === 'object' && 'toISO' in value) {
+		const toIso = (value as { toISO: unknown }).toISO;
+		if (typeof toIso === 'function') return String(toIso.call(value));
+	}
+	if (typeof value !== 'string') return value;
+	const match = LOCAL_DATE_TIME.exec(value.trim());
+	if (match === null) return value;
+	const [, year, month, day, hour = '0', minute = '0', second = '0', fraction = '0'] = match;
+	const wallClock = Date.UTC(
+		Number(year),
+		Number(month) - 1,
+		Number(day),
+		Number(hour),
+		Number(minute),
+		Number(second),
+		Number(fraction.padEnd(3, '0')),
+	);
+	// The offset depends on the instant (daylight saving time), so it is
+	// looked up again at the first estimate.
+	const estimate = wallClock - utcOffsetAt(wallClock, timezone);
+	return new Date(wallClock - utcOffsetAt(estimate, timezone)).toISOString();
+}
+
+/** Read a date and time parameter as a UTC timestamp, or '' when it is empty. */
+export function getDateTimeParameter(
+	this: IExecuteFunctions,
+	parameterName: string,
+	itemIndex: number,
+): string {
+	const value = this.getNodeParameter(parameterName, itemIndex, '');
+	if (value === undefined || value === null || value === '') return '';
+	return String(dateTimeInZone(value, this.getTimezone()));
+}
+
 /** The node's parameter definitions, registered once by the resource registry. */
 const parameterDefinitions: INodeProperties[] = [];
 
@@ -144,9 +215,14 @@ export function registerParameterDefinitions(properties: INodeProperties[]): voi
 
 /**
  * Convert the numbers and booleans an expression put in a text field of a
- * collection (and of any collection inside it) to strings.
+ * collection (and of any collection inside it) to strings, and its dates and
+ * times to UTC timestamps.
  */
-function textFieldsAsStrings(value: IDataObject, fields: INodeProperties[]): IDataObject {
+function textFieldsAsStrings(
+	value: IDataObject,
+	fields: INodeProperties[],
+	timezone: string,
+): IDataObject {
 	const result: IDataObject = { ...value };
 	for (const [key, entry] of Object.entries(value)) {
 		const matching = fields.filter((field) => field.name === key);
@@ -156,19 +232,26 @@ function textFieldsAsStrings(value: IDataObject, fields: INodeProperties[]): IDa
 			matching.every((field) => field.type === 'string')
 		) {
 			result[key] = String(entry);
+		} else if (matching.every((field) => field.type === 'dateTime')) {
+			result[key] = dateTimeInZone(entry, timezone) as IDataObject[string];
 		} else if (entry !== null && typeof entry === 'object' && !Array.isArray(entry)) {
-			result[key] = collectionAsStrings(entry as IDataObject, matching);
+			result[key] = collectionAsStrings(entry as IDataObject, matching, timezone);
 		}
 	}
 	return result;
 }
 
 /** textFieldsAsStrings for a collection or fixed collection value, given its definitions. */
-function collectionAsStrings(value: IDataObject, definitions: INodeProperties[]): IDataObject {
+function collectionAsStrings(
+	value: IDataObject,
+	definitions: INodeProperties[],
+	timezone: string,
+): IDataObject {
 	const fields = definitions.filter((definition) => definition.type === 'collection');
 	let result = textFieldsAsStrings(
 		value,
 		fields.flatMap((definition) => (definition.options ?? []) as INodeProperties[]),
+		timezone,
 	);
 	for (const definition of definitions.filter(
 		(candidate) => candidate.type === 'fixedCollection',
@@ -179,8 +262,10 @@ function collectionAsStrings(value: IDataObject, definitions: INodeProperties[])
 			result = {
 				...result,
 				[group.name]: Array.isArray(entries)
-					? (entries as IDataObject[]).map((entry) => textFieldsAsStrings(entry, group.values))
-					: textFieldsAsStrings(entries as IDataObject, group.values),
+					? (entries as IDataObject[]).map((entry) =>
+							textFieldsAsStrings(entry, group.values, timezone),
+						)
+					: textFieldsAsStrings(entries as IDataObject, group.values, timezone),
 			};
 		}
 	}
@@ -189,8 +274,9 @@ function collectionAsStrings(value: IDataObject, definitions: INodeProperties[])
 
 /**
  * Read a collection or fixed collection parameter with its text fields as
- * strings, as getStringParameter does for a top-level text field. Fields of
- * other types (numbers, toggles, lists) keep the type their expression gave.
+ * strings, as getStringParameter does for a top-level text field, and its
+ * dates as UTC timestamps. Fields of other types (numbers, toggles, lists)
+ * keep the type their expression gave.
  */
 export function getCollectionParameter(
 	this: IExecuteFunctions,
@@ -213,6 +299,7 @@ export function getCollectionParameter(
 		parameterDefinitions.filter(
 			(definition) => definition.name === parameterName && shownHere(definition),
 		),
+		this.getTimezone(),
 	);
 }
 

@@ -4,6 +4,7 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getDateTimeParameter,
 	getResourceId,
 	getStringParameter,
 	toItems,
@@ -24,7 +25,7 @@ export async function executeTokenOperation(
 	};
 
 	if (operation === 'create') {
-		const expire = getStringParameter.call(this, 'expire', i, '');
+		const expire = getDateTimeParameter.call(this, 'expire', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
@@ -77,7 +78,7 @@ export async function executeTokenOperation(
 
 	if (operation === 'update') {
 		const tokenId = getStringParameter.call(this, 'tokenId', i);
-		const expire = getStringParameter.call(this, 'expire', i, '');
+		const expire = getDateTimeParameter.call(this, 'expire', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',

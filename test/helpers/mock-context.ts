@@ -149,6 +149,8 @@ export interface ExecuteContextOptions {
 	binary?: Record<string, BinaryFixture>;
 	/** Credential data to use instead of the defaults above, keyed by credential type. */
 	credentials?: Record<string, IDataObject>;
+	/** The workflow's time zone, UTC by default. */
+	timezone?: string;
 }
 
 export interface ExecuteContext {
@@ -208,6 +210,7 @@ export function createExecuteContext(options: ExecuteContextOptions): ExecuteCon
 
 	const context = {
 		getNode: () => testNode,
+		getTimezone: () => options.timezone ?? 'UTC',
 		getInputData: () => items,
 		continueOnFail: () => options.continueOnFail ?? false,
 		getCredentials: async (type: string) => {

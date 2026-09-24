@@ -10,6 +10,7 @@ import {
 	buildQueries,
 	fetchAllPages,
 	getCollectionParameter,
+	getDateTimeParameter,
 	getResourceId,
 	getStringParameter,
 	parseStringList,
@@ -553,7 +554,7 @@ export async function executeDedicatedDatabaseOperation(
 				type,
 				backupId: type === 'backup' ? subRecordId(BACKUP) : undefined,
 				targetTime:
-					type === 'pitr' ? getStringParameter.call(this, 'restorationTargetTime', i) : undefined,
+					type === 'pitr' ? getDateTimeParameter.call(this, 'restorationTargetTime', i) : undefined,
 				...settings(options),
 			},
 		});
