@@ -27,7 +27,9 @@ interface AppwriteRequestOptions {
  * Resolve the API base URL (without its trailing slash) and the project ID
  * from the credentials.
  */
-async function getProject(this: AppwriteContext): Promise<{ baseUrl: string; projectId: string }> {
+export async function getProject(
+	this: AppwriteContext,
+): Promise<{ baseUrl: string; projectId: string }> {
 	const credentials = await this.getCredentials('appwriteApi');
 	return {
 		baseUrl: (credentials.endpoint as string).replace(/\/+$/, ''),
@@ -61,6 +63,21 @@ export function flattenQueryParameters(data: IDataObject, prefix = ''): IDataObj
 	}
 
 	return output;
+}
+
+/**
+ * The URL of an Appwrite endpoint for the user's browser to open, for the
+ * flows that start with a redirect meant for the browser rather than with a
+ * request n8n can send. The query string is encoded as the Appwrite SDKs
+ * encode it: with URLSearchParams, and array values under bracketed keys.
+ */
+export function browserUrl(baseUrl: string, path: string, qs: IDataObject): string {
+	const query = new URLSearchParams();
+	for (const [key, value] of Object.entries(flattenQueryParameters(qs))) {
+		query.append(key, String(value));
+	}
+	const search = query.toString();
+	return search === '' ? `${baseUrl}${path}` : `${baseUrl}${path}?${search}`;
 }
 
 /**

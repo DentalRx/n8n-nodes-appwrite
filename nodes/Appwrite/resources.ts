@@ -46,6 +46,7 @@ import {
 	oauth2ProviderFields,
 	oauth2ProviderOperations,
 } from './descriptions/OAuth2ProviderDescription';
+import { oauth2ServerFields, oauth2ServerOperations } from './descriptions/OAuth2ServerDescription';
 import { platformFields, platformOperations } from './descriptions/PlatformDescription';
 import { presenceFields, presenceOperations } from './descriptions/PresenceDescription';
 import { projectFields, projectOperations } from './descriptions/ProjectDescription';
@@ -93,6 +94,7 @@ import { executeLocaleOperation } from './operations/LocaleOperations';
 import { executeMessageOperation } from './operations/MessageOperations';
 import { executeMockPhoneOperation } from './operations/MockPhoneOperations';
 import { executeOAuth2ProviderOperation } from './operations/OAuth2ProviderOperations';
+import { executeOAuth2ServerOperation } from './operations/OAuth2ServerOperations';
 import { executePlatformOperation } from './operations/PlatformOperations';
 import { executePresenceOperation } from './operations/PresenceOperations';
 import { executeProjectOperation } from './operations/ProjectOperations';
@@ -394,6 +396,17 @@ const RESOURCES: ResourceDefinition[] = [
 		operations: oauth2ProviderOperations,
 		fields: oauth2ProviderFields,
 		execute: executeOAuth2ProviderOperation,
+	},
+	{
+		option: {
+			name: 'OAuth2 Server',
+			value: 'oauth2Server',
+			description:
+				'Let other apps sign users in through the project: authorization, consent, and tokens',
+		},
+		operations: oauth2ServerOperations,
+		fields: oauth2ServerFields,
+		execute: executeOAuth2ServerOperation,
 	},
 	{
 		option: {

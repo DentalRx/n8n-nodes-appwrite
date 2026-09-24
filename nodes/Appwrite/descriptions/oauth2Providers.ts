@@ -192,6 +192,12 @@ const LOGIN: INodePropertyOptions = {
 	description: 'Ask the user to sign in again',
 };
 
+/**
+ * Every OpenID Connect prompt value. The OAuth2 Server resource offers them
+ * too, for the requests other apps send to the project.
+ */
+export const OIDC_PROMPT_OPTIONS = [CONSENT, LOGIN, NONE, SELECT_ACCOUNT];
+
 /** One of the endpoint URLs of an OpenID Connect provider. */
 function oidcUrl(
 	name: string,
@@ -405,7 +411,7 @@ export const OAUTH2_PROVIDERS: OAuth2Provider[] = [
 				'The user info endpoint. Required when there is no Well-Known URL.',
 				'/oauth2/userinfo',
 			),
-			prompt('the provider', [CONSENT, LOGIN, NONE, SELECT_ACCOUNT]),
+			prompt('the provider', OIDC_PROMPT_OPTIONS),
 			{
 				body: 'maxAge',
 				property: {

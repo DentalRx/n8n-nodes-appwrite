@@ -1,6 +1,7 @@
-import type { INodeProperties } from 'n8n-workflow';
+import type { IDisplayOptions, INodeProperties, INodePropertyOptions } from 'n8n-workflow';
 
 import { userLocator } from './locators';
+import { OAUTH2_PROVIDERS } from './oauth2Providers';
 import { queriesProperties, returnAllAndLimitProperties, simplifyProperty } from './shared';
 
 /**
@@ -54,6 +55,75 @@ const SESSION_OPERATIONS = ['completeMfaChallenge', 'updateMfa', 'verifyMfaAuthe
  * using the API key.
  */
 const USER_AUTHENTICATION_OPERATIONS = [...USER_OPERATIONS, 'createIdTokenSession'];
+
+/**
+ * The providers users can sign in with. Yammer is among them although the
+ * OAuth2 Provider resource does not configure it: Appwrite 2.3 still signs
+ * users in with it but offers no settings endpoint for it.
+ */
+const SIGN_IN_PROVIDERS: INodePropertyOptions[] = [
+	...OAUTH2_PROVIDERS.map(({ name, value }) => ({ name, value })),
+	{ name: 'Yammer', value: 'yammer' },
+].sort((a, b) => a.name.localeCompare(b.name));
+
+/**
+ * The Authentication choice of an operation that acts as a signed-in user,
+ * through the user's JWT or session secret. The OAuth2 Server resource's
+ * consent operations act as the user the same way.
+ */
+export function userAuthenticationProperty(
+	show: IDisplayOptions['show'],
+	description: string,
+): INodeProperties {
+	return {
+		displayName: 'Authentication',
+		name: 'accountAuthentication',
+		type: 'options',
+		options: [
+			{
+				name: 'User JWT',
+				value: 'jwt',
+				description: 'A JSON Web Token created for the user',
+			},
+			{
+				name: 'User Session Secret',
+				value: 'session',
+				description: "The secret of one of the user's sessions",
+			},
+		],
+		default: 'jwt',
+		description,
+		displayOptions: { show },
+	};
+}
+
+/** The JWT and Session Secret fields that follow an Authentication choice. */
+export function userSecretProperties(show: IDisplayOptions['show']): INodeProperties[] {
+	return [
+		{
+			displayName: 'JWT',
+			name: 'accountJwt',
+			type: 'string',
+			typeOptions: { password: true },
+			required: true,
+			default: '',
+			description:
+				"The JSON Web Token of the user to act as. Create one with the User resource's Create JWT operation, or with account.createJWT() in your app and pass it in, e.g. through a webhook. A JWT expires after 15 minutes unless created with a longer duration.",
+			displayOptions: { show: { ...show, accountAuthentication: ['jwt'] } },
+		},
+		{
+			displayName: 'Session Secret',
+			name: 'accountSessionSecret',
+			type: 'string',
+			typeOptions: { password: true },
+			required: true,
+			default: '',
+			description:
+				"The secret of a session of the user to act as: the 'secret' field returned when the session is created with the API key, e.g. by Create Email Password Session or by the User resource's Create Session",
+			displayOptions: { show: { ...show, accountAuthentication: ['session'] } },
+		},
+	];
+}
 
 /** The anti-phishing phrase option of the operations that email a secret. */
 const SECURITY_PHRASE_OPTION: INodeProperties = {
@@ -278,6 +348,13 @@ export const accountOperations: INodeProperties[] = [
 				action: 'Get account MFA recovery codes',
 			},
 			{
+				name: 'Get OAuth2 Login URL',
+				value: 'getOAuth2LoginUrl',
+				description:
+					"Build the URL that signs a user in with GitHub, Google, or another OAuth2 provider, for the user's browser to open. Sends no request.",
+				action: 'Get account provider login URL',
+			},
+			{
 				name: 'Get Preferences',
 				value: 'getPrefs',
 				description: "Retrieve the signed-in user's preferences",
@@ -355,32 +432,10 @@ export const accountOperations: INodeProperties[] = [
 ];
 
 export const accountFields: INodeProperties[] = [
-	{
-		displayName: 'Authentication',
-		name: 'accountAuthentication',
-		type: 'options',
-		options: [
-			{
-				name: 'User JWT',
-				value: 'jwt',
-				description: 'A JSON Web Token created for the user',
-			},
-			{
-				name: 'User Session Secret',
-				value: 'session',
-				description: "The secret of one of the user's sessions",
-			},
-		],
-		default: 'jwt',
-		description:
-			"How to act as the signed-in user. The credential's API key cannot act as a user, so this operation needs the user's JWT or session secret.",
-		displayOptions: {
-			show: {
-				resource: ['account'],
-				operation: USER_OPERATIONS,
-			},
-		},
-	},
+	userAuthenticationProperty(
+		{ resource: ['account'], operation: USER_OPERATIONS },
+		"How to act as the signed-in user. The credential's API key cannot act as a user, so this operation needs the user's JWT or session secret.",
+	),
 	{
 		displayName: 'Authentication',
 		name: 'accountAuthentication',
@@ -412,40 +467,7 @@ export const accountFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'JWT',
-		name: 'accountJwt',
-		type: 'string',
-		typeOptions: { password: true },
-		required: true,
-		default: '',
-		description:
-			"The JSON Web Token of the user to act as. Create one with the User resource's Create JWT operation, or with account.createJWT() in your app and pass it in, e.g. through a webhook. A JWT expires after 15 minutes unless created with a longer duration.",
-		displayOptions: {
-			show: {
-				resource: ['account'],
-				operation: USER_AUTHENTICATION_OPERATIONS,
-				accountAuthentication: ['jwt'],
-			},
-		},
-	},
-	{
-		displayName: 'Session Secret',
-		name: 'accountSessionSecret',
-		type: 'string',
-		typeOptions: { password: true },
-		required: true,
-		default: '',
-		description:
-			"The secret of a session of the user to act as: the 'secret' field returned when the session is created with the API key, e.g. by Create Email Password Session or by the User resource's Create Session",
-		displayOptions: {
-			show: {
-				resource: ['account'],
-				operation: USER_AUTHENTICATION_OPERATIONS,
-				accountAuthentication: ['session'],
-			},
-		},
-	},
+	...userSecretProperties({ resource: ['account'], operation: USER_AUTHENTICATION_OPERATIONS }),
 	{
 		displayName: 'Session Secret',
 		name: 'accountSessionSecret',
@@ -734,6 +756,36 @@ export const accountFields: INodeProperties[] = [
 			show: {
 				resource: ['account'],
 				operation: ['createIdTokenSession'],
+			},
+		},
+	},
+	{
+		displayName: 'Provider',
+		name: 'oauth2Provider',
+		type: 'options',
+		options: SIGN_IN_PROVIDERS,
+		default: 'github',
+		description: 'The OAuth2 provider the user signs in with. It must be turned on in the project.',
+		displayOptions: {
+			show: {
+				resource: ['account'],
+				operation: ['getOAuth2LoginUrl'],
+			},
+		},
+	},
+	{
+		displayName: 'Success URL',
+		name: 'accountSuccessUrl',
+		type: 'string',
+		required: true,
+		default: '',
+		placeholder: 'e.g. https://example.com/auth/success',
+		description:
+			"The page of your app the user returns to after signing in, with userId and secret added to its query string for Create Session. Its hostname must be one of the project's platforms.",
+		displayOptions: {
+			show: {
+				resource: ['account'],
+				operation: ['getOAuth2LoginUrl'],
 			},
 		},
 	},
@@ -1058,6 +1110,39 @@ export const accountFields: INodeProperties[] = [
 				default: '',
 				description:
 					'The raw nonce your app used when requesting the ID token. Required for Apple, and whenever the token carries a nonce.',
+			},
+		],
+	},
+	{
+		displayName: 'Options',
+		name: 'options',
+		type: 'collection',
+		placeholder: 'Add option',
+		default: {},
+		displayOptions: {
+			show: {
+				resource: ['account'],
+				operation: ['getOAuth2LoginUrl'],
+			},
+		},
+		options: [
+			{
+				displayName: 'Failure URL',
+				name: 'accountFailureUrl',
+				type: 'string',
+				default: '',
+				placeholder: 'e.g. https://example.com/auth/failure',
+				description:
+					"The page of your app the user returns to when sign-in fails. Its hostname must be one of the project's platforms. Leave empty to use Appwrite's own page.",
+			},
+			{
+				displayName: 'Scopes',
+				name: 'accountProviderScopes',
+				type: 'string',
+				default: '',
+				placeholder: 'e.g. repo, read:org',
+				description:
+					"Extra permissions to ask the provider for, as a comma-separated list or a JSON array. The provider's documentation lists them. Up to 100.",
 			},
 		],
 	},

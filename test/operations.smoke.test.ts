@@ -17,12 +17,23 @@ import {
  * first with the defaults n8n would store for a freshly added node, then with
  * every displayed field filled in, and then once per alternative value of each
  * displayed dropdown and toggle. The run must complete without throwing, make
- * at least one request, and produce well-formed requests and output items.
+ * at least one request (none for the operations that only build a browser
+ * URL), and produce well-formed requests and output items.
  *
  * This catches the class of defect the linter cannot see: an operation that
  * reads a parameter not defined for it, builds a URL from a missing ID, or
  * returns something other than n8n items.
  */
+
+/**
+ * Operations that build a URL for the user's browser to open instead of
+ * calling Appwrite, whose answer there is a redirect only a browser can
+ * follow. They must send nothing, and output the URL instead.
+ */
+const BROWSER_URL_OPERATIONS: Record<string, string[]> = {
+	account: ['getOAuth2LoginUrl'],
+	oauth2Server: ['getAuthorizationUrl'],
+};
 
 async function runCase(smokeCase: SmokeCase): Promise<void> {
 	const { context, requests } = createExecuteContext({
@@ -61,6 +72,15 @@ async function runCase(smokeCase: SmokeCase): Promise<void> {
 		expect(item.json).toBeTypeOf('object');
 		expect(item.json).not.toBeNull();
 		expect(item.pairedItem).toEqual({ item: 0 });
+	}
+
+	const { resource, operation } = smokeCase.parameters as { resource: string; operation: string };
+	if (BROWSER_URL_OPERATIONS[resource]?.includes(operation)) {
+		expect(requests).toEqual([]);
+		const url = String(output[0][0].json.url);
+		expect(url.startsWith(`${BASE_URL}/`)).toBe(true);
+		expect(url).not.toMatch(/undefined|\[object Object\]/);
+		return;
 	}
 
 	expect(requests.length).toBeGreaterThan(0);

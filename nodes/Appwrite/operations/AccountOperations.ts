@@ -13,13 +13,14 @@ import {
 	getResourceId,
 	getStringParameter,
 	parseJsonParameter,
+	parseStringList,
 	simplifyItems,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
 import { resolveId } from '../helpers/appwrite';
 import type { UserAuthentication } from '../transport';
-import { appwriteApiRequest, appwriteUserRequest } from '../transport';
+import { appwriteApiRequest, appwriteUserRequest, browserUrl, getProject } from '../transport';
 
 /** The account fields most workflows read, for the Simplify toggle. */
 const USER_SIMPLIFY_FIELDS = [
@@ -118,9 +119,13 @@ function getSessionAuthentication(this: IExecuteFunctions, itemIndex: number): U
 /**
  * The user an operation acts as, from its Authentication choice. The Account
  * endpoints identify the user by a JWT or a session secret; the API key cannot
- * stand in for either.
+ * stand in for either. The OAuth2 Server resource's consent operations act as
+ * the user the same way.
  */
-function getUserAuthentication(this: IExecuteFunctions, itemIndex: number): UserAuthentication {
+export function getUserAuthentication(
+	this: IExecuteFunctions,
+	itemIndex: number,
+): UserAuthentication {
 	const authentication = getStringParameter.call(this, 'accountAuthentication', itemIndex);
 
 	if (authentication === 'jwt') {
@@ -499,6 +504,30 @@ export async function executeAccountOperation(
 	if (operation === 'getMfaRecoveryCodes') {
 		const response = await asUser('GET', '/account/mfa/recovery-codes');
 		return toItems(response, i);
+	}
+
+	if (operation === 'getOAuth2LoginUrl') {
+		// Appwrite answers this endpoint with a redirect to the provider's
+		// sign-in page, which only the user's browser can follow. So the node
+		// builds the URL for the browser to open, exactly as Appwrite's web SDK
+		// does; a browser cannot send the project header, so the project ID
+		// goes in the query string.
+		const provider = String(this.getNodeParameter('oauth2Provider', i) ?? '');
+		const options = getCollectionParameter.call(this, 'options', i) as {
+			accountFailureUrl?: unknown;
+			accountProviderScopes?: unknown;
+		};
+		const optional = (value: unknown): string | undefined =>
+			String(value ?? '').trim() || undefined;
+		const scopes = parseStringList.call(this, options.accountProviderScopes, 'Scopes', i);
+		const { baseUrl, projectId } = await getProject.call(this);
+		const url = browserUrl(baseUrl, `/account/tokens/oauth2/${encodeURIComponent(provider)}`, {
+			success: optional(this.getNodeParameter('accountSuccessUrl', i, '')),
+			failure: optional(options.accountFailureUrl),
+			scopes: scopes.length > 0 ? scopes : undefined,
+			project: projectId,
+		});
+		return toItems({ url }, i);
 	}
 
 	if (operation === 'getPrefs') {

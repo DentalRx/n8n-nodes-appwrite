@@ -82,6 +82,13 @@ const TYPE_CORRECTIONS: Array<{ path: RegExp; name: string; type: string; reason
 		reason:
 			"Declared as a string, but described as an 'array of condition strings' of at most 100 entries, each 4096 characters long: the contract of queries, which are an array of JSON strings",
 	},
+	{
+		path: /^\/oauth2\/[^/]+\/(authorize|device_authorization|par|token)$/,
+		name: 'resource',
+		type: 'array',
+		reason:
+			"Declared as a string defaulting to [], and described as a 'URI or URI list'; the Appwrite Console sends a list",
+	},
 ];
 
 interface Template {
