@@ -70,12 +70,12 @@
 	},
 	"devDependencies": {
 		"@n8n/node-cli": "^0.49.1",
-		"@types/node": "^22.15.0",
-		"eslint": "^9.32.0",
-		"n8n-workflow": "2.36.3",
-		"prettier": "^3.6.2",
-		"release-it": "^21.0.2",
-		"typescript": "^5.9.2",
-		"vitest": "^4.1.11"
+		"@types/node": "^26.6.2",
+		"eslint": "^10.11.0",
+		"n8n-workflow": "2.40.1",
+		"prettier": "^3.9.8",
+		"release-it": "^21.1.0",
+		"typescript": "^7.0.2",
+		"vitest": "^5.0.1"
 	}
 }
