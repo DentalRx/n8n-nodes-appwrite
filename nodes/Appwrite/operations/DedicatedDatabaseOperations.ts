@@ -468,7 +468,8 @@ export async function executeDedicatedDatabaseOperation(
 	}
 
 	if (operation === 'executeSql') {
-		const sql = this.getNodeParameter('sqlStatement', i) as string;
+		// String(): an expression can resolve to a non-string value.
+		const sql = String(this.getNodeParameter('sqlStatement', i) ?? '');
 		if (sql.trim() === '') {
 			throw new NodeOperationError(this.getNode(), "The 'SQL Statement' parameter is empty", {
 				description: 'Enter the SQL statement to run.',

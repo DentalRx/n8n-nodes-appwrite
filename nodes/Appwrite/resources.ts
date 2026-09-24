@@ -12,14 +12,11 @@ import { backupFields, backupOperations } from './descriptions/BackupDescription
 import { bucketFields, bucketOperations } from './descriptions/BucketDescription';
 import { columnFields, columnOperations } from './descriptions/ColumnDescription';
 import { databaseFields, databaseOperations } from './descriptions/DatabaseDescription';
-import { embeddingFields, embeddingOperations } from './descriptions/EmbeddingDescription';
-	},
-	{
-		option: {
 import {
 	dedicatedDatabaseFields,
 	dedicatedDatabaseOperations,
 } from './descriptions/DedicatedDatabaseDescription';
+import { embeddingFields, embeddingOperations } from './descriptions/EmbeddingDescription';
 import { executionFields, executionOperations } from './descriptions/ExecutionDescription';
 import { fileFields, fileOperations } from './descriptions/FileDescription';
 import { functionFields, functionOperations } from './descriptions/FunctionDescription';
