@@ -402,12 +402,6 @@ const CONDITION_ATTRIBUTES: INodePropertyOptions[] = [
 /** Operators that compare with no value. */
 export const WAF_VALUELESS_OPERATORS = ['isNotNull', 'isNull'];
 
-/** Operators that match when the attribute matches any one of several values. */
-export const WAF_MULTI_VALUE_OPERATORS = ['contains', 'equal', 'notContains', 'notEqual'];
-
-/** Operators that compare with a lower and an upper bound. */
-export const WAF_RANGE_OPERATORS = ['between', 'notBetween'];
-
 /** The condition builder, on the node's face for create and inside Update Fields for update. */
 function conditionsProperty(description: string): INodeProperties {
 	return {
@@ -438,7 +432,7 @@ function conditionsProperty(description: string): INodeProperties {
 						default: '',
 						placeholder: 'e.g. x-api-client',
 						description:
-							'The name of the header or query parameter to compare. Appwrite only matches lowercase names, so the node lowercases it.',
+							'The name of the header or query parameter to compare. Appwrite only matches lowercase names, so the node lowercases it. Appwrite removes the Authorization, Cookie, X-Appwrite-Key, X-Appwrite-JWT, X-Appwrite-Session and X-Forwarded-* headers before matching, so a condition on one of them never matches; use the Cookie attribute for cookies.',
 						displayOptions: { show: { wafConditionAttribute: ['headers', 'query'] } },
 					},
 					{
@@ -446,37 +440,13 @@ function conditionsProperty(description: string): INodeProperties {
 						name: 'wafConditionOperator',
 						type: 'options',
 						options: [
-							{
-								name: 'Contains',
-								value: 'contains',
-								description: 'Contains any of the values as a substring',
-							},
-							{
-								name: 'Does Not Contain',
-								value: 'notContains',
-								description: 'Contains none of the values',
-							},
-							{ name: 'Does Not End With', value: 'notEndsWith' },
-							{ name: 'Does Not Start With', value: 'notStartsWith' },
+							{ name: 'Contains', value: 'contains' },
+							{ name: 'Does Not Contain', value: 'notContains' },
 							{ name: 'Ends With', value: 'endsWith' },
-							{ name: 'Equals', value: 'equal', description: 'Equals any of the values' },
-							{ name: 'Greater Than', value: 'greaterThan' },
-							{ name: 'Greater Than or Equal', value: 'greaterThanEqual' },
-							{
-								name: 'Is Between',
-								value: 'between',
-								description: 'Lies between the two values, inclusive',
-							},
+							{ name: 'Equals', value: 'equal' },
 							{ name: 'Is Empty', value: 'isNull', description: 'The request did not send it' },
-							{
-								name: 'Is Not Between',
-								value: 'notBetween',
-								description: 'Lies outside the two values',
-							},
 							{ name: 'Is Not Empty', value: 'isNotNull', description: 'The request sent it' },
-							{ name: 'Less Than', value: 'lessThan' },
-							{ name: 'Less Than or Equal', value: 'lessThanEqual' },
-							{ name: 'Not Equal', value: 'notEqual', description: 'Equals none of the values' },
+							{ name: 'Not Equal', value: 'notEqual' },
 							{ name: 'Starts With', value: 'startsWith' },
 						],
 						default: 'equal',
@@ -487,11 +457,10 @@ function conditionsProperty(description: string): INodeProperties {
 						displayName: 'Value',
 						name: 'wafConditionValue',
 						type: 'string',
-						typeOptions: { rows: 2 },
 						default: '',
 						placeholder: 'e.g. /v1/account',
 						description:
-							'The value to compare the attribute with. Equals, Not Equal, Contains and Does Not Contain take several values, one per line. Is Between and Is Not Between take the lower and upper bound on two lines.',
+							'The value to compare the attribute with. To match either of two values, create one rule for each.',
 						displayOptions: { hide: { wafConditionOperator: WAF_VALUELESS_OPERATORS } },
 					},
 				],

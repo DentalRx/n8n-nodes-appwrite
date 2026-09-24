@@ -180,8 +180,7 @@ describe('Firewall Rule', () => {
 					wafConditionsUi: { conditionValues },
 				})
 			).body.conditions as unknown[];
-		const conditionsOf = async (conditionValues: INodeParameters[]) =>
-			(await sentConditions(conditionValues)).map((condition) => JSON.parse(String(condition)));
+		const conditionsOf = sentConditions;
 
 		const failureOf = async (conditionValues: INodeParameters[]) => {
 			const { context, requests } = createExecuteContext({
@@ -202,12 +201,16 @@ describe('Firewall Rule', () => {
 			return (error as NodeOperationError).message;
 		};
 
-		it('are sent as condition strings, each a JSON-encoded condition, as queries are', async () => {
+		it("are sent as condition objects, as Appwrite's Firewall documentation shows", async () => {
 			expect(
 				await sentConditions([
-					{ wafConditionAttribute: 'path', wafConditionOperator: 'equal', wafConditionValue: '/a' },
+					{
+						wafConditionAttribute: 'country',
+						wafConditionOperator: 'equal',
+						wafConditionValue: 'RU',
+					},
 				]),
-			).toEqual(['{"method":"equal","attribute":"path","values":["/a"]}']);
+			).toEqual([{ method: 'equal', attribute: 'country', values: ['RU'] }]);
 		});
 
 		it('become Appwrite conditions', async () => {
@@ -295,30 +298,6 @@ describe('Firewall Rule', () => {
 			expect(requests).toHaveLength(0);
 		});
 
-		it('match any of several values given one per line', async () => {
-			expect(
-				await conditionsOf([
-					{
-						wafConditionAttribute: 'country',
-						wafConditionOperator: 'equal',
-						wafConditionValue: 'NL\n DE \n\n',
-					},
-				]),
-			).toEqual([{ method: 'equal', attribute: 'country', values: ['NL', 'DE'] }]);
-		});
-
-		it('take the two bounds of a range on two lines', async () => {
-			expect(
-				await conditionsOf([
-					{
-						wafConditionAttribute: 'latitude',
-						wafConditionOperator: 'between',
-						wafConditionValue: '10\r\n20',
-					},
-				]),
-			).toEqual([{ method: 'between', attribute: 'latitude', values: ['10', '20'] }]);
-		});
-
 		it('send a value an expression resolved to a number as text', async () => {
 			expect(
 				await conditionsOf([
@@ -331,30 +310,12 @@ describe('Firewall Rule', () => {
 			).toEqual([{ method: 'equal', attribute: 'autonomousSystemNumber', values: ['13335'] }]);
 		});
 
-		it('stop the item before any request when a condition has the wrong number of values', async () => {
+		it('stop the item before any request when a condition has no value', async () => {
 			expect(
 				await failureOf([
 					{ wafConditionAttribute: 'path', wafConditionOperator: 'equal', wafConditionValue: ' ' },
 				]),
 			).toBe('A condition has no value');
-			expect(
-				await failureOf([
-					{
-						wafConditionAttribute: 'path',
-						wafConditionOperator: 'startsWith',
-						wafConditionValue: '/a\n/b',
-					},
-				]),
-			).toBe('This condition compares with a single value');
-			expect(
-				await failureOf([
-					{
-						wafConditionAttribute: 'latitude',
-						wafConditionOperator: 'notBetween',
-						wafConditionValue: '10',
-					},
-				]),
-			).toBe('A range condition needs exactly two values');
 		});
 
 		it('are left out of an update that does not change them, keeping the current ones', async () => {

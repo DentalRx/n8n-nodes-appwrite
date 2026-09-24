@@ -5,8 +5,6 @@ import type { WafRuleSetting, WafRuleType } from '../descriptions/WafRuleDescrip
 import {
 	WAF_COMMON_OPTIONS,
 	WAF_COMMON_UPDATE_FIELDS,
-	WAF_MULTI_VALUE_OPERATORS,
-	WAF_RANGE_OPERATORS,
 	WAF_RULE_TYPES,
 	WAF_VALUELESS_OPERATORS,
 } from '../descriptions/WafRuleDescription';
@@ -48,15 +46,16 @@ interface ConditionEntry {
 }
 
 /**
- * Turn the Conditions builder into Appwrite's condition strings: each one is a
- * JSON-encoded `{ method, attribute, values }` object, as queries are. Returns
- * undefined when there are none, so an update keeps the current conditions.
+ * Turn the Conditions builder into Appwrite's condition objects
+ * (`{ method, attribute, values }`). Returns undefined when there are none:
+ * Appwrite rejects an empty list, while leaving the list out means "every
+ * request" on create and "keep the current conditions" on update.
  */
 function buildWafConditions(
 	this: IExecuteFunctions,
 	raw: { conditionValues?: ConditionEntry[] } | undefined,
 	itemIndex: number,
-): string[] | undefined {
+): IDataObject[] | undefined {
 	const entries = raw?.conditionValues ?? [];
 	if (entries.length === 0) return undefined;
 
@@ -79,52 +78,18 @@ function buildWafConditions(
 		}
 
 		const method = entry.wafConditionOperator ?? 'equal';
-		return JSON.stringify({
-			method,
-			attribute,
-			values: conditionValues.call(this, method, entry.wafConditionValue, itemIndex),
-		});
-	});
-}
-
-/**
- * The values a condition compares with: one per line, as many as its operator
- * takes. Operators that compare with no value still take an empty list.
- */
-function conditionValues(
-	this: IExecuteFunctions,
-	method: string,
-	raw: unknown,
-	itemIndex: number,
-): string[] {
-	if (WAF_VALUELESS_OPERATORS.includes(method)) return [];
-	const values = String(raw ?? '')
-		.split(/\r?\n/)
-		.map((value) => value.trim())
-		.filter((value) => value !== '');
-	const fail = (message: string, description: string): never => {
-		throw new NodeOperationError(this.getNode(), message, { description, itemIndex });
-	};
-	if (values.length === 0) {
-		fail(
-			'A condition has no value',
-			'Enter the value to compare with, or choose Is Empty or Is Not Empty.',
-		);
-	}
-	if (WAF_RANGE_OPERATORS.includes(method)) {
-		if (values.length !== 2) {
-			fail(
-				'A range condition needs exactly two values',
-				'Enter the lower bound and the upper bound on two lines.',
-			);
+		// Operators that compare with no value still take an empty list.
+		if (WAF_VALUELESS_OPERATORS.includes(method)) return { method, attribute, values: [] };
+		// String(): an expression can resolve to a number, e.g. an AS number.
+		const value = String(entry.wafConditionValue ?? '');
+		if (value.trim() === '') {
+			throw new NodeOperationError(this.getNode(), 'A condition has no value', {
+				description: 'Enter the value to compare with, or choose Is Empty or Is Not Empty.',
+				itemIndex,
+			});
 		}
-	} else if (!WAF_MULTI_VALUE_OPERATORS.includes(method) && values.length > 1) {
-		fail(
-			'This condition compares with a single value',
-			'Only Equals, Not Equal, Contains and Does Not Contain take several values, one per line.',
-		);
-	}
-	return values;
+		return { method, attribute, values: [value] };
+	});
 }
 
 /** Copy the settings present in a collection onto a request body, under their body keys. */
