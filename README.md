@@ -156,16 +156,18 @@ A `401` or `403` from Appwrite usually means a missing scope on the key rather t
 An API key acts as your server, never as a user, so Appwrite's Account endpoints need the user's own credential. Account operations therefore offer an **Authentication** choice:
 
 - **User JWT**: a JSON Web Token for the user, from **User → Create JWT** in this node or `account.createJWT()` in your app (passed to n8n through a webhook). JWTs are valid for 15 minutes by default.
-- **User Session Secret**: the `secret` of a session created with the API key, for example by **Account → Create Email Password Session**. Appwrite only returns it to API-key calls, which is the server-side-rendering pattern Appwrite documents. Update MFA, Verify MFA Authenticator and Complete MFA Challenge need a session secret, because Appwrite records the factor on that session.
+- **User Session Secret**: the `secret` of a session created with the API key, for example by **Account → Create Email Password Session**. Appwrite only returns it to API-key calls, which is the server-side-rendering pattern Appwrite documents. Update MFA, Verify MFA Authenticator and Complete MFA Challenge need a session secret, because Appwrite records the factor on that session. So do Get MFA Recovery Codes, Regenerate MFA Recovery Codes and Delete MFA Authenticator, which Appwrite only allows within 30 minutes of completing an MFA challenge on that session.
 - **API Key**: signing up, signing in, sending sign-in tokens and password recovery run with the credential's API key (scope `sessions.write`), like Appwrite's server SDKs.
 
-User-authenticated requests carry the project ID and the user's JWT or session, and never the API key: Appwrite rejects a request that carries both. Completing an email or phone verification, and accepting a team invitation, send only the project ID, because the user ID and secret from the message are the proof.
+User-authenticated requests carry the project ID and the user's JWT or session, and never the API key: Appwrite rejects a request that carries both. Completing an email or phone verification, and accepting a team invitation, send only the project ID, because the user ID and secret from the message are the proof. Accepting an invitation also verifies the user's email address and opens a session for them, as it does in a browser.
+
+**Rate limits**: Appwrite rate-limits requests made as a user or a guest by route and IP address, and every such request comes from your n8n server's IP. Limits such as 10 password updates or 10 phone verifications per hour therefore apply to all your users together. API-key requests are exempt, so for bulk jobs use the **User** resource's equivalents (for example **User → Update Password**).
 
 ## Compatibility
 
 - **n8n**: 1.85 or newer, including 2.x. The node uses `NodeConnectionTypes`, which n8n-workflow exports from 1.83.0 onwards. Tested end to end in n8n 2.40.
 - **Node.js**: whatever your n8n version requires (current n8n 2.x releases need Node.js 24).
-- **Appwrite**: Appwrite Cloud and self-hosted Appwrite 1.8 or newer (TablesDB). Each resource works on the Appwrite versions that have its API: DocumentsDB, VectorsDB, dedicated databases, Sites, webhooks, the Project and App APIs and the other services added in Appwrite 1.9 to 2.3 need a server that has them, and some (Backups, Activity, Advisor, dedicated databases) are Appwrite Cloud features. Health is served to API keys with the `health.read` scope although Appwrite 1.9 dropped it from its SDKs.
+- **Appwrite**: Appwrite Cloud and self-hosted Appwrite 1.8 or newer (TablesDB). Each resource works on the Appwrite versions that have its API: DocumentsDB, VectorsDB, dedicated databases, Sites, webhooks, the Project and App APIs and the other services added in Appwrite 1.9 to 2.3 need a server that has them, and some (Backups, Activity, Advisor, dedicated databases) are Appwrite Cloud features. Health is served to API keys with the `health.read` scope although Appwrite 1.9 dropped it from its SDKs. Account consents are an Appwrite Cloud feature: self-hosted Appwrite 2.3 answers them with a 404.
 - If you still run an Appwrite version without TablesDB (older than 1.8), use a legacy community node instead.
 
 ## Usage
@@ -216,7 +218,7 @@ The node sets `usableAsTool`, so you can attach it to an **AI Agent** node and l
 - **Lists**: fields that take several values (file extensions, execute roles, events, scopes, labels, index columns, `Select` queries) accept a comma-separated string or a JSON array.
 - **Expressions**: every field accepts expressions, including ones that resolve to numbers, booleans or arrays.
 - **Delete confirmations**: delete operations output a single `{"deleted": true, ...}` item (with the deleted IDs echoed) so the next node always receives something to act on.
-- **Secrets in the output**: some operations return credentials by design (a created webhook's signing secret, an app's client secret, an ephemeral API key, a dedicated database's connection string, a session secret). Treat their output as sensitive; Simplify leaves the connection credentials out.
+- **Secrets in the output**: some operations return credentials by design (a created webhook's signing secret, an app's client secret, an ephemeral API key, a dedicated database's connection string, a session secret). With the API key, Account's Create Email/Magic URL/Phone Token and Create Password Recovery return the live `secret` that signs the user in or resets their password, and Get Many Identities and Sessions include the OAuth providers' access and refresh tokens unless Simplify is on. Anyone who can read your execution history can use these, so treat their output as sensitive, or turn off saving successful executions for such workflows.
 - **Errors**: Appwrite's own error message and HTTP status are surfaced on the node error. With **Continue On Fail** enabled, the failed item carries `error`, `description` and `httpCode` fields for an error-handling branch.
 
 ## Resources

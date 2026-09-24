@@ -70,9 +70,8 @@ export const presenceFields: INodeProperties[] = [
 		name: 'presenceId',
 		type: 'string',
 		default: '',
-		placeholder: 'unique()',
 		description:
-			'The ID of the presence entry to create or update. Leave empty (or use unique()) to create a new entry with a generated ID.',
+			"The ID to give the user's presence entry if it is created. Each user has one presence entry: when the user already has one, Appwrite updates it and keeps its ID. Leave empty to generate an ID.",
 		displayOptions: {
 			show: {
 				resource: ['presence'],
@@ -81,10 +80,16 @@ export const presenceFields: INodeProperties[] = [
 		},
 	},
 	userLocator(
-		{ resource: ['presence'], operation: ['upsert', 'update'] },
+		{ resource: ['presence'], operation: ['upsert'] },
+		{
+			description: 'The user whose presence to set. Appwrite creates or updates their one entry.',
+		},
+	),
+	userLocator(
+		{ resource: ['presence'], operation: ['update'] },
 		{
 			description:
-				'The user the presence belongs to. Appwrite requires it when the request is made with an API key.',
+				'The user the presence belongs to. Choosing a different user moves the entry to them and, unless Permissions are set, gives them its permissions.',
 		},
 	),
 	{

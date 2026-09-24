@@ -235,7 +235,6 @@ export function variableProperties(resource: string): INodeProperties[] {
 			name: 'variableId',
 			type: 'string',
 			default: '',
-			placeholder: 'unique()',
 			description:
 				'The ID for the new environment variable. Leave empty (or use unique()) to auto-generate a unique ID.',
 			displayOptions: show(resource, ['createVariable']),

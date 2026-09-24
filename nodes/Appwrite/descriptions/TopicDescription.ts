@@ -106,7 +106,6 @@ export const topicFields: INodeProperties[] = [
 		name: 'topicId',
 		type: 'string',
 		default: '',
-		placeholder: 'unique()',
 		description:
 			'The ID for the topic. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {
@@ -164,7 +163,6 @@ export const topicFields: INodeProperties[] = [
 		name: 'subscriberId',
 		type: 'string',
 		default: '',
-		placeholder: 'unique()',
 		description:
 			'The ID for the subscriber. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {

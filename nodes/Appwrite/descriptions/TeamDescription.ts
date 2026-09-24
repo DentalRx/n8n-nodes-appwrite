@@ -155,6 +155,19 @@ export const teamFields: INodeProperties[] = [
 		],
 	}),
 	...teamInstallationFields,
+	{
+		displayName:
+			"Accepting also marks the user's email address as verified and signs the user in: Appwrite opens a session for them, which stays open for the project's session length. The node does not return that session.",
+		name: 'membershipAcceptNotice',
+		type: 'notice',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['team'],
+				operation: ['updateMembershipStatus'],
+			},
+		},
+	},
 	userLocator(
 		{ resource: ['team'], operation: ['updateMembershipStatus'] },
 		{ description: 'The invited user, from the userId parameter of the invitation link' },
@@ -193,7 +206,6 @@ export const teamFields: INodeProperties[] = [
 		name: 'teamId',
 		type: 'string',
 		default: '',
-		placeholder: 'unique()',
 		description:
 			'The ID for the team. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {

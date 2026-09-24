@@ -342,11 +342,21 @@ export async function appwriteUserRequest(
 		// NodeApiError, httpRequest hands over the HTTP client's own error.
 		// Wrapping it the same way surfaces Appwrite's message exactly as it
 		// does for API-key requests.
-		toNodeApiError(
-			this,
-			error instanceof NodeApiError ? error : new NodeApiError(this.getNode(), error as JsonObject),
-			itemIndex,
-		);
+		const wrapped =
+			error instanceof NodeApiError ? error : new NodeApiError(this.getNode(), error as JsonObject);
+		// n8n titles a 401 "check your credentials", but the credential's API key
+		// played no part here: Appwrite refused the user's JWT or session secret.
+		if (authentication.type !== 'guest' && String(wrapped.httpCode) === '401') {
+			const body = wrapped.context?.data;
+			const payload = body !== null && typeof body === 'object' ? (body as JsonObject) : {};
+			throw new NodeApiError(this.getNode(), payload, {
+				message: "Appwrite did not accept the user's JWT or session secret",
+				description: `A JWT expires after 15 minutes, and a session secret stops working when the session ends. Appwrite said: ${wrapped.description ?? wrapped.message}`,
+				httpCode: '401',
+				itemIndex,
+			});
+		}
+		toNodeApiError(this, wrapped, itemIndex);
 	}
 }
 

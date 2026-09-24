@@ -92,6 +92,28 @@ describe('Account operations that act as the signed-in user', () => {
 		expect(requests[0].body).toEqual({ challengeId: 'challenge-1', otp: '123456' });
 	});
 
+	it.each([
+		['getMfaRecoveryCodes', 'GET', '/account/mfa/recovery-codes'],
+		['regenerateMfaRecoveryCodes', 'PATCH', '/account/mfa/recovery-codes'],
+		['deleteMfaAuthenticator', 'DELETE', '/account/mfa/authenticators/totp'],
+	])(
+		'%s with a session secret, as Appwrite reads the recent MFA challenge from the session',
+		async (operation, method, path) => {
+			const { requests, withApiKey } = await run({
+				operation,
+				accountAuthentication: 'jwt',
+				accountJwt: 'user-jwt',
+				accountSessionSecret: 'session-secret',
+			});
+
+			expect(withApiKey).toEqual([false]);
+			expect(requests[0].method).toBe(method);
+			expect(requests[0].url).toBe(`${BASE_URL}${path}`);
+			expect(requests[0].headers).toMatchObject({ 'X-Appwrite-Session': 'session-secret' });
+			expect(requests[0].headers).not.toHaveProperty('X-Appwrite-JWT');
+		},
+	);
+
 	it('carry the user credential on every page of Return All', async () => {
 		const page = (count: number, offset: number) => ({
 			total: 101,
@@ -200,7 +222,7 @@ describe('Account operations that sign users in or email them secrets', () => {
 			accountJwt: 'user-jwt',
 			accountIdTokenProvider: 'apple',
 			accountIdToken: 'id-token',
-			options: { nonce: 'raw-nonce' },
+			accountIdTokenNonce: 'raw-nonce',
 		});
 		expect(asUser.withApiKey).toEqual([false]);
 		expect(asUser.requests[0].url).toBe(`${BASE_URL}/account/sessions/id-token`);
@@ -267,7 +289,7 @@ describe('Account request failures', () => {
 			: error;
 	};
 
-	it("surface Appwrite's message the same way for user and API-key requests", async () => {
+	it("surface Appwrite's message, and blame the user's credential for a user request's 401", async () => {
 		const errorItem = async (parameters: INodeParameters) => {
 			const { context } = createExecuteContext({
 				parameters: { resource: 'account', ...parameters },
@@ -285,11 +307,15 @@ describe('Account request failures', () => {
 		});
 		const withApiKey = await errorItem({ operation: 'createAnonymousSession' });
 
-		expect(asUser.description).toBe(
+		expect(withApiKey.description).toBe(
 			'The current user is not authorized to perform the requested action.',
 		);
+		expect(asUser.error).toBe("Appwrite did not accept the user's JWT or session secret");
+		expect(asUser.description).toContain(
+			'Appwrite said: The current user is not authorized to perform the requested action.',
+		);
 		expect(asUser.httpCode).toBe('401');
-		expect(asUser).toEqual(withApiKey);
+		expect(withApiKey.httpCode).toBe('401');
 	});
 
 	it('tag a failed user request with its item index', async () => {

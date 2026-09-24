@@ -275,7 +275,6 @@ export function documentFields(type: DocumentDatabaseType): INodeProperties[] {
 			name: 'documentId',
 			type: 'string',
 			default: '',
-			placeholder: 'unique()',
 			description:
 				'The ID for the document. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 			displayOptions: { show: show(['create']) },
@@ -285,7 +284,6 @@ export function documentFields(type: DocumentDatabaseType): INodeProperties[] {
 			name: 'documentId',
 			type: 'string',
 			default: '',
-			placeholder: 'unique()',
 			hint: 'Create or Update needs the ID of an existing document. An auto-generated ID always creates a new document.',
 			description:
 				'The ID for the document. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',

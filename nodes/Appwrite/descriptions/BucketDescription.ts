@@ -66,7 +66,6 @@ export const bucketFields: INodeProperties[] = [
 		name: 'bucketId',
 		type: 'string',
 		default: '',
-		placeholder: 'unique()',
 		description:
 			'The ID for the bucket. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {

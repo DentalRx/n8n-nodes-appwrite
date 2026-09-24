@@ -152,7 +152,6 @@ export const organizationProjectFields: INodeProperties[] = [
 		name: 'organizationProjectId',
 		type: 'string',
 		default: '',
-		placeholder: 'unique()',
 		description:
 			'The ID for the project. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, 0-9, and hyphen; must not start with a hyphen. Max length: 36 characters.',
 		displayOptions: { show: show('create') },

@@ -340,13 +340,12 @@ export async function executeAccountOperation(
 			accessToken?: string;
 			accessTokenExpiry?: number;
 			name?: string;
-			nonce?: string;
 		};
 		const request: RequestOptions = {
 			body: {
 				provider: getStringParameter.call(this, 'accountIdTokenProvider', i),
 				idToken: getStringParameter.call(this, 'accountIdToken', i),
-				nonce: options.nonce || undefined,
+				nonce: getStringParameter.call(this, 'accountIdTokenNonce', i, '') || undefined,
 				accessToken: options.accessToken || undefined,
 				accessTokenExpiry: options.accessTokenExpiry,
 				name: options.name || undefined,
@@ -446,7 +445,7 @@ export async function executeAccountOperation(
 	}
 
 	if (operation === 'deleteMfaAuthenticator') {
-		await asUser('DELETE', TOTP_PATH);
+		await asSession('DELETE', TOTP_PATH);
 		return toItems({ deleted: true, type: 'totp' }, i);
 	}
 
@@ -502,7 +501,7 @@ export async function executeAccountOperation(
 	}
 
 	if (operation === 'getMfaRecoveryCodes') {
-		const response = await asUser('GET', '/account/mfa/recovery-codes');
+		const response = await asSession('GET', '/account/mfa/recovery-codes');
 		return toItems(response, i);
 	}
 
@@ -541,7 +540,7 @@ export async function executeAccountOperation(
 	}
 
 	if (operation === 'regenerateMfaRecoveryCodes') {
-		const response = await asUser('PATCH', '/account/mfa/recovery-codes');
+		const response = await asSession('PATCH', '/account/mfa/recovery-codes');
 		return toItems(response, i);
 	}
 

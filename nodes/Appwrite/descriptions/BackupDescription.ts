@@ -208,7 +208,6 @@ export const backupFields: INodeProperties[] = [
 		name: 'policyId',
 		type: 'string',
 		default: '',
-		placeholder: 'unique()',
 		description:
 			'The ID for the policy. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {

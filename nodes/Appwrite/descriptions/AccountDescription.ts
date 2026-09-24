@@ -18,7 +18,6 @@ const USER_OPERATIONS = [
 	'deleteConsent',
 	'deleteConsentToken',
 	'deleteIdentity',
-	'deleteMfaAuthenticator',
 	'deleteSession',
 	'deleteSessions',
 	'get',
@@ -29,10 +28,8 @@ const USER_OPERATIONS = [
 	'getManyIdentities',
 	'getManySessions',
 	'getMfaFactors',
-	'getMfaRecoveryCodes',
 	'getPrefs',
 	'getSession',
-	'regenerateMfaRecoveryCodes',
 	'updateEmail',
 	'updateName',
 	'updatePassword',
@@ -43,11 +40,19 @@ const USER_OPERATIONS = [
 ];
 
 /**
- * The operations that record an MFA factor on the current session. Appwrite
- * finds that session from a session secret only (a JWT names no current
- * session), so these act on the user through a session secret.
+ * The operations that record an MFA factor on the current session, or that
+ * need one recorded there in the last 30 minutes. Appwrite finds that session
+ * from a session secret only (a JWT names no current session), so these act on
+ * the user through a session secret.
  */
-const SESSION_OPERATIONS = ['completeMfaChallenge', 'updateMfa', 'verifyMfaAuthenticator'];
+const SESSION_OPERATIONS = [
+	'completeMfaChallenge',
+	'deleteMfaAuthenticator',
+	'getMfaRecoveryCodes',
+	'regenerateMfaRecoveryCodes',
+	'updateMfa',
+	'verifyMfaAuthenticator',
+];
 
 /**
  * Every operation that offers a choice of JWT or session secret, including the
@@ -278,7 +283,8 @@ export const accountOperations: INodeProperties[] = [
 			{
 				name: 'Delete MFA Authenticator',
 				value: 'deleteMfaAuthenticator',
-				description: 'Remove the authenticator app of the signed-in user',
+				description:
+					'Remove the authenticator app of the signed-in user, within 30 minutes of an MFA challenge',
 				action: 'Delete account MFA authenticator',
 			},
 			{
@@ -344,7 +350,8 @@ export const accountOperations: INodeProperties[] = [
 			{
 				name: 'Get MFA Recovery Codes',
 				value: 'getMfaRecoveryCodes',
-				description: "Retrieve the user's MFA recovery codes, after an MFA challenge",
+				description:
+					"Retrieve the user's MFA recovery codes, within 30 minutes of an MFA challenge",
 				action: 'Get account MFA recovery codes',
 			},
 			{
@@ -369,7 +376,8 @@ export const accountOperations: INodeProperties[] = [
 			{
 				name: 'Regenerate MFA Recovery Codes',
 				value: 'regenerateMfaRecoveryCodes',
-				description: 'Replace the MFA recovery codes with new ones, after an MFA challenge',
+				description:
+					'Replace the MFA recovery codes with new ones, within 30 minutes of an MFA challenge',
 				action: 'Regenerate account MFA recovery codes',
 			},
 			{
@@ -476,7 +484,7 @@ export const accountFields: INodeProperties[] = [
 		required: true,
 		default: '',
 		description:
-			"The secret of the session of the user to act as: the 'secret' field returned when the session is created with the API key, e.g. by Create Email Password Session. Appwrite records the MFA factor on this session, so a JWT cannot stand in for it.",
+			"The secret of the session of the user to act as: the 'secret' field returned when the session is created with the API key, e.g. by Create Email Password Session. Appwrite records MFA on this session, so a JWT cannot stand in for it.",
 		displayOptions: {
 			show: {
 				resource: ['account'],
@@ -555,7 +563,6 @@ export const accountFields: INodeProperties[] = [
 		name: 'userId',
 		type: 'string',
 		default: '',
-		placeholder: 'unique()',
 		description:
 			'The ID for the new account. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {
@@ -570,7 +577,6 @@ export const accountFields: INodeProperties[] = [
 		name: 'userId',
 		type: 'string',
 		default: '',
-		placeholder: 'unique()',
 		description:
 			'The ID for a new account, used only when no account has this email address or phone number yet (otherwise it is ignored). Leave empty (or use unique()) to auto-generate a unique ID.',
 		displayOptions: {
@@ -743,6 +749,26 @@ export const accountFields: INodeProperties[] = [
 			},
 		},
 	},
+	// Apple always puts a nonce in its ID tokens, so Appwrite requires one for it.
+	...(['apple', 'google'] as const).map((provider): INodeProperties => ({
+		displayName: 'Nonce',
+		name: 'accountIdTokenNonce',
+		type: 'string',
+		typeOptions: { password: true },
+		required: provider === 'apple',
+		default: '',
+		description:
+			provider === 'apple'
+				? 'The raw nonce your app used when requesting the ID token'
+				: 'The raw nonce your app used when requesting the ID token, if it used one',
+		displayOptions: {
+			show: {
+				resource: ['account'],
+				operation: ['createIdTokenSession'],
+				accountIdTokenProvider: [provider],
+			},
+		},
+	})),
 	{
 		displayName: 'ID Token',
 		name: 'accountIdToken',
@@ -1102,14 +1128,6 @@ export const accountFields: INodeProperties[] = [
 				default: '',
 				description:
 					'The name for a new user when the ID token carries none, as on the first Sign in with Apple',
-			},
-			{
-				displayName: 'Nonce',
-				name: 'nonce',
-				type: 'string',
-				default: '',
-				description:
-					'The raw nonce your app used when requesting the ID token. Required for Apple, and whenever the token carries a nonce.',
 			},
 		],
 	},
