@@ -201,8 +201,9 @@ export async function executeAvatarOperation(
 
 	if (operation === 'getPhoto') {
 		const userId = getOptionalResourceId.call(this, 'userId', i, 'user');
-		const email = (this.getNodeParameter('email', i, '') as string).trim();
-		const name = this.getNodeParameter('name', i, '') as string;
+		// String(): an expression can resolve to a non-string value.
+		const email = String(this.getNodeParameter('email', i, '') ?? '').trim();
+		const name = String(this.getNodeParameter('name', i, '') ?? '');
 		// Appwrite falls back to the signed-in user when none of these is set,
 		// but an API key has no user, so the request could only return the
 		// generic placeholder image.
