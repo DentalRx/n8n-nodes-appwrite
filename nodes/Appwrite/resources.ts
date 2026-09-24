@@ -13,6 +13,13 @@ import { bucketFields, bucketOperations } from './descriptions/BucketDescription
 import { columnFields, columnOperations } from './descriptions/ColumnDescription';
 import { databaseFields, databaseOperations } from './descriptions/DatabaseDescription';
 import { embeddingFields, embeddingOperations } from './descriptions/EmbeddingDescription';
+	},
+	{
+		option: {
+import {
+	dedicatedDatabaseFields,
+	dedicatedDatabaseOperations,
+} from './descriptions/DedicatedDatabaseDescription';
 import { executionFields, executionOperations } from './descriptions/ExecutionDescription';
 import { fileFields, fileOperations } from './descriptions/FileDescription';
 import { functionFields, functionOperations } from './descriptions/FunctionDescription';
@@ -39,6 +46,7 @@ import { executeBackupOperation } from './operations/BackupOperations';
 import { executeBucketOperation } from './operations/BucketOperations';
 import { executeColumnOperation } from './operations/ColumnOperations';
 import { executeDatabaseOperation } from './operations/DatabaseOperations';
+import { executeDedicatedDatabaseOperation } from './operations/DedicatedDatabaseOperations';
 import { executeEmbeddingOperation } from './operations/EmbeddingOperations';
 import { executeExecutionOperation } from './operations/ExecutionOperations';
 import { executeFileOperation } from './operations/FileOperations';
@@ -147,6 +155,16 @@ const RESOURCES: ResourceDefinition[] = [
 		operations: databaseOperations,
 		fields: databaseFields,
 		execute: executeDatabaseOperation,
+	},
+	{
+		option: {
+			name: 'Dedicated Database',
+			value: 'dedicatedDatabase',
+			description: 'Manage native MongoDB, MySQL, and PostgreSQL databases, and run SQL on them',
+		},
+		operations: dedicatedDatabaseOperations,
+		fields: dedicatedDatabaseFields,
+		execute: executeDedicatedDatabaseOperation,
 	},
 	{
 		option: {

@@ -1,6 +1,7 @@
 import {
 	searchBuckets,
 	searchDatabases,
+	searchDedicatedDatabases,
 	searchFiles,
 	searchFunctions,
 	searchProviders,
@@ -11,12 +12,20 @@ import {
 	searchUsers,
 	searchWebhooks,
 } from './listSearch';
-import { getColumns, getFrameworks, getRuntimes, getSiteBuildRuntimes } from './loadOptions';
+import {
+	getAvailablePostgresqlExtensions,
+	getColumns,
+	getFrameworks,
+	getInstalledPostgresqlExtensions,
+	getRuntimes,
+	getSiteBuildRuntimes,
+} from './loadOptions';
 
 /** The pickers behind the node's resource locators (From List mode). */
 export const listSearch = {
 	searchBuckets,
 	searchDatabases,
+	searchDedicatedDatabases,
 	searchFiles,
 	searchFunctions,
 	searchProviders,
@@ -30,8 +39,10 @@ export const listSearch = {
 
 /** The dropdowns whose options load from Appwrite. */
 export const loadOptions = {
+	getAvailablePostgresqlExtensions,
 	getColumns,
 	getFrameworks,
+	getInstalledPostgresqlExtensions,
 	getRuntimes,
 	getSiteBuildRuntimes,
 };

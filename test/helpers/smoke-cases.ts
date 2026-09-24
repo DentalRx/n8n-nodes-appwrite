@@ -38,6 +38,8 @@ export const operationsOf = (resource: string): string[] => {
 
 const LIST_KEYS = [
 	'archives',
+	'backups',
+	'branches',
 	'buckets',
 	'columns',
 	'continents',

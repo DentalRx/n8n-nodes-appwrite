@@ -6,6 +6,7 @@ import type {
 } from 'n8n-workflow';
 
 import { Query, extractId } from '../helpers/appwrite';
+import { findEngine } from '../helpers/dedicatedDatabases';
 import { appwriteApiRequest } from '../transport';
 
 /** Entries fetched per page of a From List search. */
@@ -67,6 +68,30 @@ export async function searchDatabases(
 	paginationToken?: string,
 ): Promise<INodeListSearchResult> {
 	return await searchList(this, '/tablesdb', 'databases', byName, filter, paginationToken);
+}
+
+export async function searchDedicatedDatabases(
+	this: ILoadOptionsFunctions,
+	filter?: string,
+	paginationToken?: string,
+): Promise<INodeListSearchResult> {
+	const engine = findEngine(this.getCurrentNodeParameter('databaseEngine'));
+	if (engine === undefined) return { results: [] };
+
+	// Unlike the other lists, this one takes no `search` parameter, so the typed
+	// filter narrows each page here. A project runs few dedicated databases, so
+	// one page is nearly always the whole list.
+	const page = await searchList(this, engine.path, 'databases', byName, undefined, paginationToken);
+	if (!filter) return page;
+	const needle = filter.toLowerCase();
+	return {
+		...page,
+		results: page.results.filter(
+			(result) =>
+				result.name.toLowerCase().includes(needle) ||
+				String(result.value).toLowerCase().includes(needle),
+		),
+	};
 }
 
 export async function searchTables(

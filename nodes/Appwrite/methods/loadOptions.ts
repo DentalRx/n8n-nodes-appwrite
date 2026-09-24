@@ -134,3 +134,45 @@ export async function getRuntimes(this: ILoadOptionsFunctions): Promise<INodePro
 		return version === '' ? name : `${name} ${version}`;
 	});
 }
+
+/**
+ * The extensions a PostgreSQL dedicated database can install, or has
+ * installed. Appwrite adds a display name and description for the extensions
+ * it curates; any other shows under its own name.
+ */
+async function postgresqlExtensions(
+	context: ILoadOptionsFunctions,
+	list: 'available' | 'installed',
+): Promise<INodePropertyOptions[]> {
+	const databaseId = dependency(context, 'dedicatedDatabaseId', 'database');
+	if (databaseId === '') return [];
+
+	const response = await appwriteApiRequest.call(
+		context,
+		'GET',
+		`/postgresql/${encodeURIComponent(databaseId)}/extensions`,
+	);
+	const metadata = new Map(
+		((response.metadata ?? []) as IDataObject[]).map((entry) => [entry.key, entry]),
+	);
+	return ((response[list] ?? []) as string[])
+		.map((key) => {
+			const entry = metadata.get(key);
+			const option: INodePropertyOptions = { name: (entry?.name as string) || key, value: key };
+			if (typeof entry?.description === 'string') option.description = entry.description;
+			return option;
+		})
+		.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+}
+
+export async function getAvailablePostgresqlExtensions(
+	this: ILoadOptionsFunctions,
+): Promise<INodePropertyOptions[]> {
+	return await postgresqlExtensions(this, 'available');
+}
+
+export async function getInstalledPostgresqlExtensions(
+	this: ILoadOptionsFunctions,
+): Promise<INodePropertyOptions[]> {
+	return await postgresqlExtensions(this, 'installed');
+}
