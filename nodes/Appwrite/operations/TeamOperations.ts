@@ -12,7 +12,7 @@ import {
 	withLimit,
 } from '../GenericFunctions';
 import { resolveId } from '../helpers/appwrite';
-import { appwriteApiRequest } from '../transport';
+import { appwriteApiRequest, appwriteUserRequest } from '../transport';
 import {
 	TEAM_INSTALLATION_OPERATIONS,
 	executeTeamInstallationOperation,
@@ -189,6 +189,24 @@ export async function executeTeamOperation(
 		const path = `${teamPath()}/memberships/${encodeURIComponent(membershipId)}`;
 		const roles = getStringListParameter.call(this, 'roles', i, 'Roles');
 		const response = await appwriteApiRequest.call(this, 'PATCH', path, { body: { roles } }, i);
+		return toItems(response, i);
+	}
+
+	if (operation === 'updateMembershipStatus') {
+		// Accepting an invitation is proved by the secret from the invitation
+		// link, not by credentials: Appwrite refuses API keys here (the route's
+		// scope is public), so the request goes out without the key.
+		const membershipId = String(this.getNodeParameter('membershipId', i) ?? '');
+		const userId = getResourceId.call(this, 'userId', i, 'user', 'User');
+		const secret = String(this.getNodeParameter('membershipSecret', i) ?? '');
+		const response = await appwriteUserRequest.call(
+			this,
+			'PATCH',
+			`${teamPath()}/memberships/${encodeURIComponent(membershipId)}/status`,
+			{ type: 'guest' },
+			{ body: { userId, secret } },
+			i,
+		);
 		return toItems(response, i);
 	}
 

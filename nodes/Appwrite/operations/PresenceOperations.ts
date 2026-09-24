@@ -1,14 +1,71 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { buildQueries, fetchAllPages, toItems, withLimit } from '../GenericFunctions';
+import {
+	buildQueries,
+	fetchAllPages,
+	getPermissions,
+	getResourceId,
+	parseJsonParameter,
+	toItems,
+	withLimit,
+} from '../GenericFunctions';
+import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
+
+interface PresenceOptions {
+	expiresAt?: string;
+	metadata?: unknown;
+	purge?: boolean;
+	status?: unknown;
+}
 
 export async function executePresenceOperation(
 	this: IExecuteFunctions,
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
+	if (operation === 'upsert' || operation === 'update') {
+		// With an API key Appwrite needs to be told whose presence this is.
+		const userId = getResourceId.call(this, 'userId', i, 'user', 'User');
+		const options = this.getNodeParameter('presenceOptions', i, {}) as PresenceOptions;
+		const metadata =
+			options.metadata === undefined
+				? undefined
+				: parseJsonParameter.call(this, options.metadata, 'Metadata', i);
+		const common: IDataObject = {
+			userId,
+			permissions: getPermissions.call(this, i),
+			expiresAt: options.expiresAt || undefined,
+			metadata,
+		};
+
+		if (operation === 'upsert') {
+			const presenceId = resolveId(this.getNodeParameter('presenceId', i, ''));
+			const status = String(this.getNodeParameter('presenceStatus', i) ?? '');
+			const response = await appwriteApiRequest.call(
+				this,
+				'PUT',
+				`/presences/${encodeURIComponent(presenceId)}`,
+				{ body: { ...common, status } },
+				i,
+			);
+			return toItems(response, i);
+		}
+
+		const presenceId = String(this.getNodeParameter('presenceId', i) ?? '');
+		const status =
+			options.status === undefined || options.status === '' ? undefined : String(options.status);
+		const response = await appwriteApiRequest.call(
+			this,
+			'PATCH',
+			`/presences/${encodeURIComponent(presenceId)}`,
+			{ body: { ...common, status, purge: options.purge || undefined } },
+			i,
+		);
+		return toItems(response, i);
+	}
+
 	if (operation === 'delete') {
 		const presenceId = this.getNodeParameter('presenceId', i) as string;
 		await appwriteApiRequest.call(

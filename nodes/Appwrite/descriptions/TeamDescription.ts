@@ -17,6 +17,13 @@ export const teamOperations: INodeProperties[] = [
 		},
 		options: [
 			{
+				name: 'Accept Membership Invitation',
+				value: 'updateMembershipStatus',
+				description:
+					"Accept an invitation to join a team on the invited user's behalf, using the user ID and secret from the invitation link",
+				action: 'Accept team membership invitation',
+			},
+			{
 				name: 'Create',
 				value: 'create',
 				description: 'Create a new team',
@@ -142,11 +149,31 @@ export const teamFields: INodeProperties[] = [
 			'getPrefs',
 			'updateInstallation',
 			'updateMembership',
+			'updateMembershipStatus',
 			'updateName',
 			'updatePrefs',
 		],
 	}),
 	...teamInstallationFields,
+	userLocator(
+		{ resource: ['team'], operation: ['updateMembershipStatus'] },
+		{ description: 'The invited user, from the userId parameter of the invitation link' },
+	),
+	{
+		displayName: 'Invitation Secret',
+		name: 'membershipSecret',
+		type: 'string',
+		typeOptions: { password: true },
+		required: true,
+		default: '',
+		description: 'The secret parameter of the invitation link Appwrite sent to the invited user',
+		displayOptions: {
+			show: {
+				resource: ['team'],
+				operation: ['updateMembershipStatus'],
+			},
+		},
+	},
 	{
 		displayName: 'Name',
 		name: 'name',
@@ -201,7 +228,12 @@ export const teamFields: INodeProperties[] = [
 		displayOptions: {
 			show: {
 				resource: ['team'],
-				operation: ['deleteMembership', 'getMembership', 'updateMembership'],
+				operation: [
+					'deleteMembership',
+					'getMembership',
+					'updateMembership',
+					'updateMembershipStatus',
+				],
 			},
 		},
 	},
