@@ -51,7 +51,7 @@ export const transactionOperations: INodeProperties[] = [
 				action: 'Get many transactions',
 			},
 			{
-				name: 'Rollback',
+				name: 'Roll Back',
 				value: 'rollback',
 				description: 'Roll back a transaction, discarding all its staged operations',
 				action: 'Roll back transaction',

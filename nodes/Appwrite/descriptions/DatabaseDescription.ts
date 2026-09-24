@@ -34,12 +34,6 @@ export const databaseOperations: INodeProperties[] = [
 				action: 'Create database migration cutover',
 			},
 			{
-				name: 'Create Failover',
-				value: 'createFailover',
-				description: 'Promote a replica of a dedicated database with high availability to primary',
-				action: 'Create database failover',
-			},
-			{
 				name: 'Create Migration',
 				value: 'createMigration',
 				description: 'Start moving a serverless database onto dedicated compute',
@@ -108,6 +102,12 @@ export const databaseOperations: INodeProperties[] = [
 				description:
 					'Get the real-time health of a dedicated database: readiness, uptime, connections, replicas, and storage volumes',
 				action: 'Get database status',
+			},
+			{
+				name: 'Trigger Failover',
+				value: 'createFailover',
+				description: 'Promote a replica of a dedicated database with high availability to primary',
+				action: 'Trigger database failover',
 			},
 			{
 				name: 'Update',
