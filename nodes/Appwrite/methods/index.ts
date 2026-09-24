@@ -1,4 +1,5 @@
 import {
+	searchApiKeys,
 	searchApps,
 	searchBuckets,
 	searchDatabases,
@@ -7,6 +8,7 @@ import {
 	searchDocumentsDbDatabases,
 	searchFiles,
 	searchFunctions,
+	searchPlatforms,
 	searchProviders,
 	searchProxyRules,
 	searchSites,
@@ -31,6 +33,7 @@ import {
 
 /** The pickers behind the node's resource locators (From List mode). */
 export const listSearch = {
+	searchApiKeys,
 	searchApps,
 	searchBuckets,
 	searchDatabases,
@@ -39,6 +42,7 @@ export const listSearch = {
 	searchDocumentsDbDatabases,
 	searchFiles,
 	searchFunctions,
+	searchPlatforms,
 	searchProviders,
 	searchProxyRules,
 	searchSites,

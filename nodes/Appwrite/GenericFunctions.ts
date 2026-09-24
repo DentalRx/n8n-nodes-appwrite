@@ -679,3 +679,25 @@ export async function fetchAllPagesByOffset<T>(
 	}
 	return results;
 }
+
+/**
+ * Run a Get Many against a list endpoint that takes only limit and offset
+ * queries (e.g. a project's policies or mock phone numbers), so it offers
+ * Return All and Limit but no query builder: Return All pages by offset,
+ * otherwise one page of Limit entries is fetched.
+ */
+export async function getManyByOffset(
+	this: IExecuteFunctions,
+	fetchPage: (queries: string[]) => Promise<IDataObject>,
+	listKey: string,
+	itemIndex: number,
+): Promise<IDataObject[]> {
+	const returnAll = this.getNodeParameter('returnAll', itemIndex, false) as boolean;
+	if (returnAll) {
+		const all = await fetchAllPagesByOffset.call(this, [], fetchPage, listKey, itemIndex);
+		return all as IDataObject[];
+	}
+	const limit = this.getNodeParameter('limit', itemIndex, 50) as number;
+	const response = await fetchPage([Query.limit(limit)]);
+	return (response[listKey] ?? []) as IDataObject[];
+}

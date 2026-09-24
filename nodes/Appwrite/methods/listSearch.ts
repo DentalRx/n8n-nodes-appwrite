@@ -55,8 +55,9 @@ async function searchList(
 
 /**
  * searchList for endpoints without a `search` parameter: the typed filter is
- * matched here, against the labels. A page without a match moves straight on
- * to the next, so the picker is never left empty while more entries remain.
+ * matched here, against the labels and IDs. A page without a match moves
+ * straight on to the next, so the picker is never left empty while more
+ * entries remain.
  */
 async function searchListByLabel(
 	context: ILoadOptionsFunctions,
@@ -70,7 +71,11 @@ async function searchListByLabel(
 	let cursor = paginationToken;
 	for (;;) {
 		const page = await searchList(context, path, listKey, label, undefined, cursor);
-		const results = page.results.filter((result) => result.name.toLowerCase().includes(needle));
+		const results = page.results.filter(
+			(result) =>
+				result.name.toLowerCase().includes(needle) ||
+				String(result.value).toLowerCase().includes(needle),
+		);
 		if (results.length > 0 || page.paginationToken === undefined) {
 			return { results, paginationToken: page.paginationToken };
 		}
@@ -319,6 +324,29 @@ export async function searchTopics(
 	paginationToken?: string,
 ): Promise<INodeListSearchResult> {
 	return await searchList(this, '/messaging/topics', 'topics', byName, filter, paginationToken);
+}
+
+export async function searchApiKeys(
+	this: ILoadOptionsFunctions,
+	filter?: string,
+	paginationToken?: string,
+): Promise<INodeListSearchResult> {
+	return await searchListByLabel(this, '/project/keys', 'keys', byName, filter, paginationToken);
+}
+
+export async function searchPlatforms(
+	this: ILoadOptionsFunctions,
+	filter?: string,
+	paginationToken?: string,
+): Promise<INodeListSearchResult> {
+	return await searchListByLabel(
+		this,
+		'/project/platforms',
+		'platforms',
+		byName,
+		filter,
+		paginationToken,
+	);
 }
 
 export async function searchUsers(

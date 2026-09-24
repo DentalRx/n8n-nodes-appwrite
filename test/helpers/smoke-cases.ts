@@ -69,8 +69,10 @@ const LIST_KEYS = [
 	'memberships',
 	'messages',
 	'migrations',
+	'mockNumbers',
 	'operations',
 	'phones',
+	'platforms',
 	'policies',
 	'presences',
 	'providers',
@@ -88,6 +90,7 @@ const LIST_KEYS = [
 	'tables',
 	'targets',
 	'teams',
+	'templates',
 	'tokens',
 	'topics',
 	'transactions',
@@ -160,6 +163,7 @@ function valueFor(
 			if (name === 'domain') return 'example.com';
 			if (name === 'countryCode') return 'us';
 			if (name === 'serviceAccountJSON') return '{"type": "service_account"}';
+			if (name === 'emailTemplateLocale') return 'en';
 			if (/expire|scheduledAt|date/i.test(name)) return '2030-01-01T00:00:00.000+00:00';
 			return `${name}-value`;
 		}

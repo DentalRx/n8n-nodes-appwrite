@@ -47,6 +47,7 @@ export function resourceLocator(
 	options: LocatorOptions,
 	show: IDisplayOptions['show'],
 ): INodeProperties {
+	// What precedes the ID in a Console URL: `table-orders`, or `api-keys/<id>`.
 	const idPrefix = options.urlSegment === undefined ? `${options.kind}-` : `${options.urlSegment}/`;
 	const property: INodeProperties = {
 		displayName: options.displayName,
@@ -353,6 +354,36 @@ export const webhookLocator = (show: IDisplayOptions['show']): INodeProperties =
 			placeholder: 'e.g. order-sync',
 			urlPlaceholder: `e.g. ${CONSOLE}/settings/webhooks/order-sync`,
 			description: 'The webhook to use',
+		},
+		show,
+	);
+
+export const apiKeyLocator = (show: IDisplayOptions['show']): INodeProperties =>
+	resourceLocator(
+		{
+			name: 'apiKeyId',
+			displayName: 'API Key',
+			kind: 'key',
+			urlSegment: 'api-keys',
+			searchListMethod: 'searchApiKeys',
+			placeholder: 'e.g. 6650f1a2003e4b5c6d7e',
+			urlPlaceholder: `e.g. ${CONSOLE}/overview/api-keys/6650f1a2003e4b5c6d7e`,
+			description: 'The API key to use',
+		},
+		show,
+	);
+
+export const platformLocator = (show: IDisplayOptions['show']): INodeProperties =>
+	resourceLocator(
+		{
+			name: 'platformId',
+			displayName: 'Platform',
+			kind: 'platform',
+			urlSegment: 'platforms',
+			searchListMethod: 'searchPlatforms',
+			placeholder: 'e.g. 6650f1a2003e4b5c6d7e',
+			urlPlaceholder: `e.g. ${CONSOLE}/overview/platforms/6650f1a2003e4b5c6d7e`,
+			description: 'The platform to use',
 		},
 		show,
 	);

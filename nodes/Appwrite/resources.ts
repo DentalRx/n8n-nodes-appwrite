@@ -8,6 +8,7 @@ import type {
 import { accountFields, accountOperations } from './descriptions/AccountDescription';
 import { activityFields, activityOperations } from './descriptions/ActivityDescription';
 import { advisorFields, advisorOperations } from './descriptions/AdvisorDescription';
+import { apiKeyFields, apiKeyOperations } from './descriptions/ApiKeyDescription';
 import { appFields, appOperations } from './descriptions/AppDescription';
 import { avatarFields, avatarOperations } from './descriptions/AvatarDescription';
 import { backupFields, backupOperations } from './descriptions/BackupDescription';
@@ -27,6 +28,10 @@ import {
 	documentDatabaseOperations,
 } from './descriptions/DocumentDatabaseDescription';
 import { documentFields, documentOperations } from './descriptions/DocumentDescription';
+import {
+	emailTemplateFields,
+	emailTemplateOperations,
+} from './descriptions/EmailTemplateDescription';
 import { embeddingFields, embeddingOperations } from './descriptions/EmbeddingDescription';
 import { executionFields, executionOperations } from './descriptions/ExecutionDescription';
 import { fileFields, fileOperations } from './descriptions/FileDescription';
@@ -36,7 +41,18 @@ import { healthFields, healthOperations } from './descriptions/HealthDescription
 import { indexFields, indexOperations } from './descriptions/IndexDescription';
 import { localeFields, localeOperations } from './descriptions/LocaleDescription';
 import { messageFields, messageOperations } from './descriptions/MessageDescription';
+import { mockPhoneFields, mockPhoneOperations } from './descriptions/MockPhoneDescription';
+import {
+	oauth2ProviderFields,
+	oauth2ProviderOperations,
+} from './descriptions/OAuth2ProviderDescription';
+import { platformFields, platformOperations } from './descriptions/PlatformDescription';
 import { presenceFields, presenceOperations } from './descriptions/PresenceDescription';
+import { projectFields, projectOperations } from './descriptions/ProjectDescription';
+import {
+	projectVariableFields,
+	projectVariableOperations,
+} from './descriptions/ProjectVariableDescription';
 import { providerFields, providerOperations } from './descriptions/ProviderDescription';
 import { proxyRuleFields, proxyRuleOperations } from './descriptions/ProxyRuleDescription';
 import { rowFields, rowOperations } from './descriptions/RowDescription';
@@ -53,6 +69,7 @@ import { DOCUMENTS_DB, VECTORS_DB } from './helpers/documentDatabases';
 import { executeAccountOperation } from './operations/AccountOperations';
 import { executeActivityOperation } from './operations/ActivityOperations';
 import { executeAdvisorOperation } from './operations/AdvisorOperations';
+import { executeApiKeyOperation } from './operations/ApiKeyOperations';
 import { executeAppOperation } from './operations/AppOperations';
 import { executeAvatarOperation } from './operations/AvatarOperations';
 import { executeBackupOperation } from './operations/BackupOperations';
@@ -63,6 +80,7 @@ import { executeDedicatedDatabaseOperation } from './operations/DedicatedDatabas
 import { documentCollectionExecutor } from './operations/DocumentCollectionOperations';
 import { documentDatabaseExecutor } from './operations/DocumentDatabaseOperations';
 import { documentExecutor } from './operations/DocumentOperations';
+import { executeEmailTemplateOperation } from './operations/EmailTemplateOperations';
 import { executeEmbeddingOperation } from './operations/EmbeddingOperations';
 import { executeExecutionOperation } from './operations/ExecutionOperations';
 import { executeFileOperation } from './operations/FileOperations';
@@ -72,7 +90,12 @@ import { executeHealthOperation } from './operations/HealthOperations';
 import { executeIndexOperation } from './operations/IndexOperations';
 import { executeLocaleOperation } from './operations/LocaleOperations';
 import { executeMessageOperation } from './operations/MessageOperations';
+import { executeMockPhoneOperation } from './operations/MockPhoneOperations';
+import { executeOAuth2ProviderOperation } from './operations/OAuth2ProviderOperations';
+import { executePlatformOperation } from './operations/PlatformOperations';
 import { executePresenceOperation } from './operations/PresenceOperations';
+import { executeProjectOperation } from './operations/ProjectOperations';
+import { executeProjectVariableOperation } from './operations/ProjectVariableOperations';
 import { executeProviderOperation } from './operations/ProviderOperations';
 import { executeProxyRuleOperation } from './operations/ProxyRuleOperations';
 import { executeRowOperation } from './operations/RowOperations';
@@ -139,6 +162,16 @@ const RESOURCES: ResourceDefinition[] = [
 		operations: advisorOperations,
 		fields: advisorFields,
 		execute: executeAdvisorOperation,
+	},
+	{
+		option: {
+			name: 'API Key',
+			value: 'apiKey',
+			description: 'Manage the API keys that give servers access to the project',
+		},
+		operations: apiKeyOperations,
+		fields: apiKeyFields,
+		execute: executeApiKeyOperation,
 	},
 	{
 		option: {
@@ -233,6 +266,17 @@ const RESOURCES: ResourceDefinition[] = [
 		operations: documentOperations(DOCUMENTS_DB),
 		fields: documentFields(DOCUMENTS_DB),
 		execute: documentExecutor(DOCUMENTS_DB),
+	},
+	{
+		option: {
+			name: 'Email Template',
+			value: 'emailTemplate',
+			description:
+				'Customize the emails Appwrite sends users, such as verification and password reset',
+		},
+		operations: emailTemplateOperations,
+		fields: emailTemplateFields,
+		execute: executeEmailTemplateOperation,
 	},
 	{
 		option: {
@@ -332,6 +376,36 @@ const RESOURCES: ResourceDefinition[] = [
 	},
 	{
 		option: {
+			name: 'Mock Phone Number',
+			value: 'mockPhone',
+			description: 'Manage test phone numbers that sign in with a fixed code instead of an SMS',
+		},
+		operations: mockPhoneOperations,
+		fields: mockPhoneFields,
+		execute: executeMockPhoneOperation,
+	},
+	{
+		option: {
+			name: 'OAuth2 Provider',
+			value: 'oauth2Provider',
+			description: 'Configure sign-in with GitHub, Google, Apple, and other OAuth2 providers',
+		},
+		operations: oauth2ProviderOperations,
+		fields: oauth2ProviderFields,
+		execute: executeOAuth2ProviderOperation,
+	},
+	{
+		option: {
+			name: 'Platform',
+			value: 'platform',
+			description: 'Register the web and native apps allowed to use the project',
+		},
+		operations: platformOperations,
+		fields: platformFields,
+		execute: executePlatformOperation,
+	},
+	{
+		option: {
 			name: 'Presence',
 			value: 'presence',
 			description: 'Read and remove the real-time presence of users',
@@ -339,6 +413,27 @@ const RESOURCES: ResourceDefinition[] = [
 		operations: presenceOperations,
 		fields: presenceFields,
 		execute: executePresenceOperation,
+	},
+	{
+		option: {
+			name: 'Project',
+			value: 'project',
+			description:
+				'Manage project settings such as services, sign-in methods, SMTP, and security policies',
+		},
+		operations: projectOperations,
+		fields: projectFields,
+		execute: executeProjectOperation,
+	},
+	{
+		option: {
+			name: 'Project Variable',
+			value: 'projectVariable',
+			description: 'Manage global variables that every function and site in the project can read',
+		},
+		operations: projectVariableOperations,
+		fields: projectVariableFields,
+		execute: executeProjectVariableOperation,
 	},
 	{
 		option: {
