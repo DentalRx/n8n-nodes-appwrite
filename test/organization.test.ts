@@ -35,23 +35,27 @@ async function run(parameters: INodeParameters, respond: Responder = () => ({}))
 	return { output, requests, credentialTypes, body: (index = 0) => requests[index].body };
 }
 
+/** Every operation of the organization-level resources, one test each. */
+const ORGANIZATION_OPERATIONS = ORGANIZATION_RESOURCES.flatMap((resource) =>
+	operationsOf(resource).map((operation) => ({ resource, operation })),
+);
+
 describe('organization credential', () => {
-	it('authenticates every request of the organization-level resources with it', async () => {
-		for (const resource of ORGANIZATION_RESOURCES) {
-			for (const operation of operationsOf(resource)) {
-				const [, filled] = casesFor(resource, operation);
-				const { context, credentialTypes, credentialReads } = createExecuteContext({
-					parameters: filled.parameters,
-					respond: universalResponse,
-				});
-				await node.execute.call(context);
-				expect(credentialTypes.length, `${resource} › ${operation}`).toBeGreaterThan(0);
-				for (const type of [...credentialTypes, ...credentialReads]) {
-					expect(type, `${resource} › ${operation}`).toBe('appwriteOrganizationApi');
-				}
+	it.each(ORGANIZATION_OPERATIONS)(
+		'authenticates $resource › $operation with it',
+		async ({ resource, operation }) => {
+			const [, filled] = casesFor(resource, operation);
+			const { context, credentialTypes, credentialReads } = createExecuteContext({
+				parameters: filled.parameters,
+				respond: universalResponse,
+			});
+			await node.execute.call(context);
+			expect(credentialTypes.length).toBeGreaterThan(0);
+			for (const type of [...credentialTypes, ...credentialReads]) {
+				expect(type).toBe('appwriteOrganizationApi');
 			}
-		}
-	});
+		},
+	);
 
 	it('keeps every other resource on the project credential', async () => {
 		const { context, credentialTypes, credentialReads } = createExecuteContext({
