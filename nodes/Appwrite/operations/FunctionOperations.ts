@@ -12,6 +12,8 @@ import {
 } from '../GenericFunctions';
 import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
+import type { ComputeResource } from './compute';
+import { executeComputeOperation } from './compute';
 
 /** The function-model fields most workflows read, for the Simplify toggle. */
 const SIMPLIFY_FIELDS = [
@@ -26,6 +28,15 @@ const SIMPLIFY_FIELDS = [
 	'events',
 	'entrypoint',
 ];
+
+/** How the deployment, variable and specification operations shared with Site find a function. */
+const FUNCTION_RESOURCE: ComputeResource = {
+	path: '/functions',
+	idParameter: 'functionId',
+	kind: 'function',
+	label: 'Function',
+	uploadOptions: ['commands', 'entrypoint'],
+};
 
 interface FunctionConfigOptions {
 	commands?: string;
@@ -73,18 +84,6 @@ export async function executeFunctionOperation(
 		};
 	};
 
-	if (operation === 'activateDeployment') {
-		const deploymentId = this.getNodeParameter('deploymentId', i) as string;
-		const response = await appwriteApiRequest.call(
-			this,
-			'PATCH',
-			`/functions/${encodeURIComponent(functionId())}/deployment`,
-			{ body: { deploymentId } },
-			i,
-		);
-		return toItems(response, i);
-	}
-
 	if (operation === 'create') {
 		const newFunctionId = resolveId(this.getNodeParameter('functionId', i, '') as string);
 		const name = this.getNodeParameter('name', i) as string;
@@ -102,21 +101,6 @@ export async function executeFunctionOperation(
 		return toItems(response, i);
 	}
 
-	if (operation === 'createVariable') {
-		const variableId = resolveId(this.getNodeParameter('variableId', i, '') as string);
-		const key = this.getNodeParameter('key', i) as string;
-		const value = this.getNodeParameter('value', i) as string;
-		const secret = this.getNodeParameter('secret', i, false) as boolean;
-		const response = await appwriteApiRequest.call(
-			this,
-			'POST',
-			`/functions/${encodeURIComponent(functionId())}/variables`,
-			{ body: { variableId, key, value, secret } },
-			i,
-		);
-		return toItems(response, i);
-	}
-
 	if (operation === 'delete') {
 		await appwriteApiRequest.call(
 			this,
@@ -126,30 +110,6 @@ export async function executeFunctionOperation(
 			i,
 		);
 		return toItems({ deleted: true, functionId: functionId() }, i);
-	}
-
-	if (operation === 'deleteDeployment') {
-		const deploymentId = this.getNodeParameter('deploymentId', i) as string;
-		await appwriteApiRequest.call(
-			this,
-			'DELETE',
-			`/functions/${encodeURIComponent(functionId())}/deployments/${encodeURIComponent(deploymentId)}`,
-			{},
-			i,
-		);
-		return toItems({ deleted: true, functionId: functionId(), deploymentId }, i);
-	}
-
-	if (operation === 'deleteVariable') {
-		const variableId = this.getNodeParameter('variableId', i) as string;
-		await appwriteApiRequest.call(
-			this,
-			'DELETE',
-			`/functions/${encodeURIComponent(functionId())}/variables/${encodeURIComponent(variableId)}`,
-			{},
-			i,
-		);
-		return toItems({ deleted: true, functionId: functionId(), variableId }, i);
 	}
 
 	if (operation === 'get') {
@@ -162,18 +122,6 @@ export async function executeFunctionOperation(
 		);
 		const simplify = this.getNodeParameter('simplify', i, false) as boolean;
 		return toItems(simplify ? simplifyItems(response, SIMPLIFY_FIELDS) : response, i);
-	}
-
-	if (operation === 'getDeployment') {
-		const deploymentId = this.getNodeParameter('deploymentId', i) as string;
-		const response = await appwriteApiRequest.call(
-			this,
-			'GET',
-			`/functions/${encodeURIComponent(functionId())}/deployments/${encodeURIComponent(deploymentId)}`,
-			{},
-			i,
-		);
-		return toItems(response, i);
 	}
 
 	if (operation === 'getMany') {
@@ -215,62 +163,9 @@ export async function executeFunctionOperation(
 		return toItems(project(response.functions as IDataObject[]), i);
 	}
 
-	if (operation === 'getManyDeployments') {
-		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
-		const queries = buildQueries.call(this, i);
-		const searchArg = search === '' ? undefined : search;
-
-		if (returnAll) {
-			const deployments = await fetchAllPages.call(
-				this,
-				queries,
-				async (pageQueries) =>
-					await appwriteApiRequest.call(
-						this,
-						'GET',
-						`/functions/${encodeURIComponent(functionId())}/deployments`,
-						{ qs: { queries: pageQueries, search: searchArg } },
-						i,
-					),
-				'deployments',
-				i,
-			);
-			return toItems(deployments as IDataObject[], i);
-		}
-
-		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = await appwriteApiRequest.call(
-			this,
-			'GET',
-			`/functions/${encodeURIComponent(functionId())}/deployments`,
-			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
-			i,
-		);
-		return toItems(response.deployments as IDataObject[], i);
-	}
-
-	if (operation === 'getManyVariables') {
-		const response = await appwriteApiRequest.call(
-			this,
-			'GET',
-			`/functions/${encodeURIComponent(functionId())}/variables`,
-			{},
-			i,
-		);
-		return toItems(response.variables as IDataObject[], i);
-	}
-
-	if (operation === 'getVariable') {
-		const variableId = this.getNodeParameter('variableId', i) as string;
-		const response = await appwriteApiRequest.call(
-			this,
-			'GET',
-			`/functions/${encodeURIComponent(functionId())}/variables/${encodeURIComponent(variableId)}`,
-			{},
-			i,
-		);
-		return toItems(response, i);
+	if (operation === 'getManyRuntimes') {
+		const response = await appwriteApiRequest.call(this, 'GET', '/functions/runtimes', {}, i);
+		return toItems((response.runtimes ?? []) as IDataObject[], i);
 	}
 
 	if (operation === 'update') {
@@ -320,29 +215,8 @@ export async function executeFunctionOperation(
 		return toItems(response, i);
 	}
 
-	if (operation === 'updateVariable') {
-		const variableId = this.getNodeParameter('variableId', i) as string;
-		const key = this.getNodeParameter('key', i) as string;
-		const value = this.getNodeParameter('value', i, '') as string;
-		const secret = this.getNodeParameter('secret', i, false) as boolean;
-		const response = await appwriteApiRequest.call(
-			this,
-			'PUT',
-			`/functions/${encodeURIComponent(functionId())}/variables/${encodeURIComponent(variableId)}`,
-			{
-				body: {
-					key,
-					value: value === '' ? undefined : value,
-					// `secret` is one-way in Appwrite: once set it cannot be turned back
-					// off, and omitting it keeps the variable's current setting - which
-					// is what an untouched toggle promises in the UI.
-					secret: secret ? true : undefined,
-				},
-			},
-			i,
-		);
-		return toItems(response, i);
-	}
+	const computeResult = await executeComputeOperation.call(this, FUNCTION_RESOURCE, operation, i);
+	if (computeResult !== undefined) return computeResult;
 
 	throw new NodeOperationError(this.getNode(), `Unknown function operation "${operation}"`, {
 		itemIndex: i,

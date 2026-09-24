@@ -46,6 +46,7 @@ const LIST_KEYS = [
 	'deployments',
 	'executions',
 	'files',
+	'frameworks',
 	'functions',
 	'identities',
 	'indexes',
@@ -60,6 +61,8 @@ const LIST_KEYS = [
 	'rows',
 	'runtimes',
 	'sessions',
+	'sites',
+	'specifications',
 	'subscribers',
 	'tables',
 	'targets',
@@ -125,6 +128,7 @@ function valueFor(
 			if (name === 'defaultValue') return COLUMN_DEFAULTS[String(context.columnType)] ?? 'default';
 			if (name === 'orders') return 'asc';
 			if (name === 'lengths') return '255';
+			if (name === 'inputBinaryField' && context.operation === 'createDeployment') return 'code';
 			if (name === 'inputBinaryField' || name === 'outputBinaryField') return 'data';
 			if (name === 'permissions') return 'read("any")\nupdate("users")';
 			if (name === 'email') return 'user@example.com';
@@ -290,4 +294,10 @@ export function casesFor(resource: string, operation: string): SmokeCase[] {
 
 export const BINARY = {
 	data: { buffer: Buffer.from('hello world'), mimeType: 'text/plain', fileName: 'hello.txt' },
+	// Deployments check for the gzip signature before uploading a code package.
+	code: {
+		buffer: Buffer.from([0x1f, 0x8b, 0x08, 0x00]),
+		mimeType: 'application/gzip',
+		fileName: 'code.tar.gz',
+	},
 };

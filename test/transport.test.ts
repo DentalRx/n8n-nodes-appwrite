@@ -227,6 +227,35 @@ describe('appwriteFileUpload', () => {
 		expect(lastBody).toContain('Content-Type: application/pdf\r\n\r\na\r\n');
 	});
 
+	it('puts the file in the form field the endpoint names, in every chunk', async () => {
+		const { context, requests } = createExecuteContext({
+			parameters: { resource: 'site', operation: 'createDeployment' },
+			respond: (_request, index) => JSON.stringify({ $id: `deployment-${index}` }),
+		});
+		const response = await appwriteFileUpload.call(
+			context,
+			'/sites/s1/deployments',
+			{
+				content: Buffer.alloc(CHUNK + 1, 'a'),
+				filename: 'code.tar.gz',
+				contentType: 'application/gzip',
+				field: 'code',
+			},
+			[['activate', 'true']],
+			0,
+		);
+
+		expect(response).toEqual({ $id: 'deployment-1' });
+		expect(requests).toHaveLength(2);
+		expect(requests[1].headers).toMatchObject({ 'x-appwrite-id': 'deployment-0' });
+		for (const request of requests) {
+			const body = (request.body as Buffer).toString('latin1');
+			expect(body).toContain('name="activate"\r\n\r\ntrue\r\n');
+			expect(body).toContain('name="code"; filename="code.tar.gz"\r\n');
+			expect(body).not.toContain('name="file"');
+		}
+	});
+
 	it('still uploads an empty file once', async () => {
 		const { requests } = await upload(Buffer.alloc(0));
 		expect(requests).toHaveLength(1);

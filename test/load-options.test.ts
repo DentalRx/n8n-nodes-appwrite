@@ -5,10 +5,16 @@ import {
 	searchBuckets,
 	searchDatabases,
 	searchFiles,
+	searchSites,
 	searchTables,
 	searchUsers,
 } from '../nodes/Appwrite/methods/listSearch';
-import { getColumns, getRuntimes } from '../nodes/Appwrite/methods/loadOptions';
+import {
+	getColumns,
+	getFrameworks,
+	getRuntimes,
+	getSiteBuildRuntimes,
+} from '../nodes/Appwrite/methods/loadOptions';
 import { BASE_URL, createLoadOptionsContext } from './helpers/mock-context';
 
 const parse = (query: string) => JSON.parse(query) as { method: string; values?: unknown[] };
@@ -96,6 +102,17 @@ describe('list search (resource locator From List mode)', () => {
 		expect(requests[0].url).toBe(`${BASE_URL}/storage/buckets/avatars/files`);
 	});
 
+	it('lists sites by name', async () => {
+		const { context, requests } = createLoadOptionsContext({
+			respond: () => ({ sites: [{ $id: 'shop', name: 'Shop' }] }),
+		});
+		expect((await searchSites.call(context, 'sh')).results).toEqual([
+			{ name: 'Shop', value: 'shop' },
+		]);
+		expect(requests[0].url).toBe(`${BASE_URL}/sites`);
+		expect((requests[0].qs as Record<string, string>).search).toBe('sh');
+	});
+
 	it('labels users by name, then email, then phone', async () => {
 		const { context } = createLoadOptionsContext({
 			respond: () => ({
@@ -151,6 +168,55 @@ describe('load options', () => {
 			{ name: 'Node.js 18.0', value: 'node-18.0' },
 			{ name: 'Node.js 20.0', value: 'node-20.0' },
 		]);
+	});
+
+	describe('site frameworks and build runtimes', () => {
+		const frameworks = {
+			frameworks: [
+				{ key: 'nextjs', name: 'Next.js', runtimes: ['node-20.0', 'node-22'] },
+				{ key: 'astro', name: 'Astro', runtimes: ['node-22', 'bun-1.1'] },
+			],
+		};
+
+		it('offers frameworks by name with their key as the value', async () => {
+			const { context, requests } = createLoadOptionsContext({ respond: () => frameworks });
+			expect(await getFrameworks.call(context)).toEqual([
+				{ name: 'Astro', value: 'astro' },
+				{ name: 'Next.js', value: 'nextjs' },
+			]);
+			expect(requests[0].url).toBe(`${BASE_URL}/sites/frameworks`);
+		});
+
+		it('offers the runtimes of the framework chosen on create', async () => {
+			const { context } = createLoadOptionsContext({
+				current: { siteFramework: 'nextjs' },
+				respond: () => frameworks,
+			});
+			expect(await getSiteBuildRuntimes.call(context)).toEqual([
+				{ name: 'node-20.0', value: 'node-20.0' },
+				{ name: 'node-22', value: 'node-22' },
+			]);
+		});
+
+		it('offers the runtimes of the framework chosen in the update options', async () => {
+			const { context } = createLoadOptionsContext({
+				current: { options: { siteFramework: 'astro' } },
+				respond: () => frameworks,
+			});
+			expect((await getSiteBuildRuntimes.call(context)).map((option) => option.value)).toEqual([
+				'bun-1.1',
+				'node-22',
+			]);
+		});
+
+		it('offers every runtime once until a framework is chosen', async () => {
+			const { context } = createLoadOptionsContext({ respond: () => frameworks });
+			expect((await getSiteBuildRuntimes.call(context)).map((option) => option.value)).toEqual([
+				'bun-1.1',
+				'node-20.0',
+				'node-22',
+			]);
+		});
 	});
 
 	it('uses the same query helpers as the operations', () => {

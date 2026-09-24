@@ -1,5 +1,14 @@
 import type { INodeProperties } from 'n8n-workflow';
 
+import {
+	activateProperty,
+	codePackageProperty,
+	deploymentIdProperty,
+	downloadDeploymentProperties,
+	gitSourceProperties,
+	specificationOptionsProperty,
+	variableProperties,
+} from './compute';
 import { functionLocator } from './locators';
 import {
 	listOptionsProperty,
@@ -27,16 +36,46 @@ export const functionOperations: INodeProperties[] = [
 				action: 'Activate function deployment',
 			},
 			{
+				name: 'Cancel Deployment',
+				value: 'cancelDeployment',
+				description: 'Stop the build of a deployment that is still waiting or building',
+				action: 'Cancel function deployment',
+			},
+			{
 				name: 'Create',
 				value: 'create',
 				description: 'Create a new function',
 				action: 'Create function',
 			},
 			{
+				name: 'Create Deployment',
+				value: 'createDeployment',
+				description: 'Upload a code package as a new deployment of a function',
+				action: 'Create function deployment',
+			},
+			{
+				name: 'Create Duplicate Deployment',
+				value: 'createDuplicateDeployment',
+				description: 'Rebuild an existing deployment with the current function settings',
+				action: 'Create duplicate function deployment',
+			},
+			{
+				name: 'Create Template Deployment',
+				value: 'createTemplateDeployment',
+				description: 'Create a deployment from the code of a function template repository',
+				action: 'Create function template deployment',
+			},
+			{
 				name: 'Create Variable',
 				value: 'createVariable',
 				description: 'Create a new environment variable for a function',
 				action: 'Create function variable',
+			},
+			{
+				name: 'Create VCS Deployment',
+				value: 'createVcsDeployment',
+				description: 'Create a deployment from a branch or commit of the connected Git repository',
+				action: 'Create function VCS deployment',
 			},
 			{
 				name: 'Delete',
@@ -55,6 +94,12 @@ export const functionOperations: INodeProperties[] = [
 				value: 'deleteVariable',
 				description: 'Delete an environment variable of a function permanently',
 				action: 'Delete function variable',
+			},
+			{
+				name: 'Download Deployment',
+				value: 'downloadDeployment',
+				description: 'Download the source code or build output of a function deployment',
+				action: 'Download function deployment',
 			},
 			{
 				name: 'Get',
@@ -79,6 +124,18 @@ export const functionOperations: INodeProperties[] = [
 				value: 'getManyDeployments',
 				description: 'List the code deployments of a function',
 				action: 'Get many function deployments',
+			},
+			{
+				name: 'Get Many Runtimes',
+				value: 'getManyRuntimes',
+				description: 'List the runtimes functions can use on this Appwrite instance',
+				action: 'Get many function runtimes',
+			},
+			{
+				name: 'Get Many Specifications',
+				value: 'getManySpecifications',
+				description: 'List the compute sizes (CPU and memory) functions can use',
+				action: 'Get many function specifications',
 			},
 			{
 				name: 'Get Many Variables',
@@ -202,10 +259,16 @@ export const functionFields: INodeProperties[] = [
 		resource: ['function'],
 		operation: [
 			'activateDeployment',
+			'cancelDeployment',
+			'createDeployment',
+			'createDuplicateDeployment',
+			'createTemplateDeployment',
 			'createVariable',
+			'createVcsDeployment',
 			'delete',
 			'deleteDeployment',
 			'deleteVariable',
+			'downloadDeployment',
 			'get',
 			'getDeployment',
 			'getManyDeployments',
@@ -215,49 +278,26 @@ export const functionFields: INodeProperties[] = [
 			'updateVariable',
 		],
 	}),
-	{
-		displayName: 'Deployment ID',
-		name: 'deploymentId',
-		type: 'string',
-		required: true,
-		default: '',
-		description: 'The ID of the code deployment',
-		displayOptions: {
-			show: {
-				resource: ['function'],
-				operation: ['activateDeployment', 'deleteDeployment', 'getDeployment'],
-			},
-		},
-	},
-	{
-		displayName: 'Variable ID',
-		name: 'variableId',
-		type: 'string',
-		required: true,
-		default: '',
-		description: 'The ID of the environment variable',
-		displayOptions: {
-			show: {
-				resource: ['function'],
-				operation: ['deleteVariable', 'getVariable', 'updateVariable'],
-			},
-		},
-	},
-	{
-		displayName: 'Variable ID',
-		name: 'variableId',
-		type: 'string',
-		default: '',
-		placeholder: 'unique()',
-		description:
-			'The ID for the new environment variable. Leave empty (or use unique()) to auto-generate a unique ID.',
-		displayOptions: {
-			show: {
-				resource: ['function'],
-				operation: ['createVariable'],
-			},
-		},
-	},
+	deploymentIdProperty('function', [
+		'activateDeployment',
+		'cancelDeployment',
+		'deleteDeployment',
+		'downloadDeployment',
+		'getDeployment',
+	]),
+	deploymentIdProperty(
+		'function',
+		['createDuplicateDeployment'],
+		'The ID of the deployment to rebuild',
+	),
+	codePackageProperty('function'),
+	...gitSourceProperties('function'),
+	activateProperty('function', [
+		'createDeployment',
+		'createTemplateDeployment',
+		'createVcsDeployment',
+	]),
+	...variableProperties('function'),
 	{
 		displayName: 'Name',
 		name: 'name',
@@ -303,67 +343,9 @@ export const functionFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Key',
-		name: 'key',
-		type: 'string',
-		required: true,
-		default: '',
-		description: 'The variable key (environment variable name). Max length: 255 characters.',
-		displayOptions: {
-			show: {
-				resource: ['function'],
-				operation: ['createVariable', 'updateVariable'],
-			},
-		},
-	},
-	{
-		displayName: 'Value',
-		name: 'value',
-		type: 'string',
-		typeOptions: { password: true },
-		required: true,
-		default: '',
-		description: 'The variable value. Max length: 8192 characters.',
-		displayOptions: {
-			show: {
-				resource: ['function'],
-				operation: ['createVariable'],
-			},
-		},
-	},
-	{
-		displayName: 'Value',
-		name: 'value',
-		type: 'string',
-		typeOptions: { password: true },
-		default: '',
-		description:
-			'The new variable value. Leave empty to keep the current value. Max length: 8192 characters.',
-		displayOptions: {
-			show: {
-				resource: ['function'],
-				operation: ['updateVariable'],
-			},
-		},
-	},
-	{
-		displayName: 'Secret',
-		name: 'secret',
-		type: 'boolean',
-		default: false,
-		description:
-			'Whether the variable is secret. Secret variables can be updated or deleted, but only functions can read them during build and runtime, and a variable cannot be made readable again once it is secret. When updating, leaving this off keeps the existing setting.',
-		displayOptions: {
-			show: {
-				resource: ['function'],
-				operation: ['createVariable', 'updateVariable'],
-			},
-		},
-	},
-	...returnAllAndLimitProperties('function', ['getMany', 'getManyDeployments']),
-	...queriesProperties('function', ['getMany', 'getManyDeployments']),
-	simplifyProperty('function', ['get', 'getMany']),
+	...returnAllAndLimitProperties('function', ['getMany', 'getManyDeployments', 'getManyVariables']),
+	...queriesProperties('function', ['getMany', 'getManyDeployments', 'getManyVariables']),
+	simplifyProperty('function', ['get', 'getDeployment', 'getMany', 'getManyDeployments']),
 	{
 		displayName: 'Options',
 		name: 'options',
@@ -392,5 +374,40 @@ export const functionFields: INodeProperties[] = [
 		},
 		options: functionConfigOptions,
 	},
+	{
+		displayName: 'Options',
+		name: 'options',
+		type: 'collection',
+		placeholder: 'Add option',
+		default: {},
+		displayOptions: {
+			show: {
+				resource: ['function'],
+				operation: ['createDeployment'],
+			},
+		},
+		options: [
+			{
+				displayName: 'Build Commands',
+				name: 'commands',
+				type: 'string',
+				default: '',
+				placeholder: 'e.g. npm install',
+				description:
+					'Build commands to run before this deployment goes live. Leave this option out to use the build commands of the function.',
+			},
+			{
+				displayName: 'Entrypoint',
+				name: 'entrypoint',
+				type: 'string',
+				default: '',
+				placeholder: 'e.g. src/main.js',
+				description:
+					'The entrypoint file of this deployment, relative to the root of the code package. Leave this option out to use the entrypoint of the function.',
+			},
+		],
+	},
 	listOptionsProperty('function', ['getMany', 'getManyDeployments']),
+	...downloadDeploymentProperties('function'),
+	specificationOptionsProperty('function'),
 ];

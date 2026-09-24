@@ -270,11 +270,15 @@ function buildMultipartBody(
 /**
  * Upload a file to Appwrite, splitting it into 5 MB chunks when needed. Every
  * chunk after the first carries the ID Appwrite assigned to the upload.
+ *
+ * Storage takes the file in the `file` form field; function and site
+ * deployments take their code package in `code` with the same chunking, so
+ * the field name can be set per upload.
  */
 export async function appwriteFileUpload(
 	this: IExecuteFunctions,
 	path: string,
-	file: { content: Buffer; filename: string; contentType: string },
+	file: { content: Buffer; filename: string; contentType: string; field?: string },
 	fields: Array<[string, string]>,
 	itemIndex: number,
 ): Promise<IDataObject> {
@@ -299,7 +303,7 @@ export async function appwriteFileUpload(
 		}
 
 		const body = buildMultipartBody(boundary, fields, {
-			field: 'file',
+			field: file.field ?? 'file',
 			filename: file.filename,
 			content: file.content.subarray(start, end),
 			contentType: file.contentType,

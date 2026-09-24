@@ -17,6 +17,7 @@ import { indexFields, indexOperations } from './descriptions/IndexDescription';
 import { localeFields, localeOperations } from './descriptions/LocaleDescription';
 import { messageFields, messageOperations } from './descriptions/MessageDescription';
 import { rowFields, rowOperations } from './descriptions/RowDescription';
+import { siteFields, siteOperations } from './descriptions/SiteDescription';
 import { tableFields, tableOperations } from './descriptions/TableDescription';
 import { teamFields, teamOperations } from './descriptions/TeamDescription';
 import { tokenFields, tokenOperations } from './descriptions/TokenDescription';
@@ -35,6 +36,7 @@ import { executeIndexOperation } from './operations/IndexOperations';
 import { executeLocaleOperation } from './operations/LocaleOperations';
 import { executeMessageOperation } from './operations/MessageOperations';
 import { executeRowOperation } from './operations/RowOperations';
+import { executeSiteOperation } from './operations/SiteOperations';
 import { executeTableOperation } from './operations/TableOperations';
 import { executeTeamOperation } from './operations/TeamOperations';
 import { executeTokenOperation } from './operations/TokenOperations';
@@ -172,6 +174,16 @@ const RESOURCES: ResourceDefinition[] = [
 		operations: rowOperations,
 		fields: rowFields,
 		execute: executeRowOperation,
+	},
+	{
+		option: {
+			name: 'Site',
+			value: 'site',
+			description: 'Manage Appwrite Sites, their deployments, logs, and variables',
+		},
+		operations: siteOperations,
+		fields: siteFields,
+		execute: executeSiteOperation,
 	},
 	{
 		option: {

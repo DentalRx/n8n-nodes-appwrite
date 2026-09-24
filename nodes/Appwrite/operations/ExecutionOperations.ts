@@ -7,10 +7,12 @@ import {
 	getResourceId,
 	lookupEnum,
 	parseJsonParameter,
+	simplifyItems,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
 import { appwriteApiRequest } from '../transport';
+import { EXECUTION_SIMPLIFY_FIELDS } from './compute';
 
 /** The HTTP methods an execution can be triggered with. */
 const EXECUTION_METHOD_MAP: Record<string, string> = {
@@ -37,6 +39,10 @@ export async function executeExecutionOperation(
 ): Promise<INodeExecutionData[]> {
 	const functionId = getResourceId.call(this, 'functionId', i, 'function', 'Function');
 	const executionsPath = `/functions/${encodeURIComponent(functionId)}/executions`;
+	const simplified = (data: IDataObject | IDataObject[]) =>
+		(this.getNodeParameter('simplify', i, false) as boolean)
+			? simplifyItems(data, EXECUTION_SIMPLIFY_FIELDS)
+			: data;
 
 	if (operation === 'create') {
 		const body = this.getNodeParameter('body', i, '') as string;
@@ -90,7 +96,7 @@ export async function executeExecutionOperation(
 			{},
 			i,
 		);
-		return toItems(response, i);
+		return toItems(simplified(response), i);
 	}
 
 	if (operation === 'getMany') {
@@ -112,7 +118,7 @@ export async function executeExecutionOperation(
 				'executions',
 				i,
 			);
-			return toItems(executions as IDataObject[], i);
+			return toItems(simplified(executions as IDataObject[]), i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -123,7 +129,7 @@ export async function executeExecutionOperation(
 			{ qs: { queries: withLimit(queries, limit) } },
 			i,
 		);
-		return toItems(response.executions as IDataObject[], i);
+		return toItems(simplified(response.executions as IDataObject[]), i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown execution operation "${operation}"`, {

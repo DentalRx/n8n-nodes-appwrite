@@ -1,7 +1,7 @@
 import type { INodeProperties } from 'n8n-workflow';
 
 import { functionLocator } from './locators';
-import { queriesProperties, returnAllAndLimitProperties } from './shared';
+import { queriesProperties, returnAllAndLimitProperties, simplifyProperty } from './shared';
 
 export const executionOperations: INodeProperties[] = [
 	{
@@ -91,6 +91,7 @@ export const executionFields: INodeProperties[] = [
 	},
 	...returnAllAndLimitProperties('execution', ['getMany']),
 	...queriesProperties('execution', ['getMany']),
+	simplifyProperty('execution', ['get', 'getMany']),
 	{
 		displayName: 'Options',
 		name: 'options',

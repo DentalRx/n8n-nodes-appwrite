@@ -168,6 +168,20 @@ export const functionLocator = (show: IDisplayOptions['show']): INodeProperties 
 		show,
 	);
 
+export const siteLocator = (show: IDisplayOptions['show']): INodeProperties =>
+	resourceLocator(
+		{
+			name: 'siteId',
+			displayName: 'Site',
+			kind: 'site',
+			searchListMethod: 'searchSites',
+			placeholder: 'e.g. marketing-site',
+			urlPlaceholder: `e.g. ${CONSOLE}/sites/site-marketing-site`,
+			description: 'The site to use',
+		},
+		show,
+	);
+
 export const teamLocator = (show: IDisplayOptions['show']): INodeProperties =>
 	resourceLocator(
 		{

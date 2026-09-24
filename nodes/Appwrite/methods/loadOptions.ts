@@ -90,6 +90,39 @@ export async function getColumns(this: ILoadOptionsFunctions): Promise<INodeProp
 	);
 }
 
+export async function getFrameworks(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+	const response = await appwriteApiRequest.call(this, 'GET', '/sites/frameworks');
+	return toOptions(
+		(response.frameworks ?? []) as AppwriteListItem[],
+		(framework) => framework.name ?? '',
+		(framework) => framework.key ?? '',
+	);
+}
+
+export async function getSiteBuildRuntimes(
+	this: ILoadOptionsFunctions,
+): Promise<INodePropertyOptions[]> {
+	const response = await appwriteApiRequest.call(this, 'GET', '/sites/frameworks');
+	const frameworks = (response.frameworks ?? []) as AppwriteListItem[];
+
+	// Create picks the framework on the node's face, Update inside its Options.
+	const options = this.getCurrentNodeParameter('options') as IDataObject | undefined;
+	const chosen = this.getCurrentNodeParameter('siteFramework') ?? options?.siteFramework;
+	const matching = frameworks.filter((framework) => framework.key === chosen);
+
+	// Until a framework is chosen, or while an update keeps the current one,
+	// offer every runtime that some framework builds with.
+	const runtimes = new Set(
+		(matching.length > 0 ? matching : frameworks).flatMap(
+			(framework) => (framework.runtimes as string[] | undefined) ?? [],
+		),
+	);
+	return toOptions(
+		[...runtimes].map((runtime) => ({ $id: runtime })),
+		(runtime) => runtime.$id ?? '',
+	);
+}
+
 export async function getRuntimes(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 	const response = await appwriteApiRequest.call(this, 'GET', '/functions/runtimes');
 	const runtimes = (response.runtimes ?? []) as AppwriteListItem[];

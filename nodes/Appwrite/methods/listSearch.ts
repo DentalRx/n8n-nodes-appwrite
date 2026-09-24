@@ -119,6 +119,14 @@ export async function searchFunctions(
 	return await searchList(this, '/functions', 'functions', byName, filter, paginationToken);
 }
 
+export async function searchSites(
+	this: ILoadOptionsFunctions,
+	filter?: string,
+	paginationToken?: string,
+): Promise<INodeListSearchResult> {
+	return await searchList(this, '/sites', 'sites', byName, filter, paginationToken);
+}
+
 export async function searchTeams(
 	this: ILoadOptionsFunctions,
 	filter?: string,
