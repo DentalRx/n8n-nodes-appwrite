@@ -3,7 +3,18 @@
 	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
 	"categories": ["Data & Storage", "Development"],
-	"alias": ["TablesDB", "BaaS", "Database", "Storage", "Auth", "Serverless"],
+	"alias": [
+		"TablesDB",
+		"DocumentsDB",
+		"VectorsDB",
+		"BaaS",
+		"Database",
+		"Vector",
+		"Storage",
+		"Auth",
+		"Serverless",
+		"Hosting"
+	],
 	"resources": {
 		"credentialDocumentation": [
 			{

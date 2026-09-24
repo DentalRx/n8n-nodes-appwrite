@@ -4,9 +4,9 @@
 
 This is an [n8n](https://n8n.io) community node. It lets you use [Appwrite](https://appwrite.io) in your n8n workflows.
 
-Appwrite is an open-source backend platform providing databases, authentication, file storage, serverless functions and messaging through one REST API, available as Appwrite Cloud or self-hosted.
+Appwrite is an open-source backend platform providing databases, authentication, file storage, serverless functions, hosting and messaging through one REST API, available as Appwrite Cloud or self-hosted.
 
-The node is built on Appwrite's modern **TablesDB** API: databases contain **tables** (formerly collections) made of **columns** (formerly attributes) and **rows** (formerly documents). It tracks the current Appwrite API (Appwrite 2.0 / server 1.9), including bulk row operations, upserts, atomic increments, database transactions and all 18 column types. It talks to the REST API through n8n's own HTTP helpers, so the package ships with **zero runtime dependencies** and nothing extra is installed into your n8n instance.
+The node covers the Appwrite server API as of **Appwrite 2.3**: TablesDB (tables, rows, columns, transactions), DocumentsDB and VectorsDB, dedicated MongoDB/MySQL/PostgreSQL databases, Storage, Functions and Sites, users, teams and the signed-in user's Account, Messaging, and project administration (API keys, platforms, OAuth2 providers, policies, webhooks, proxy and firewall rules, backups). It talks to the REST API through n8n's own HTTP helpers, so the package ships with **zero runtime dependencies** and nothing extra is installed into your n8n instance.
 
 [n8n](https://n8n.io/) is a [fair-code licensed](https://docs.n8n.io/sustainable-use-license/) workflow automation platform.
 
@@ -33,32 +33,40 @@ npm install @dentalrx/n8n-nodes-appwrite
 
 ### How this differs from other Appwrite nodes
 
-npm hosts older Appwrite community nodes, but they target the deprecated Collections/Documents API and depend on the Appwrite SDK, a runtime dependency that n8n's verification guidelines disallow. This package is a from-scratch integration of the TablesDB API (tables, rows, columns, transactions, bulk operations, spatial and large-text column types) with no runtime dependencies, published with npm provenance from a GitHub Action.
+npm hosts older Appwrite community nodes, but they target the deprecated Collections/Documents API and depend on the Appwrite SDK, a runtime dependency that n8n's verification guidelines disallow. This package is a from-scratch integration of the current API with no runtime dependencies, published with npm provenance from a GitHub Action, and every request it can make is checked in CI against Appwrite's published OpenAPI description.
 
 ## Operations
 
-### TablesDB (databases, tables, columns, indexes, rows, transactions)
+The node has one resource per Appwrite concept. Every **Get Many** operation offers **Return All** (automatic pagination) or a **Limit**, and a **query builder** (equal, contains, search, between, order, cursor pagination, select and more) or raw JSON query strings. Wide models (users, functions, sites, files, databases and others) offer a **Simplify** toggle that trims the output to its most useful fields.
 
-| Resource        | Operations                                                                                                                                                                                                              |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Database**    | Create, Delete, Get, Get Many, Update                                                                                                                                                                                   |
-| **Table**       | Create, Delete, Get, Get Many, Update (permissions, row security, enabled)                                                                                                                                              |
-| **Column**      | Create, Delete, Get, Get Many, Update. All 18 column types: string, text, medium text, long text, varchar, integer, big integer, float, boolean, datetime, email, enum, IP, URL, point, line, polygon, and relationship |
-| **Index**       | Create (key, unique, fulltext, spatial), Delete, Get, Get Many                                                                                                                                                          |
-| **Row**         | Create, Create Many, Create or Update (upsert), Create or Update Many, Delete, Delete Many, Get, Get Many, Update, Update Many, Increment Column, Decrement Column                                                      |
-| **Transaction** | Create, Commit, Rollback, Create Operations, Delete, Get, Get Many                                                                                                                                                      |
+### Databases: TablesDB
 
-Every **Get Many** operation in the node, not just rows, supports:
+| Resource        | Operations                                                                                                                                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Database**    | Create, Delete, Get, Get Many, Update; for databases on dedicated compute: Get Status, Get Replicas, Get Many Operations, Trigger Failover, Migrations (create, get, get many, delete, cutover), Get Many Specifications  |
+| **Table**       | Create, Delete, Get, Get Many, Update (permissions, row security, enabled)                                                                                                                                                |
+| **Column**      | Create, Delete, Get, Get Many, Update. All column types: varchar, text, medium text, long text, integer, big integer, float, boolean, datetime, email, enum, IP, URL, point, line, polygon, relationship, string (legacy) |
+| **Index**       | Create (key, unique, fulltext, spatial), Delete, Get, Get Many                                                                                                                                                            |
+| **Row**         | Create, Create Many, Create or Update (upsert), Create or Update Many, Delete, Delete Many, Get, Get Many (with a Sort collection), Update, Update Many, Increment Column, Decrement Column                               |
+| **Transaction** | Create, Commit, Roll Back, Create Operations, Delete, Get, Get Many                                                                                                                                                       |
 
-- **Query builder**: a visual builder for Appwrite queries (equal, contains, search, between, order, cursor pagination, select, and so on) or raw JSON query strings.
-- **Return All**: automatic pagination when you want every result.
+Row data can be entered field by field (numbers, booleans and JSON are typed automatically) or as raw JSON, and every row operation accepts an optional **Transaction ID** so multi-step writes commit or roll back atomically.
 
-Get and Get Many on the wide models (users, functions, files, buckets, messages, tables) also offer a **Simplify** toggle that trims the response to its ten most useful fields, and Row → Get Many has a dedicated **Sort** collection.
+### Databases: DocumentsDB and VectorsDB
 
-Row operations additionally support:
+| Resource                                         | Operations                                                                                                                                                                                                          |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **DocumentsDB Database**, **VectorsDB Database** | Create, Delete, Get, Get Many, Update, Get Status, Get Replicas, Trigger Failover, Get Many Operations, Get Many Specifications, Transactions (create, get, get many, commit, roll back, delete, create operations) |
+| **DocumentsDB Collection**                       | Create, Delete, Get, Get Many, Update, Indexes (create, get, get many, delete: key, unique, fulltext)                                                                                                               |
+| **VectorsDB Collection**                         | Create (with the embedding dimension), Delete, Get, Get Many, Update, Indexes (cosine, dot product and Euclidean vector indexes, key, unique, object)                                                               |
+| **DocumentsDB Document**                         | Create, Create Many, Create or Update, Create or Update Many, Delete, Delete Many, Get, Get Many, Update, Update Many, Increment Attribute, Decrement Attribute                                                     |
+| **VectorsDB Document**                           | Search (similarity search), Create, Create Many, Create or Update, Create or Update Many, Delete, Delete Many, Get, Get Many, Update, Update Many                                                                   |
 
-- **Data modes**: define row data as individual fields (with automatic typing of numbers, booleans and JSON) or as raw JSON.
-- **Transactions**: every row operation accepts an optional Transaction ID, so multi-step writes can commit or roll back atomically.
+### Databases: dedicated MongoDB, MySQL and PostgreSQL
+
+| Resource               | Operations                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dedicated Database** | Create, Delete, Get, Get Many, Update, **Execute SQL** (MySQL, PostgreSQL), Get Status, Get Replicas, Get Recovery Window, Get Many Operations, Get Many Specifications, Rotate Credentials, Trigger Failover, Migrate, Upgrade Version, Update Maintenance Window, Backups, Backup Policies, Update Backup Storage, Branches, Restore, Restorations, Connection Pooler (MySQL, PostgreSQL), Extensions (PostgreSQL) |
 
 ### Storage
 
@@ -68,39 +76,64 @@ Row operations additionally support:
 | **File**   | Upload (from binary data), Download, Get View, Get Preview (resize/transform), Delete, Get, Get Many, Update |
 | **Token**  | Create, Delete, Get, Get Many, Update (expiring file access tokens)                                          |
 
-### Serverless functions
+### Functions and Sites
 
-| Resource      | Operations                                                                                                                               |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **Function**  | Create, Delete, Get, Get Many, Update, Activate Deployment, Get/Get Many/Delete Deployments, Create/Get/Get Many/Update/Delete Variables |
-| **Execution** | Create (sync or async, with method/path/headers/body/scheduling), Delete, Get, Get Many                                                  |
+| Resource      | Operations                                                                                                                                                                                                                     |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Function**  | Create, Delete, Get, Get Many, Update, Get Many Runtimes, Get Many Specifications, Deployments (create from a code upload, a template or Git; duplicate; activate; cancel; download; get; get many; delete), Variables         |
+| **Execution** | Create (sync or async, with method, path, headers, body and scheduling), Delete, Get, Get Many                                                                                                                                 |
+| **Site**      | Create, Delete, Get, Get Many, Update, Get Many Frameworks, Get Many Specifications, Deployments (create from a code upload, a template or Git; duplicate; activate; cancel; download; get; get many; delete), Logs, Variables |
 
 ### Auth
 
-| Resource | Operations                                                                                                                                                                                                                    |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **User** | Create, Delete, Get, Get Many, Get/Update Preferences, Update Email/Name/Password/Phone/Status/Labels, Email & Phone Verification, Sessions (list/create/delete one/delete all), Tokens & JWTs, Identities, Logs, Memberships |
-| **Team** | Create, Delete, Get, Get Many, Update Name, Preferences, Memberships (create/get/get many/update/delete)                                                                                                                      |
+| Resource    | Operations                                                                                                                                                                                                                                                                                                                                                   |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **User**    | Create, Create with Password Hash (Argon2, Bcrypt, MD5, PHPass, Scrypt, Scrypt Modified, SHA), Delete, Get, Get Many, Preferences, Update Email/Name/Password/Phone/Status/Labels, Email and Phone Verification, Sessions, Tokens and JWTs, Identities, Memberships, Targets, MFA (factors, authenticators, recovery codes, challenges), Update Impersonator |
+| **Team**    | Create, Delete, Get, Get Many, Update Name, Preferences, Memberships (create, get, get many, update, delete), Accept Membership Invitation, App Installations                                                                                                                                                                                                |
+| **Account** | Acts as one of your users: Get, Preferences, Update Email/Name/Password/Phone/Status, Sessions, Identities, MFA, consents, email and phone verification. With the API key: Create, Create Email Password/Anonymous/ID Token Session, Create Session (from a token), Create Email/Magic URL/Phone Token, Create and Complete Password Recovery                |
 
 ### Messaging
 
-| Resource    | Operations                                                                                          |
-| ----------- | --------------------------------------------------------------------------------------------------- |
-| **Message** | Create/Update Email, Create/Update SMS, Create/Update Push, Delete, Get, Get Many, Get Many Targets |
-| **Topic**   | Create, Delete, Get, Get Many, Update, Subscribers (create/get/get many/delete)                     |
+| Resource     | Operations                                                                                                                                          |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Message**  | Create/Update Email, Create/Update SMS, Create/Update Push, Delete, Get, Get Many, Get Many Targets                                                 |
+| **Topic**    | Create, Delete, Get, Get Many, Update, Subscribers (create, get, get many, delete)                                                                  |
+| **Provider** | Create, Delete, Get, Get Many, Update. Amazon SES, APNs, Appwrite, FCM, Mailgun, MSG91, Resend, SendGrid, SMTP, Telesign, Textmagic, Twilio, Vonage |
+
+### Project administration
+
+| Resource              | Operations                                                                                                                                                           |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Project**           | Get, Delete, Update Labels, Update Auth Method, Update Service, Update Protocol, Update SMTP, Send Test Email, Update OAuth2 Server, Policies (16 security policies) |
+| **API Key**           | Create Ephemeral Key, Delete, Get, Get Many, Update                                                                                                                  |
+| **Platform**          | Create, Delete, Get, Get Many, Update (web, Apple, Android, Windows, Linux)                                                                                          |
+| **OAuth2 Provider**   | Get, Get Many, Update (48 sign-in providers, each with its own settings)                                                                                             |
+| **Project Variable**  | Create, Delete, Get, Get Many, Update                                                                                                                                |
+| **Mock Phone Number** | Create, Delete, Get, Get Many, Update                                                                                                                                |
+| **Email Template**    | Get, Get Many, Update                                                                                                                                                |
+| **Webhook**           | Create, Delete, Get, Get Many, Update, Update Secret                                                                                                                 |
+| **Proxy Rule**        | Create (API, function, redirect, site), Delete, Get, Get Many, Purge Cache, Verify Domain                                                                            |
+| **Firewall Rule**     | Create and Update for each action (bypass, challenge, deny, rate limit, redirect) with a conditions builder, Delete, Get, Get Many                                   |
+| **App**               | Create, Delete, Get, Get Many, Update, Update Labels, Transfer to Team, Revoke All Tokens, Keys, Secrets, Installations, Scopes                                      |
+| **Backup**            | Archives, Policies (create, get, get many, update, delete), Restorations                                                                                             |
+| **Activity**          | Get Event, Get Many Events (the project's audit trail)                                                                                                               |
+| **Advisor**           | Reports (get, get many, delete), Insights (get, get many)                                                                                                            |
 
 ### Other
 
-| Resource   | Operations                                                                                                                                                |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Avatar** | Get Browser Icon, Get Credit Card Icon, Get Favicon, Get Flag, Get Image, Get Initials, Get QR Code (binary image output)                                 |
-| **Locale** | Get, Get Many Continents, Get Many Countries, Get Many Currencies, Get Many EU Countries, Get Many Languages, Get Many Locale Codes, Get Many Phone Codes |
-| **Health** | Get Antivirus, Get Cache, Get Certificate, Get Database, Get HTTP, Get Local Storage, Get PubSub, Get Storage, Get Time                                   |
+| Resource      | Operations                                                                                                                                                |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Avatar**    | Get Browser Icon, Get Credit Card Icon, Get Favicon, Get Flag, Get Image, Get Initials, Get Photo, Get QR Code, Get Screenshot (binary image output)      |
+| **Locale**    | Get, Get Many Continents, Get Many Countries, Get Many Currencies, Get Many EU Countries, Get Many Languages, Get Many Locale Codes, Get Many Phone Codes |
+| **GraphQL**   | Execute Query, Execute Mutation (with variables and an operation name)                                                                                    |
+| **Embedding** | Create Text Embeddings                                                                                                                                    |
+| **Presence**  | Create or Update, Delete, Get, Get Many, Update                                                                                                           |
+| **Health**    | Ping, Get Antivirus, Get Cache, Get Certificate, Get Database, Get HTTP, Get Local Storage, Get PubSub, Get Storage, Get Time                             |
 
-### Not (yet) covered
+### Not covered
 
-- **Account API**: Appwrite's Account endpoints authenticate as a logged-in end user (session or JWT) and never accept an API key, so a server-key node cannot implement them by design. The server-side equivalent is the **User** resource, including Create Token, Create Session and Create JWT for minting user-scoped credentials.
-- Some Appwrite 2.0 areas are out of scope for now: vector databases (vectorsDB), the schemaless documentsDB, Sites hosting, Backups, messaging provider management, admin MFA operations, hashed-password user imports, and creating function deployments (code upload).
+- **The legacy Databases API** (collections, attributes, documents): Appwrite deprecated all 70 of its endpoints in favour of TablesDB, which reads and writes the same data. Use the Database, Table, Column, Index and Row resources.
+- **Deprecated aliases**: where Appwrite kept an old method name on the same endpoint (`createSms`, `createMfaAuthenticator` and so on), the node calls the endpoint through its current name. The phone and magic URL session endpoints Appwrite deprecated in 1.6 are replaced by Account → Create Session.
 
 ## Credentials
 
@@ -116,22 +149,35 @@ You need an Appwrite project and an API key.
 | Project ID | Found in the Appwrite Console under **Settings → Project ID**                                                                                  |
 | API Key    | The key created above                                                                                                                          |
 
-A `401` or `403` from Appwrite usually means a missing scope on the key rather than a bad key. The credential test deliberately does not use `/ping`, which Appwrite answers for unauthenticated callers and which would therefore pass for any key.
+A `401` or `403` from Appwrite usually means a missing scope on the key rather than a bad key: each operation needs the scope Appwrite documents for its endpoint (for example `rows.write` to create rows, `files.read` to download files). The credential test deliberately does not use `/ping`, which Appwrite answers for unauthenticated callers and which would therefore pass for any key.
+
+### Acting as one of your users (Account)
+
+An API key acts as your server, never as a user, so Appwrite's Account endpoints need the user's own credential. Account operations therefore offer an **Authentication** choice:
+
+- **User JWT**: a JSON Web Token for the user, from **User → Create JWT** in this node or `account.createJWT()` in your app (passed to n8n through a webhook). JWTs are valid for 15 minutes by default.
+- **User Session Secret**: the `secret` of a session created with the API key, for example by **Account → Create Email Password Session**. Appwrite only returns it to API-key calls, which is the server-side-rendering pattern Appwrite documents. Update MFA, Verify MFA Authenticator and Complete MFA Challenge need a session secret, because Appwrite records the factor on that session.
+- **API Key**: signing up, signing in, sending sign-in tokens and password recovery run with the credential's API key (scope `sessions.write`), like Appwrite's server SDKs.
+
+User-authenticated requests carry the project ID and the user's JWT or session, and never the API key: Appwrite rejects a request that carries both. Completing an email or phone verification, and accepting a team invitation, send only the project ID, because the user ID and secret from the message are the proof.
 
 ## Compatibility
 
-- Requires n8n 1.85 or newer, including 2.x. The node uses `NodeConnectionTypes`, which n8n-workflow only exports from 1.83.0 onwards.
-- Requires Node.js 20.15 or newer (the same as n8n itself).
-- Tested against Appwrite Cloud and self-hosted Appwrite 1.8 and newer (TablesDB). The node intentionally targets the TablesDB API; if you still run an Appwrite version without TablesDB (older than 1.8), use a legacy community node instead.
+- **n8n**: 1.85 or newer, including 2.x. The node uses `NodeConnectionTypes`, which n8n-workflow exports from 1.83.0 onwards. Tested end to end in n8n 2.40.
+- **Node.js**: whatever your n8n version requires (current n8n 2.x releases need Node.js 24).
+- **Appwrite**: Appwrite Cloud and self-hosted Appwrite 1.8 or newer (TablesDB). Each resource works on the Appwrite versions that have its API: DocumentsDB, VectorsDB, dedicated databases, Sites, webhooks, the Project and App APIs and the other services added in Appwrite 1.9 to 2.3 need a server that has them, and some (Backups, Activity, Advisor, dedicated databases) are Appwrite Cloud features. Health is served to API keys with the `health.read` scope although Appwrite 1.9 dropped it from its SDKs.
+- If you still run an Appwrite version without TablesDB (older than 1.8), use a legacy community node instead.
 
 ## Usage
+
+Ready-to-import workflows are in [`examples/`](examples): [save form submissions to a table](examples/save-form-submissions-to-a-table.json), [store a downloaded file in Storage](examples/store-a-downloaded-file-in-storage.json) and [a daily digest of new rows](examples/daily-digest-of-new-rows.json). In n8n, open **Workflows → Import from File** and pick one.
 
 ### Append a row to a table
 
 1. Add a **Schedule Trigger** (or any trigger).
 2. Add the **Appwrite** node and pick your **Appwrite API** credential.
 3. Set **Resource** to `Row` and **Operation** to `Create`.
-4. Choose your **Database Name or ID** and **Table Name or ID** from the dropdowns.
+4. Pick your **Database** and **Table** from the lists.
 5. Leave **Row ID** empty so Appwrite generates one.
 6. Set **Data Mode** to `Define Fields Below` and add a field per column, or switch to `JSON` and pass an expression such as `={{ $json }}`.
 
@@ -145,7 +191,17 @@ A `401` or `403` from Appwrite usually means a missing scope on the key rather t
 
 1. Any node that produces binary data (for example **HTTP Request** with a file response).
 2. **Appwrite** → **Resource** `File`, **Operation** `Upload`.
-3. Pick the **Bucket Name or ID**, and set **Input Data Field Name** to the field holding the file (`data` by default). Files larger than 5 MB are uploaded in chunks automatically.
+3. Pick the **Bucket**, and set **Input Data Field Name** to the field holding the file (`data` by default). Files larger than 5 MB are uploaded in chunks automatically.
+
+### Store and search embeddings (VectorsDB)
+
+1. **VectorsDB Collection → Create** with the **Dimension** your embedding model outputs (for example 1536 for OpenAI `text-embedding-3-small`).
+2. **VectorsDB Document → Create** with **Embeddings** set to the vector (for example `={{ $json.embedding }}`) and **Metadata** to a JSON object such as `{"text": "...", "source": "faq"}`.
+3. **VectorsDB Document → Search** with the query text's embedding as **Vector** and the collection's similarity metric. Results come back most similar first.
+
+### Run SQL on a dedicated database
+
+**Dedicated Database → Execute SQL** runs one statement on a MySQL or PostgreSQL database. Put values in **Options → Bindings** as a JSON array (`["open", 10]`, referenced as `?` in MySQL or `$1, $2` in PostgreSQL) or an object for named placeholders; they are never interpolated into the SQL. Each result row becomes an item.
 
 ### Use Appwrite as an AI agent tool
 
@@ -153,36 +209,29 @@ The node sets `usableAsTool`, so you can attach it to an **AI Agent** node and l
 
 ### Usage notes
 
-- **Pick from a list or type an ID**: fields such as **Database Name or ID** and **Table Name or ID** load the real values from your project. You can always switch the field to an expression to supply an ID computed at runtime.
-- **Pasting console URLs**: the **Database**, **Table** (and **Related Table**), **Row**, **Bucket**, **File**, **Function**, **Team** and **Topic** ID fields also accept a URL copied out of the Appwrite Console; the ID is extracted for you. Every other ID field (users, deployments, executions, messages, sessions, memberships and the rest) wants the bare ID.
-- **Auto-generated IDs**: leave any ID field empty (or type `unique()`) on create operations to have a unique ID generated.
-- **Permissions**: enter one permission string per line (or a JSON array), for example `read("any")`, `update("user:abc")`, `delete("team:abc/owner")`. Leaving the field blank on an update keeps the resource's existing permissions; enter `[]` to clear them.
-- **Updates are non-destructive**: Appwrite's bucket and function update endpoints replace the whole configuration, so the node reads the current bucket or function first and resends any setting you did not change. Renaming a bucket will not clear its extension allowlist, and renaming a function will not drop its schedule, event triggers or linked repository.
-- **Lists**: fields that take several values (file extensions, execute roles, events, scopes, index columns, `Select` queries) accept either a comma-separated string or a JSON array.
-- **API key scopes**: each operation needs the matching scope on your Appwrite API key.
-- **Delete confirmations**: delete operations output a single `{"deleted": true, ...}` item (with the deleted IDs echoed) so the following node always receives something to act on.
+- **Pick from a list, paste a link or type an ID**: databases, tables, collections, buckets, files, functions, sites, teams, topics, users, providers, webhooks and the other records you pick are resource locators. **From List** searches your project, **By URL** takes a link copied from the Appwrite Console, and **ID** takes the bare ID; all three also accept expressions.
+- **Auto-generated IDs**: leave an ID field empty (or type `unique()`) on create operations to have a unique ID generated.
+- **Permissions**: enter one permission string per line (or a JSON array), for example `read("any")`, `update("user:abc")`, `delete("team:abc/owner")`. Leaving the field blank on an update keeps the existing permissions; enter `[]` to clear them.
+- **Updates are non-destructive**: where Appwrite's update endpoint replaces the whole configuration (buckets, functions, sites, webhooks, apps, API keys, platforms, the OAuth2 server), the node reads the current record first and resends every setting you did not change.
+- **Lists**: fields that take several values (file extensions, execute roles, events, scopes, labels, index columns, `Select` queries) accept a comma-separated string or a JSON array.
+- **Expressions**: every field accepts expressions, including ones that resolve to numbers, booleans or arrays.
+- **Delete confirmations**: delete operations output a single `{"deleted": true, ...}` item (with the deleted IDs echoed) so the next node always receives something to act on.
+- **Secrets in the output**: some operations return credentials by design (a created webhook's signing secret, an app's client secret, an ephemeral API key, a dedicated database's connection string, a session secret). Treat their output as sensitive; Simplify leaves the connection credentials out.
 - **Errors**: Appwrite's own error message and HTTP status are surfaced on the node error. With **Continue On Fail** enabled, the failed item carries `error`, `description` and `httpCode` fields for an error-handling branch.
 
 ## Resources
 
 - [n8n community nodes documentation](https://docs.n8n.io/integrations/#community-nodes)
 - [Appwrite documentation](https://appwrite.io/docs)
-- [Appwrite TablesDB / Databases product docs](https://appwrite.io/docs/products/databases)
+- [Appwrite API reference](https://appwrite.io/docs/references)
 - [Appwrite API keys and scopes](https://appwrite.io/docs/advanced/platform/api-keys)
+- [Appwrite server-side rendering (sessions with an API key)](https://appwrite.io/docs/products/auth/server-side-rendering)
 
 ## Version history
 
 ### 0.1.0
 
-Initial release.
-
-- Full TablesDB coverage: databases, tables, all 18 column types, indexes, rows (including bulk create/upsert/update/delete, increments and decrements) and transactions.
-- Storage buckets, files (chunked uploads, downloads, previews) and file access tokens.
-- Functions, deployments, variables and executions.
-- Users, sessions, tokens, JWTs, identities, logs, teams and memberships.
-- Messaging (email, SMS, push), topics and subscribers.
-- Avatars, locale lookups and health checks.
-- Query builder, Return All pagination, Simplify and Sort on list operations; usable as an AI agent tool.
+Initial release: the Appwrite 2.3 server API across databases (TablesDB, DocumentsDB, VectorsDB, dedicated databases), Storage, Functions, Sites, auth (users, teams, accounts), Messaging and project administration, with resource locators, a query builder, Return All pagination, Simplify, example workflows and AI agent tool support.
 
 See [CHANGELOG.md](CHANGELOG.md) for the detailed per-release history.
 
@@ -194,10 +243,17 @@ This package is built, linted and released with n8n's official [`n8n-node`](http
 npm ci
 npm run build          # n8n-node build
 npm run lint           # n8n-node lint: n8n's community-node rule set
-npm test               # unit tests plus a smoke test of every operation against a mocked API
+npm test               # unit, smoke and API contract tests
 npm run typecheck      # type-check the test suite
 npm run format:check   # prettier
 npm run dev            # run a local n8n with this node loaded
+```
+
+The test suite runs every operation of every resource against a mocked Appwrite API: with n8n's defaults, with every field filled in, with every dropdown and toggle alternative, with each resource locator in By URL mode, and with numbers in every text field (as an expression can produce). Each request is also checked against Appwrite's published API: [`test/fixtures/appwrite-api.json`](test/fixtures/appwrite-api.json) is derived from the official [OpenAPI description](https://github.com/appwrite/specs), and [`test/api-contract.test.ts`](test/api-contract.test.ts) fails if the node calls an endpoint Appwrite does not document for server SDKs, sends a parameter it does not accept, uses an invalid enum value, or leaves out a required parameter. To move to a newer Appwrite version, regenerate the fixture:
+
+```bash
+git clone --depth 1 https://github.com/appwrite/specs /tmp/appwrite-specs
+node scripts/generate-api-fixture.mjs /tmp/appwrite-specs/specs/<version>/open-api3-<version>.json
 ```
 
 ### Releasing

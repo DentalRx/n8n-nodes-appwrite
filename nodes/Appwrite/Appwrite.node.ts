@@ -19,7 +19,7 @@ export class Appwrite implements INodeType {
 		version: 1,
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
 		description:
-			'Interact with the Appwrite API: databases with tables and rows, storage, functions, users, teams, and messaging',
+			'Interact with the Appwrite API: databases, storage, functions, sites, auth, messaging, and project settings',
 		defaults: {
 			name: 'Appwrite',
 		},
