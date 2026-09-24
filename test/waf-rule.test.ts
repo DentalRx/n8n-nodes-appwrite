@@ -142,7 +142,7 @@ describe('Firewall Rule', () => {
 			wafInterval: 60,
 		});
 		expect(body).toMatchObject({ limit: 10, interval: 60, resourceType: 'api' });
-		// An API rule has no resource ID, and no conditions means every request.
+		// An API rule has no resource ID, and without conditions none are sent.
 		expect(body).not.toHaveProperty('resourceId');
 		expect(body).not.toHaveProperty('conditions');
 	});
@@ -171,7 +171,7 @@ describe('Firewall Rule', () => {
 	});
 
 	describe('conditions', () => {
-		const conditionsOf = async (conditionValues: INodeParameters[]) =>
+		const sentConditions = async (conditionValues: INodeParameters[]) =>
 			(
 				await run({
 					operation: 'create',
@@ -179,9 +179,38 @@ describe('Firewall Rule', () => {
 					name: 'Deny',
 					wafConditionsUi: { conditionValues },
 				})
-			).body.conditions;
+			).body.conditions as unknown[];
+		const conditionsOf = async (conditionValues: INodeParameters[]) =>
+			(await sentConditions(conditionValues)).map((condition) => JSON.parse(String(condition)));
 
-		it('become Appwrite condition objects', async () => {
+		const failureOf = async (conditionValues: INodeParameters[]) => {
+			const { context, requests } = createExecuteContext({
+				parameters: {
+					resource: 'wafRule',
+					operation: 'create',
+					wafRuleType: 'deny',
+					name: 'Deny',
+					wafConditionsUi: { conditionValues },
+				},
+			});
+			const error = await node.execute.call(context).then(
+				() => undefined,
+				(caught: unknown) => caught,
+			);
+			expect(requests).toHaveLength(0);
+			expect(error).toBeInstanceOf(NodeOperationError);
+			return (error as NodeOperationError).message;
+		};
+
+		it('are sent as condition strings, each a JSON-encoded condition, as queries are', async () => {
+			expect(
+				await sentConditions([
+					{ wafConditionAttribute: 'path', wafConditionOperator: 'equal', wafConditionValue: '/a' },
+				]),
+			).toEqual(['{"method":"equal","attribute":"path","values":["/a"]}']);
+		});
+
+		it('become Appwrite conditions', async () => {
 			expect(
 				await conditionsOf([
 					{
@@ -264,6 +293,68 @@ describe('Firewall Rule', () => {
 			await expect(node.execute.call(context)).rejects.toThrow(NodeOperationError);
 			await expect(node.execute.call(context)).rejects.toThrow('A Header condition has no name');
 			expect(requests).toHaveLength(0);
+		});
+
+		it('match any of several values given one per line', async () => {
+			expect(
+				await conditionsOf([
+					{
+						wafConditionAttribute: 'country',
+						wafConditionOperator: 'equal',
+						wafConditionValue: 'NL\n DE \n\n',
+					},
+				]),
+			).toEqual([{ method: 'equal', attribute: 'country', values: ['NL', 'DE'] }]);
+		});
+
+		it('take the two bounds of a range on two lines', async () => {
+			expect(
+				await conditionsOf([
+					{
+						wafConditionAttribute: 'latitude',
+						wafConditionOperator: 'between',
+						wafConditionValue: '10\r\n20',
+					},
+				]),
+			).toEqual([{ method: 'between', attribute: 'latitude', values: ['10', '20'] }]);
+		});
+
+		it('send a value an expression resolved to a number as text', async () => {
+			expect(
+				await conditionsOf([
+					{
+						wafConditionAttribute: 'autonomousSystemNumber',
+						wafConditionOperator: 'equal',
+						wafConditionValue: 13335,
+					},
+				]),
+			).toEqual([{ method: 'equal', attribute: 'autonomousSystemNumber', values: ['13335'] }]);
+		});
+
+		it('stop the item before any request when a condition has the wrong number of values', async () => {
+			expect(
+				await failureOf([
+					{ wafConditionAttribute: 'path', wafConditionOperator: 'equal', wafConditionValue: ' ' },
+				]),
+			).toBe('A condition has no value');
+			expect(
+				await failureOf([
+					{
+						wafConditionAttribute: 'path',
+						wafConditionOperator: 'startsWith',
+						wafConditionValue: '/a\n/b',
+					},
+				]),
+			).toBe('This condition compares with a single value');
+			expect(
+				await failureOf([
+					{
+						wafConditionAttribute: 'latitude',
+						wafConditionOperator: 'notBetween',
+						wafConditionValue: '10',
+					},
+				]),
+			).toBe('A range condition needs exactly two values');
 		});
 
 		it('are left out of an update that does not change them, keeping the current ones', async () => {

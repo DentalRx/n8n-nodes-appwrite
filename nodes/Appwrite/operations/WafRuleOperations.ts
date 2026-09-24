@@ -5,13 +5,17 @@ import type { WafRuleSetting, WafRuleType } from '../descriptions/WafRuleDescrip
 import {
 	WAF_COMMON_OPTIONS,
 	WAF_COMMON_UPDATE_FIELDS,
+	WAF_MULTI_VALUE_OPERATORS,
+	WAF_RANGE_OPERATORS,
 	WAF_RULE_TYPES,
 	WAF_VALUELESS_OPERATORS,
 } from '../descriptions/WafRuleDescription';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getResourceId,
+	getStringParameter,
 	simplifyItems,
 	toItems,
 	withLimit,
@@ -40,20 +44,19 @@ interface ConditionEntry {
 	wafConditionAttribute?: string;
 	wafConditionKey?: string;
 	wafConditionOperator?: string;
-	wafConditionValue?: string;
+	wafConditionValue?: unknown;
 }
 
 /**
- * Turn the Conditions builder into Appwrite's condition objects
- * (`{ method, attribute, values }`). Returns undefined when there are none:
- * Appwrite rejects an empty list, while leaving the list out means "every
- * request" on create and "keep the current conditions" on update.
+ * Turn the Conditions builder into Appwrite's condition strings: each one is a
+ * JSON-encoded `{ method, attribute, values }` object, as queries are. Returns
+ * undefined when there are none, so an update keeps the current conditions.
  */
 function buildWafConditions(
 	this: IExecuteFunctions,
 	raw: { conditionValues?: ConditionEntry[] } | undefined,
 	itemIndex: number,
-): IDataObject[] | undefined {
+): string[] | undefined {
 	const entries = raw?.conditionValues ?? [];
 	if (entries.length === 0) return undefined;
 
@@ -63,7 +66,9 @@ function buildWafConditions(
 		if (label !== undefined) {
 			// Appwrite stores header and parameter names in lowercase and never
 			// matches a condition written otherwise; the Console lowercases them too.
-			const name = (entry.wafConditionKey ?? '').trim().toLowerCase();
+			const name = String(entry.wafConditionKey ?? '')
+				.trim()
+				.toLowerCase();
 			if (name === '') {
 				throw new NodeOperationError(this.getNode(), `A ${label} condition has no name`, {
 					description: `Enter the name of the ${label.toLowerCase()} to compare, e.g. x-api-client.`,
@@ -74,13 +79,52 @@ function buildWafConditions(
 		}
 
 		const method = entry.wafConditionOperator ?? 'equal';
-		return {
+		return JSON.stringify({
 			method,
 			attribute,
-			// Operators that compare with no value still take an empty list.
-			values: WAF_VALUELESS_OPERATORS.includes(method) ? [] : [entry.wafConditionValue ?? ''],
-		};
+			values: conditionValues.call(this, method, entry.wafConditionValue, itemIndex),
+		});
 	});
+}
+
+/**
+ * The values a condition compares with: one per line, as many as its operator
+ * takes. Operators that compare with no value still take an empty list.
+ */
+function conditionValues(
+	this: IExecuteFunctions,
+	method: string,
+	raw: unknown,
+	itemIndex: number,
+): string[] {
+	if (WAF_VALUELESS_OPERATORS.includes(method)) return [];
+	const values = String(raw ?? '')
+		.split(/\r?\n/)
+		.map((value) => value.trim())
+		.filter((value) => value !== '');
+	const fail = (message: string, description: string): never => {
+		throw new NodeOperationError(this.getNode(), message, { description, itemIndex });
+	};
+	if (values.length === 0) {
+		fail(
+			'A condition has no value',
+			'Enter the value to compare with, or choose Is Empty or Is Not Empty.',
+		);
+	}
+	if (WAF_RANGE_OPERATORS.includes(method)) {
+		if (values.length !== 2) {
+			fail(
+				'A range condition needs exactly two values',
+				'Enter the lower bound and the upper bound on two lines.',
+			);
+		}
+	} else if (!WAF_MULTI_VALUE_OPERATORS.includes(method) && values.length > 1) {
+		fail(
+			'This condition compares with a single value',
+			'Only Equals, Not Equal, Contains and Does Not Contain take several values, one per line.',
+		);
+	}
+	return values;
 }
 
 /** Copy the settings present in a collection onto a request body, under their body keys. */
@@ -100,7 +144,7 @@ export async function executeWafRuleOperation(
 		this.getNodeParameter('simplify', i, false) ? simplifyItems(data, SIMPLIFY_FIELDS) : data;
 
 	const ruleType = (): WafRuleType => {
-		const value = this.getNodeParameter('wafRuleType', i) as string;
+		const value = getStringParameter.call(this, 'wafRuleType', i);
 		const type = WAF_RULE_TYPES.find((candidate) => candidate.option.value === value);
 		if (type === undefined) {
 			throw new NodeOperationError(this.getNode(), `Unknown firewall rule action "${value}"`, {
@@ -113,29 +157,34 @@ export async function executeWafRuleOperation(
 
 	if (operation === 'create') {
 		const type = ruleType();
-		const resourceType = this.getNodeParameter('wafResourceType', i) as string;
+		const resourceType = getStringParameter.call(this, 'wafResourceType', i);
 		let resourceId: string | undefined;
 		if (resourceType === 'functions') {
 			resourceId = getResourceId.call(this, 'functionId', i, 'function', 'Function');
 		} else if (resourceType === 'sites') {
-			resourceId = this.getNodeParameter('wafRuleSiteId', i) as string;
+			resourceId = getStringParameter.call(this, 'wafRuleSiteId', i);
 		}
 
 		const body: IDataObject = {
-			ruleId: resolveId(this.getNodeParameter('wafRuleId', i, '') as string),
-			name: this.getNodeParameter('name', i) as string,
+			ruleId: resolveId(getStringParameter.call(this, 'wafRuleId', i, '')),
+			name: getStringParameter.call(this, 'name', i),
 			resourceType,
 			resourceId,
 			conditions: buildWafConditions.call(
 				this,
-				this.getNodeParameter('wafConditionsUi', i, {}) as { conditionValues?: ConditionEntry[] },
+				getCollectionParameter.call(this, 'wafConditionsUi', i) as {
+					conditionValues?: ConditionEntry[];
+				},
 				i,
 			),
 		};
 		for (const { key, property } of type.required) {
-			body[key] = this.getNodeParameter(property.name, i) as IDataObject[string];
+			body[key] =
+				property.type === 'string'
+					? getStringParameter.call(this, property.name, i)
+					: (this.getNodeParameter(property.name, i) as IDataObject[string]);
 		}
-		applySettings(body, this.getNodeParameter('options', i, {}) as IDataObject, [
+		applySettings(body, getCollectionParameter.call(this, 'options', i), [
 			...WAF_COMMON_OPTIONS,
 			...type.createOptions,
 		]);
@@ -169,7 +218,8 @@ export async function executeWafRuleOperation(
 
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const searchArg = search === '' ? undefined : search;
 		const queries = buildQueries.call(this, i);
 
@@ -205,7 +255,7 @@ export async function executeWafRuleOperation(
 	if (operation === 'update') {
 		const type = ruleType();
 		const path = `/waf/rules/${type.path}/${encodeURIComponent(ruleId())}`;
-		const fields = this.getNodeParameter('updateFields', i, {}) as IDataObject;
+		const fields = getCollectionParameter.call(this, 'updateFields', i);
 		const body: IDataObject = {
 			conditions: buildWafConditions.call(
 				this,
