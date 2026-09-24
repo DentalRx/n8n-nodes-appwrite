@@ -4,7 +4,6 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
-	fetchAllPagesByOffset,
 	getResourceId,
 	getStringListParameter,
 	parseJsonParameter,
@@ -211,40 +210,6 @@ export async function executeUserOperation(
 			i,
 		);
 		return toItems(response.identities as IDataObject[], i);
-	}
-
-	if (operation === 'getManyLogs') {
-		// Log entries have no ID, so cursor pagination cannot be used here.
-		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const queries = buildQueries.call(this, i);
-
-		if (returnAll) {
-			const logs = await fetchAllPagesByOffset.call(
-				this,
-				queries,
-				async (pageQueries) =>
-					await appwriteApiRequest.call(
-						this,
-						'GET',
-						`${userPath()}/logs`,
-						{ qs: { queries: pageQueries } },
-						i,
-					),
-				'logs',
-				i,
-			);
-			return toItems(logs as IDataObject[], i);
-		}
-
-		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = await appwriteApiRequest.call(
-			this,
-			'GET',
-			`${userPath()}/logs`,
-			{ qs: { queries: withLimit(queries, limit) } },
-			i,
-		);
-		return toItems(response.logs as IDataObject[], i);
 	}
 
 	if (operation === 'getManyMemberships') {

@@ -87,12 +87,6 @@ export const userOperations: INodeProperties[] = [
 				action: 'Get many user identities',
 			},
 			{
-				name: 'Get Many Logs',
-				value: 'getManyLogs',
-				description: 'List the activity logs of a user',
-				action: 'Get many user logs',
-			},
-			{
 				name: 'Get Many Memberships',
 				value: 'getManyMemberships',
 				description: 'List the team memberships of a user',
@@ -180,7 +174,6 @@ export const userFields: INodeProperties[] = [
 			'deleteSession',
 			'deleteSessions',
 			'get',
-			'getManyLogs',
 			'getManyMemberships',
 			'getManySessions',
 			'getPrefs',
@@ -367,19 +360,8 @@ export const userFields: INodeProperties[] = [
 			},
 		},
 	},
-	...returnAllAndLimitProperties('user', [
-		'getMany',
-		'getManyIdentities',
-		'getManyLogs',
-		'getManyMemberships',
-	]),
-	...queriesProperties(
-		'user',
-		['getMany', 'getManyIdentities', 'getManyLogs', 'getManyMemberships'],
-		{
-			hint: 'Get Many Logs supports only Limit and Offset queries',
-		},
-	),
+	...returnAllAndLimitProperties('user', ['getMany', 'getManyIdentities', 'getManyMemberships']),
+	...queriesProperties('user', ['getMany', 'getManyIdentities', 'getManyMemberships']),
 	simplifyProperty('user', ['get', 'getMany']),
 	{
 		displayName: 'Options',

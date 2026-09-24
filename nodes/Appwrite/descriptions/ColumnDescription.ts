@@ -94,12 +94,17 @@ export const columnFields: INodeProperties[] = [
 			{ name: 'Point', value: 'point' },
 			{ name: 'Polygon', value: 'polygon' },
 			{ name: 'Relationship', value: 'relationship' },
-			{ name: 'String', value: 'string' },
+			{
+				name: 'String (Legacy)',
+				value: 'string',
+				description:
+					'Deprecated since Appwrite 1.9 in favour of Varchar and the Text types. Use it only on Appwrite 1.8, which has no other text type.',
+			},
 			{ name: 'Text', value: 'text' },
 			{ name: 'URL', value: 'url' },
 			{ name: 'Varchar', value: 'varchar' },
 		],
-		default: 'string',
+		default: 'varchar',
 		description:
 			"The data type of the column. When updating, this must match the column's existing type.",
 		displayOptions: {
