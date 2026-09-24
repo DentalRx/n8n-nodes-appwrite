@@ -288,8 +288,8 @@ export function documentDatabaseFields(type: DocumentDatabaseType): INodePropert
 			required: true,
 			default: '[]',
 			placeholder: type.vectors
-				? '[{"action": "create", "databaseId": "main", "collectionId": "articles", "documentId": "unique()", "data": {"embeddings": [0.12, -0.55, 0.88]}}]'
-				: '[{"action": "create", "databaseId": "main", "collectionId": "articles", "documentId": "unique()", "data": {"title": "Hello"}}]',
+				? 'e.g. [{"action": "create", "databaseId": "main", "collectionId": "articles", "documentId": "unique()", "data": {"embeddings": [0.12, -0.55, 0.88]}}]'
+				: 'e.g. [{"action": "create", "databaseId": "main", "collectionId": "articles", "documentId": "unique()", "data": {"title": "Hello"}}]',
 			description:
 				'A JSON array of operations to stage in the transaction. Each entry describes an action (e.g. create, update, delete) with its databaseId, collectionId, documentId, and data.',
 			displayOptions: { show: show(['createTransactionOperations']) },

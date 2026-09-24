@@ -98,7 +98,7 @@ export const transactionFields: INodeProperties[] = [
 		required: true,
 		default: '[]',
 		placeholder:
-			'[{"action": "create", "databaseId": "main", "tableId": "posts", "rowId": "unique()", "data": {"title": "Hello"}}]',
+			'e.g. [{"action": "create", "databaseId": "main", "tableId": "posts", "rowId": "unique()", "data": {"title": "Hello"}}]',
 		description:
 			'A JSON array of operations to stage in the transaction. Each entry describes an action (e.g. create, update, delete) with its databaseId, tableId, rowId, and data.',
 		displayOptions: {
