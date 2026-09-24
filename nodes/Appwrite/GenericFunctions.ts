@@ -215,6 +215,45 @@ export function parseStringList(
 }
 
 /**
+ * Parse a vector (an embedding, or the vector of a similarity search): a JSON
+ * array of numbers, the array an expression resolved to, or comma-separated
+ * numbers. Numeric strings count as numbers, since vectors that pass through
+ * CSV or text often arrive quoted. Returns an empty array for an empty field.
+ */
+export function parseVector(
+	this: IExecuteFunctions,
+	value: unknown,
+	parameterName: string,
+	itemIndex: number,
+): number[] {
+	const text = typeof value === 'string' ? value.trim() : undefined;
+	const entries =
+		text !== undefined && text !== '' && !text.startsWith('[')
+			? text.split(',').map((entry) => entry.trim())
+			: parseJsonArrayParameter.call(this, value, parameterName, itemIndex);
+
+	return entries.map((entry, index) => {
+		const number =
+			typeof entry === 'number'
+				? entry
+				: typeof entry === 'string' && entry.trim() !== ''
+					? Number(entry)
+					: Number.NaN;
+		if (!Number.isFinite(number)) {
+			throw new NodeOperationError(
+				this.getNode(),
+				`Parameter '${parameterName}' must contain only numbers`,
+				{
+					description: `Entry ${index + 1} is ${JSON.stringify(entry) ?? String(entry)}. Provide a list of numbers like [0.12, -0.55, 0.88].`,
+					itemIndex,
+				},
+			);
+		}
+		return number;
+	});
+}
+
+/**
  * Read a list-valued node parameter that accepts a comma-separated string or a
  * JSON array.
  */
@@ -462,9 +501,9 @@ export function getPermissions(
 }
 
 /**
- * Fetch the row data for create/update/upsert operations, supporting both the
- * key-value UI mode and the raw JSON mode. The fallback mirrors the UI default
- * of the `dataMode` parameter.
+ * Fetch the row (or DocumentsDB document) data for create/update/upsert
+ * operations, supporting both the key-value UI mode and the raw JSON mode. The
+ * fallback mirrors the UI default of the `dataMode` parameter.
  */
 export function getRowData(this: IExecuteFunctions, itemIndex: number): IDataObject {
 	const mode = this.getNodeParameter('dataMode', itemIndex, 'fields') as string;

@@ -7,6 +7,8 @@ import type {
 
 import { Query, extractId } from '../helpers/appwrite';
 import { findEngine } from '../helpers/dedicatedDatabases';
+import type { DocumentDatabaseType } from '../helpers/documentDatabases';
+import { DOCUMENTS_DB, VECTORS_DB } from '../helpers/documentDatabases';
 import { appwriteApiRequest } from '../transport';
 
 /** Entries fetched per page of a From List search. */
@@ -109,6 +111,85 @@ export async function searchTables(
 		filter,
 		paginationToken,
 	);
+}
+
+/**
+ * The databases of DocumentsDB or VectorsDB. Their list endpoints take no
+ * search term (Appwrite 2.3), so the typed filter is matched against the
+ * fetched pages by name or ID instead. A page without a match is skipped
+ * rather than returned empty, since the picker only asks for more results
+ * when the user scrolls through the ones it has.
+ */
+async function searchDatabasesOfType(
+	context: ILoadOptionsFunctions,
+	type: DocumentDatabaseType,
+	filter?: string,
+	paginationToken?: string,
+): Promise<INodeListSearchResult> {
+	const fetchPage = async (token?: string) =>
+		await searchList(context, type.path, 'databases', byName, undefined, token);
+	let page = await fetchPage(paginationToken);
+	if (!filter) return page;
+
+	const needle = filter.toLowerCase();
+	const matches = (entry: INodeListSearchItems) =>
+		entry.name.toLowerCase().includes(needle) || String(entry.value).toLowerCase().includes(needle);
+	let results = page.results.filter(matches);
+	while (results.length === 0 && page.paginationToken !== undefined) {
+		page = await fetchPage(page.paginationToken as string);
+		results = page.results.filter(matches);
+	}
+	return { results, paginationToken: page.paginationToken };
+}
+
+async function searchCollectionsOfType(
+	context: ILoadOptionsFunctions,
+	type: DocumentDatabaseType,
+	filter?: string,
+	paginationToken?: string,
+): Promise<INodeListSearchResult> {
+	const databaseId = parentId(context, 'databaseId', 'database');
+	if (databaseId === '') return { results: [] };
+	return await searchList(
+		context,
+		`${type.path}/${encodeURIComponent(databaseId)}/collections`,
+		'collections',
+		byName,
+		filter,
+		paginationToken,
+	);
+}
+
+export async function searchDocumentsDbDatabases(
+	this: ILoadOptionsFunctions,
+	filter?: string,
+	paginationToken?: string,
+): Promise<INodeListSearchResult> {
+	return await searchDatabasesOfType(this, DOCUMENTS_DB, filter, paginationToken);
+}
+
+export async function searchDocumentsDbCollections(
+	this: ILoadOptionsFunctions,
+	filter?: string,
+	paginationToken?: string,
+): Promise<INodeListSearchResult> {
+	return await searchCollectionsOfType(this, DOCUMENTS_DB, filter, paginationToken);
+}
+
+export async function searchVectorsDbDatabases(
+	this: ILoadOptionsFunctions,
+	filter?: string,
+	paginationToken?: string,
+): Promise<INodeListSearchResult> {
+	return await searchDatabasesOfType(this, VECTORS_DB, filter, paginationToken);
+}
+
+export async function searchVectorsDbCollections(
+	this: ILoadOptionsFunctions,
+	filter?: string,
+	paginationToken?: string,
+): Promise<INodeListSearchResult> {
+	return await searchCollectionsOfType(this, VECTORS_DB, filter, paginationToken);
 }
 
 export async function searchBuckets(

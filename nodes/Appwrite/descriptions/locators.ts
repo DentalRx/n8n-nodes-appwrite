@@ -1,5 +1,7 @@
 import type { IDisplayOptions, INodeProperties } from 'n8n-workflow';
 
+import type { DocumentDatabaseType } from '../helpers/documentDatabases';
+
 /**
  * Resource locators for the Appwrite records a user picks rather than types:
  * each offers a searchable From List mode (the default, as the n8n UX
@@ -128,6 +130,45 @@ export const tableLocator = (show: IDisplayOptions['show']): INodeProperties =>
 			dependsOn: ['databaseId.value'],
 			description: 'The table to use',
 			hint: 'A table is what Appwrite used to call a collection',
+		},
+		show,
+	);
+
+/**
+ * Database picker for DocumentsDB and VectorsDB. It shares `databaseId` with
+ * the TablesDB picker, but lists the databases of its own type.
+ */
+export const documentDatabaseLocator = (
+	type: DocumentDatabaseType,
+	show: IDisplayOptions['show'],
+): INodeProperties =>
+	resourceLocator(
+		{
+			name: 'databaseId',
+			displayName: 'Database',
+			kind: 'database',
+			searchListMethod: type.searchMethods.databases,
+			placeholder: 'e.g. main',
+			urlPlaceholder: `e.g. ${CONSOLE}/databases/database-main`,
+			description: `The ${type.label} database to use`,
+		},
+		show,
+	);
+
+export const collectionLocator = (
+	type: DocumentDatabaseType,
+	show: IDisplayOptions['show'],
+): INodeProperties =>
+	resourceLocator(
+		{
+			name: 'collectionId',
+			displayName: 'Collection',
+			kind: 'collection',
+			searchListMethod: type.searchMethods.collections,
+			placeholder: 'e.g. articles',
+			urlPlaceholder: `e.g. ${CONSOLE}/databases/database-main/collection-articles`,
+			dependsOn: ['databaseId.value'],
+			description: `The ${type.label} collection to use`,
 		},
 		show,
 	);

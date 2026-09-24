@@ -2,6 +2,8 @@ import {
 	searchBuckets,
 	searchDatabases,
 	searchDedicatedDatabases,
+	searchDocumentsDbCollections,
+	searchDocumentsDbDatabases,
 	searchFiles,
 	searchFunctions,
 	searchProviders,
@@ -10,6 +12,8 @@ import {
 	searchTeams,
 	searchTopics,
 	searchUsers,
+	searchVectorsDbCollections,
+	searchVectorsDbDatabases,
 	searchWebhooks,
 } from './listSearch';
 import {
@@ -26,6 +30,8 @@ export const listSearch = {
 	searchBuckets,
 	searchDatabases,
 	searchDedicatedDatabases,
+	searchDocumentsDbCollections,
+	searchDocumentsDbDatabases,
 	searchFiles,
 	searchFunctions,
 	searchProviders,
@@ -34,6 +40,8 @@ export const listSearch = {
 	searchTeams,
 	searchTopics,
 	searchUsers,
+	searchVectorsDbCollections,
+	searchVectorsDbDatabases,
 	searchWebhooks,
 };
 

@@ -41,6 +41,7 @@ const LIST_KEYS = [
 	'backups',
 	'branches',
 	'buckets',
+	'collections',
 	'columns',
 	'consents',
 	'continents',
@@ -48,6 +49,7 @@ const LIST_KEYS = [
 	'currencies',
 	'databases',
 	'deployments',
+	'documents',
 	'embeddings',
 	'events',
 	'executions',
@@ -192,6 +194,12 @@ function valueFor(
 			}
 			return collection;
 		}
+		case 'json':
+			// Vectors must hold numbers for the node to send them.
+			if (filled && (name === 'searchVector' || name === 'vectorEmbeddings')) {
+				return '[0.12, -0.55, 0.88]';
+			}
+			return property.default;
 		case 'resourceLocator':
 			return filled ? { __rl: true, mode: 'id', value: `${name}-id` } : property.default;
 		case 'notice':

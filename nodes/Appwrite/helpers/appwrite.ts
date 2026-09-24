@@ -38,6 +38,12 @@ export const Query = {
 	offset: (value: number) => query('offset', undefined, value),
 	cursorAfter: (rowId: string) => query('cursorAfter', undefined, rowId),
 	cursorBefore: (rowId: string) => query('cursorBefore', undefined, rowId),
+	// Similarity searches (VectorsDB). The vector is one value, so it is
+	// wrapped rather than spread into the values list.
+	vectorCosine: (attribute: string, vector: number[]) => query('vectorCosine', attribute, [vector]),
+	vectorDot: (attribute: string, vector: number[]) => query('vectorDot', attribute, [vector]),
+	vectorEuclidean: (attribute: string, vector: number[]) =>
+		query('vectorEuclidean', attribute, [vector]),
 };
 
 /**

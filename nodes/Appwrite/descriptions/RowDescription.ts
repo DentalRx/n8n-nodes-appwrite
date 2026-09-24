@@ -1,6 +1,7 @@
 import type { INodeProperties } from 'n8n-workflow';
 
 import {
+	dataProperties,
 	databaseIdProperty,
 	permissionsProperty,
 	queriesProperties,
@@ -98,95 +99,6 @@ export const rowOperations: INodeProperties[] = [
 	},
 ];
 
-const dataProperties: INodeProperties[] = [
-	{
-		displayName: 'Data Mode',
-		name: 'dataMode',
-		type: 'options',
-		options: [
-			{
-				name: 'Define Fields Below',
-				value: 'fields',
-				description: 'Set each column value individually',
-			},
-			{
-				name: 'JSON',
-				value: 'json',
-				description: 'Provide the row data as a JSON object',
-			},
-		],
-		default: 'fields',
-		description: 'How to specify the row data',
-		displayOptions: {
-			show: {
-				resource: ['row'],
-				operation: ['create', 'update', 'upsert', 'updateMany'],
-			},
-		},
-	},
-	{
-		displayName: 'Fields',
-		name: 'dataFieldsUi',
-		type: 'fixedCollection',
-		typeOptions: { multipleValues: true, sortable: true },
-		placeholder: 'Add field',
-		default: {},
-		description: 'The column values to set on the row',
-		displayOptions: {
-			show: {
-				resource: ['row'],
-				operation: ['create', 'update', 'upsert', 'updateMany'],
-				dataMode: ['fields'],
-			},
-		},
-		options: [
-			{
-				name: 'fieldValues',
-				displayName: 'Field',
-				values: [
-					{
-						displayName: 'Column',
-						name: 'fieldName',
-						type: 'string',
-						default: '',
-						description: 'Name of the column to set',
-					},
-					{
-						displayName: 'Treat Value as String',
-						name: 'treatValueAsString',
-						type: 'boolean',
-						default: false,
-						description:
-							'Whether to always send the value as a string instead of auto-detecting numbers, booleans, and arrays',
-					},
-					{
-						displayName: 'Value',
-						name: 'fieldValue',
-						type: 'string',
-						default: '',
-						description:
-							'Value to set. Numbers, booleans, null, and JSON arrays/objects are parsed automatically.',
-					},
-				],
-			},
-		],
-	},
-	{
-		displayName: 'Data (JSON)',
-		name: 'dataJson',
-		type: 'json',
-		default: '{}',
-		description: 'The row data as a JSON object of column-value pairs',
-		displayOptions: {
-			show: {
-				resource: ['row'],
-				operation: ['create', 'update', 'upsert', 'updateMany'],
-				dataMode: ['json'],
-			},
-		},
-	},
-];
-
 export const rowFields: INodeProperties[] = [
 	databaseIdProperty(['row']),
 	tableIdProperty(['row']),
@@ -235,7 +147,7 @@ export const rowFields: INodeProperties[] = [
 			},
 		},
 	},
-	...dataProperties,
+	...dataProperties('row', ['create', 'update', 'upsert', 'updateMany']),
 	permissionsProperty('row', ['create', 'update', 'upsert']),
 	{
 		displayName: 'Rows (JSON)',

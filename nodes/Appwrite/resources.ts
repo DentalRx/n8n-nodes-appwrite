@@ -17,6 +17,15 @@ import {
 	dedicatedDatabaseFields,
 	dedicatedDatabaseOperations,
 } from './descriptions/DedicatedDatabaseDescription';
+import {
+	documentCollectionFields,
+	documentCollectionOperations,
+} from './descriptions/DocumentCollectionDescription';
+import {
+	documentDatabaseFields,
+	documentDatabaseOperations,
+} from './descriptions/DocumentDatabaseDescription';
+import { documentFields, documentOperations } from './descriptions/DocumentDescription';
 import { embeddingFields, embeddingOperations } from './descriptions/EmbeddingDescription';
 import { executionFields, executionOperations } from './descriptions/ExecutionDescription';
 import { fileFields, fileOperations } from './descriptions/FileDescription';
@@ -37,6 +46,7 @@ import { topicFields, topicOperations } from './descriptions/TopicDescription';
 import { transactionFields, transactionOperations } from './descriptions/TransactionDescription';
 import { userFields, userOperations } from './descriptions/UserDescription';
 import { webhookFields, webhookOperations } from './descriptions/WebhookDescription';
+import { DOCUMENTS_DB, VECTORS_DB } from './helpers/documentDatabases';
 import { executeAccountOperation } from './operations/AccountOperations';
 import { executeActivityOperation } from './operations/ActivityOperations';
 import { executeAdvisorOperation } from './operations/AdvisorOperations';
@@ -46,6 +56,9 @@ import { executeBucketOperation } from './operations/BucketOperations';
 import { executeColumnOperation } from './operations/ColumnOperations';
 import { executeDatabaseOperation } from './operations/DatabaseOperations';
 import { executeDedicatedDatabaseOperation } from './operations/DedicatedDatabaseOperations';
+import { documentCollectionExecutor } from './operations/DocumentCollectionOperations';
+import { documentDatabaseExecutor } from './operations/DocumentDatabaseOperations';
+import { documentExecutor } from './operations/DocumentOperations';
 import { executeEmbeddingOperation } from './operations/EmbeddingOperations';
 import { executeExecutionOperation } from './operations/ExecutionOperations';
 import { executeFileOperation } from './operations/FileOperations';
@@ -174,6 +187,36 @@ const RESOURCES: ResourceDefinition[] = [
 		operations: dedicatedDatabaseOperations,
 		fields: dedicatedDatabaseFields,
 		execute: executeDedicatedDatabaseOperation,
+	},
+	{
+		option: {
+			name: 'DocumentsDB Collection',
+			value: DOCUMENTS_DB.resources.collection,
+			description: 'Manage DocumentsDB collections and their indexes',
+		},
+		operations: documentCollectionOperations(DOCUMENTS_DB),
+		fields: documentCollectionFields(DOCUMENTS_DB),
+		execute: documentCollectionExecutor(DOCUMENTS_DB),
+	},
+	{
+		option: {
+			name: 'DocumentsDB Database',
+			value: DOCUMENTS_DB.resources.database,
+			description: 'Manage DocumentsDB databases and their transactions',
+		},
+		operations: documentDatabaseOperations(DOCUMENTS_DB),
+		fields: documentDatabaseFields(DOCUMENTS_DB),
+		execute: documentDatabaseExecutor(DOCUMENTS_DB),
+	},
+	{
+		option: {
+			name: 'DocumentsDB Document',
+			value: DOCUMENTS_DB.resources.document,
+			description: 'Manage schemaless documents in DocumentsDB collections',
+		},
+		operations: documentOperations(DOCUMENTS_DB),
+		fields: documentFields(DOCUMENTS_DB),
+		execute: documentExecutor(DOCUMENTS_DB),
 	},
 	{
 		option: {
@@ -352,6 +395,36 @@ const RESOURCES: ResourceDefinition[] = [
 		operations: userOperations,
 		fields: userFields,
 		execute: executeUserOperation,
+	},
+	{
+		option: {
+			name: 'VectorsDB Collection',
+			value: VECTORS_DB.resources.collection,
+			description: 'Manage VectorsDB collections and their vector indexes',
+		},
+		operations: documentCollectionOperations(VECTORS_DB),
+		fields: documentCollectionFields(VECTORS_DB),
+		execute: documentCollectionExecutor(VECTORS_DB),
+	},
+	{
+		option: {
+			name: 'VectorsDB Database',
+			value: VECTORS_DB.resources.database,
+			description: 'Manage VectorsDB databases and their transactions',
+		},
+		operations: documentDatabaseOperations(VECTORS_DB),
+		fields: documentDatabaseFields(VECTORS_DB),
+		execute: documentDatabaseExecutor(VECTORS_DB),
+	},
+	{
+		option: {
+			name: 'VectorsDB Document',
+			value: VECTORS_DB.resources.document,
+			description: 'Store embeddings with metadata and search them by similarity',
+		},
+		operations: documentOperations(VECTORS_DB),
+		fields: documentFields(VECTORS_DB),
+		execute: documentExecutor(VECTORS_DB),
 	},
 	{
 		option: {
