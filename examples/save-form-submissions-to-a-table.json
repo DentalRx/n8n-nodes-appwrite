@@ -1,0 +1,61 @@
+{
+	"name": "Save form submissions to an Appwrite table",
+	"nodes": [
+		{
+			"parameters": {
+				"content": "## Save form submissions to an Appwrite table\n\nPOST JSON like `{\"name\": \"Ada\", \"email\": \"ada@example.com\", \"message\": \"Hi\"}` to the webhook URL and each submission becomes a row.\n\n**Setup**\n1. Create an **Appwrite API** credential (API key scope: `rows.write`).\n2. In the Appwrite node, pick your database and table from the lists (this example expects columns `name`, `email` and `message`).",
+				"height": 300,
+				"width": 420
+			},
+			"id": "8b0d9b4e-6f27-4f3a-9d57-2d0b6a1c0a01",
+			"name": "Sticky Note",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [-80, -280]
+		},
+		{
+			"parameters": {
+				"httpMethod": "POST",
+				"path": "contact-form",
+				"options": {}
+			},
+			"id": "3f7a2c11-5b8e-4d1a-8c33-0e9f4a2b7c02",
+			"name": "Webhook",
+			"type": "n8n-nodes-base.webhook",
+			"typeVersion": 2,
+			"position": [0, 100],
+			"webhookId": "0d3c6a52-7e41-4b0f-9a6e-5c2d8f1b3e03"
+		},
+		{
+			"parameters": {
+				"resource": "row",
+				"operation": "create",
+				"databaseId": { "__rl": true, "mode": "id", "value": "main" },
+				"tableId": { "__rl": true, "mode": "id", "value": "contacts" },
+				"dataFieldsUi": {
+					"fieldValues": [
+						{ "fieldName": "name", "fieldValue": "={{ $json.body.name }}" },
+						{ "fieldName": "email", "fieldValue": "={{ $json.body.email }}" },
+						{
+							"fieldName": "message",
+							"fieldValue": "={{ $json.body.message }}",
+							"treatValueAsString": true
+						}
+					]
+				}
+			},
+			"id": "a91e4d27-2c6b-4f85-b0d4-7e3a5c9f1d04",
+			"name": "Create Row",
+			"type": "@dentalrx/n8n-nodes-appwrite.appwrite",
+			"typeVersion": 1,
+			"position": [240, 100]
+		}
+	],
+	"connections": {
+		"Webhook": {
+			"main": [[{ "node": "Create Row", "type": "main", "index": 0 }]]
+		}
+	},
+	"pinData": {},
+	"settings": { "executionOrder": "v1" }
+}
