@@ -196,6 +196,20 @@ export const teamLocator = (show: IDisplayOptions['show']): INodeProperties =>
 		show,
 	);
 
+export const providerLocator = (show: IDisplayOptions['show']): INodeProperties =>
+	resourceLocator(
+		{
+			name: 'providerId',
+			displayName: 'Provider',
+			kind: 'provider',
+			searchListMethod: 'searchProviders',
+			placeholder: 'e.g. transactional-email',
+			urlPlaceholder: `e.g. ${CONSOLE}/messaging/providers/provider-transactional-email`,
+			description: 'The messaging provider to use',
+		},
+		show,
+	);
+
 export const topicLocator = (show: IDisplayOptions['show']): INodeProperties =>
 	resourceLocator(
 		{

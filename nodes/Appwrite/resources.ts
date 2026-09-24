@@ -16,6 +16,7 @@ import { healthFields, healthOperations } from './descriptions/HealthDescription
 import { indexFields, indexOperations } from './descriptions/IndexDescription';
 import { localeFields, localeOperations } from './descriptions/LocaleDescription';
 import { messageFields, messageOperations } from './descriptions/MessageDescription';
+import { providerFields, providerOperations } from './descriptions/ProviderDescription';
 import { rowFields, rowOperations } from './descriptions/RowDescription';
 import { siteFields, siteOperations } from './descriptions/SiteDescription';
 import { tableFields, tableOperations } from './descriptions/TableDescription';
@@ -35,6 +36,7 @@ import { executeHealthOperation } from './operations/HealthOperations';
 import { executeIndexOperation } from './operations/IndexOperations';
 import { executeLocaleOperation } from './operations/LocaleOperations';
 import { executeMessageOperation } from './operations/MessageOperations';
+import { executeProviderOperation } from './operations/ProviderOperations';
 import { executeRowOperation } from './operations/RowOperations';
 import { executeSiteOperation } from './operations/SiteOperations';
 import { executeTableOperation } from './operations/TableOperations';
@@ -165,6 +167,16 @@ const RESOURCES: ResourceDefinition[] = [
 		operations: messageOperations,
 		fields: messageFields,
 		execute: executeMessageOperation,
+	},
+	{
+		option: {
+			name: 'Provider',
+			value: 'provider',
+			description: 'Manage the email, SMS, and push providers Messaging sends through',
+		},
+		operations: providerOperations,
+		fields: providerFields,
+		execute: executeProviderOperation,
 	},
 	{
 		option: {

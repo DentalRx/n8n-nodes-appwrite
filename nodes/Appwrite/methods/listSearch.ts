@@ -135,6 +135,21 @@ export async function searchTeams(
 	return await searchList(this, '/teams', 'teams', byName, filter, paginationToken);
 }
 
+export async function searchProviders(
+	this: ILoadOptionsFunctions,
+	filter?: string,
+	paginationToken?: string,
+): Promise<INodeListSearchResult> {
+	return await searchList(
+		this,
+		'/messaging/providers',
+		'providers',
+		byName,
+		filter,
+		paginationToken,
+	);
+}
+
 export async function searchTopics(
 	this: ILoadOptionsFunctions,
 	filter?: string,
