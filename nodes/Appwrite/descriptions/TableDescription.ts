@@ -1,5 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
+import { tableLocator } from './locators';
 import {
 	databaseIdProperty,
 	listOptionsProperty,
@@ -58,28 +59,15 @@ export const tableOperations: INodeProperties[] = [
 
 export const tableFields: INodeProperties[] = [
 	databaseIdProperty(['table']),
-	{
-		displayName: 'Table Name or ID',
-		name: 'tableId',
-		type: 'options',
-		typeOptions: { loadOptionsDependsOn: ['databaseId'], loadOptionsMethod: 'getTables' },
-		required: true,
-		default: '',
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-		displayOptions: {
-			show: {
-				resource: ['table'],
-				operation: ['get', 'update', 'delete'],
-			},
-		},
-	},
+	tableLocator({
+		resource: ['table'],
+		operation: ['get', 'update', 'delete'],
+	}),
 	{
 		displayName: 'Table ID',
 		name: 'tableId',
 		type: 'string',
 		default: '',
-		placeholder: 'unique()',
 		description:
 			'The ID for the new table. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {

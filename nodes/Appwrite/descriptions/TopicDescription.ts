@@ -1,5 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
+import { topicLocator } from './locators';
 import { listOptionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
 
 export const topicOperations: INodeProperties[] = [
@@ -74,30 +75,18 @@ export const topicOperations: INodeProperties[] = [
 ];
 
 export const topicFields: INodeProperties[] = [
-	{
-		displayName: 'Topic Name or ID',
-		name: 'topicId',
-		type: 'options',
-		typeOptions: { loadOptionsMethod: 'getTopics' },
-		required: true,
-		default: '',
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-		displayOptions: {
-			show: {
-				resource: ['topic'],
-				operation: [
-					'createSubscriber',
-					'delete',
-					'deleteSubscriber',
-					'get',
-					'getManySubscribers',
-					'getSubscriber',
-					'update',
-				],
-			},
-		},
-	},
+	topicLocator({
+		resource: ['topic'],
+		operation: [
+			'createSubscriber',
+			'delete',
+			'deleteSubscriber',
+			'get',
+			'getManySubscribers',
+			'getSubscriber',
+			'update',
+		],
+	}),
 	{
 		displayName: 'Name',
 		name: 'name',
@@ -117,7 +106,6 @@ export const topicFields: INodeProperties[] = [
 		name: 'topicId',
 		type: 'string',
 		default: '',
-		placeholder: 'unique()',
 		description:
 			'The ID for the topic. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {
@@ -175,7 +163,6 @@ export const topicFields: INodeProperties[] = [
 		name: 'subscriberId',
 		type: 'string',
 		default: '',
-		placeholder: 'unique()',
 		description:
 			'The ID for the subscriber. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {

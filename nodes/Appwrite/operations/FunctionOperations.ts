@@ -4,13 +4,18 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
+	getResourceId,
+	getStringParameter,
 	parseStringList,
 	simplifyItems,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
-import { extractId, resolveId } from '../helpers/appwrite';
-import { appwriteApiRequest } from '../transport';
+import { resolveId } from '../helpers/appwrite';
+import { appwriteApiRequest, appwritePublicRequest } from '../transport';
+import type { ComputeResource } from './compute';
+import { executeComputeOperation } from './compute';
 
 /** The function-model fields most workflows read, for the Simplify toggle. */
 const SIMPLIFY_FIELDS = [
@@ -25,6 +30,15 @@ const SIMPLIFY_FIELDS = [
 	'events',
 	'entrypoint',
 ];
+
+/** How the deployment, variable and specification operations shared with Site find a function. */
+const FUNCTION_RESOURCE: ComputeResource = {
+	path: '/functions',
+	idParameter: 'functionId',
+	kind: 'function',
+	label: 'Function',
+	uploadOptions: ['commands', 'entrypoint'],
+};
 
 interface FunctionConfigOptions {
 	commands?: string;
@@ -44,10 +58,12 @@ export async function executeFunctionOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const functionId = extractId(this.getNodeParameter('functionId', i, '') as string, 'function');
+	// Resolved on first use: create and the list operations act on no existing function.
+	const functionId = (): string =>
+		getResourceId.call(this, 'functionId', i, 'function', 'Function');
 
 	const getConfigOptionArgs = (current?: IDataObject): IDataObject => {
-		const options = this.getNodeParameter('options', i, {}) as FunctionConfigOptions;
+		const options = getCollectionParameter.call(this, 'options', i) as FunctionConfigOptions;
 		// An option the user never added keeps whatever the function already has
 		// (`current` is set on update only); an option added and left blank clears it.
 		const list = (raw: string | undefined, name: string, key: string) =>
@@ -70,25 +86,13 @@ export async function executeFunctionOperation(
 		};
 	};
 
-	if (operation === 'activateDeployment') {
-		const deploymentId = this.getNodeParameter('deploymentId', i) as string;
-		const response = await appwriteApiRequest.call(
-			this,
-			'PATCH',
-			`/functions/${encodeURIComponent(functionId)}/deployment`,
-			{ body: { deploymentId } },
-			i,
-		);
-		return toItems(response, i);
-	}
-
 	if (operation === 'create') {
-		const newFunctionId = resolveId(this.getNodeParameter('functionId', i, '') as string);
-		const name = this.getNodeParameter('name', i) as string;
+		const newFunctionId = resolveId(getStringParameter.call(this, 'functionId', i, ''));
+		const name = getStringParameter.call(this, 'name', i);
 		// The raw runtime ID string is the wire value, so it is passed through
 		// as-is: Appwrite adds runtimes with every release and the node must not
 		// restrict them to a fixed list.
-		const runtime = this.getNodeParameter('runtime', i) as string;
+		const runtime = getStringParameter.call(this, 'runtime', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
@@ -99,61 +103,22 @@ export async function executeFunctionOperation(
 		return toItems(response, i);
 	}
 
-	if (operation === 'createVariable') {
-		const variableId = resolveId(this.getNodeParameter('variableId', i, '') as string);
-		const key = this.getNodeParameter('key', i) as string;
-		const value = this.getNodeParameter('value', i) as string;
-		const secret = this.getNodeParameter('secret', i, false) as boolean;
-		const response = await appwriteApiRequest.call(
-			this,
-			'POST',
-			`/functions/${encodeURIComponent(functionId)}/variables`,
-			{ body: { variableId, key, value, secret } },
-			i,
-		);
-		return toItems(response, i);
-	}
-
 	if (operation === 'delete') {
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
-			`/functions/${encodeURIComponent(functionId)}`,
+			`/functions/${encodeURIComponent(functionId())}`,
 			{},
 			i,
 		);
-		return toItems({ deleted: true, functionId }, i);
-	}
-
-	if (operation === 'deleteDeployment') {
-		const deploymentId = this.getNodeParameter('deploymentId', i) as string;
-		await appwriteApiRequest.call(
-			this,
-			'DELETE',
-			`/functions/${encodeURIComponent(functionId)}/deployments/${encodeURIComponent(deploymentId)}`,
-			{},
-			i,
-		);
-		return toItems({ deleted: true, functionId, deploymentId }, i);
-	}
-
-	if (operation === 'deleteVariable') {
-		const variableId = this.getNodeParameter('variableId', i) as string;
-		await appwriteApiRequest.call(
-			this,
-			'DELETE',
-			`/functions/${encodeURIComponent(functionId)}/variables/${encodeURIComponent(variableId)}`,
-			{},
-			i,
-		);
-		return toItems({ deleted: true, functionId, variableId }, i);
+		return toItems({ deleted: true, functionId: functionId() }, i);
 	}
 
 	if (operation === 'get') {
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
-			`/functions/${encodeURIComponent(functionId)}`,
+			`/functions/${encodeURIComponent(functionId())}`,
 			{},
 			i,
 		);
@@ -161,21 +126,10 @@ export async function executeFunctionOperation(
 		return toItems(simplify ? simplifyItems(response, SIMPLIFY_FIELDS) : response, i);
 	}
 
-	if (operation === 'getDeployment') {
-		const deploymentId = this.getNodeParameter('deploymentId', i) as string;
-		const response = await appwriteApiRequest.call(
-			this,
-			'GET',
-			`/functions/${encodeURIComponent(functionId)}/deployments/${encodeURIComponent(deploymentId)}`,
-			{},
-			i,
-		);
-		return toItems(response, i);
-	}
-
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
@@ -212,67 +166,14 @@ export async function executeFunctionOperation(
 		return toItems(project(response.functions as IDataObject[]), i);
 	}
 
-	if (operation === 'getManyDeployments') {
-		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
-		const queries = buildQueries.call(this, i);
-		const searchArg = search === '' ? undefined : search;
-
-		if (returnAll) {
-			const deployments = await fetchAllPages.call(
-				this,
-				queries,
-				async (pageQueries) =>
-					await appwriteApiRequest.call(
-						this,
-						'GET',
-						`/functions/${encodeURIComponent(functionId)}/deployments`,
-						{ qs: { queries: pageQueries, search: searchArg } },
-						i,
-					),
-				'deployments',
-				i,
-			);
-			return toItems(deployments as IDataObject[], i);
-		}
-
-		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = await appwriteApiRequest.call(
-			this,
-			'GET',
-			`/functions/${encodeURIComponent(functionId)}/deployments`,
-			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
-			i,
-		);
-		return toItems(response.deployments as IDataObject[], i);
-	}
-
-	if (operation === 'getManyVariables') {
-		const response = await appwriteApiRequest.call(
-			this,
-			'GET',
-			`/functions/${encodeURIComponent(functionId)}/variables`,
-			{},
-			i,
-		);
-		return toItems(response.variables as IDataObject[], i);
-	}
-
-	if (operation === 'getVariable') {
-		const variableId = this.getNodeParameter('variableId', i) as string;
-		const response = await appwriteApiRequest.call(
-			this,
-			'GET',
-			`/functions/${encodeURIComponent(functionId)}/variables/${encodeURIComponent(variableId)}`,
-			{},
-			i,
-		);
-		return toItems(response, i);
+	if (operation === 'getManyRuntimes') {
+		const response = await appwritePublicRequest.call(this, 'GET', '/functions/runtimes', {}, i);
+		return toItems((response.runtimes ?? []) as IDataObject[], i);
 	}
 
 	if (operation === 'update') {
-		const name = this.getNodeParameter('name', i) as string;
-		const options = this.getNodeParameter('options', i, {}) as FunctionConfigOptions;
+		const name = getStringParameter.call(this, 'name', i);
+		const options = getCollectionParameter.call(this, 'options', i) as FunctionConfigOptions;
 		// PUT /functions/{id} is a full replace: any field left out of the body is
 		// reset to the API's own default rather than kept, which would silently
 		// clear the schedule, event triggers, execute roles and the linked Git
@@ -280,7 +181,7 @@ export async function executeFunctionOperation(
 		const current = await appwriteApiRequest.call(
 			this,
 			'GET',
-			`/functions/${encodeURIComponent(functionId)}`,
+			`/functions/${encodeURIComponent(functionId())}`,
 			{},
 			i,
 		);
@@ -291,7 +192,7 @@ export async function executeFunctionOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'PUT',
-			`/functions/${encodeURIComponent(functionId)}`,
+			`/functions/${encodeURIComponent(functionId())}`,
 			{
 				body: {
 					name,
@@ -317,29 +218,8 @@ export async function executeFunctionOperation(
 		return toItems(response, i);
 	}
 
-	if (operation === 'updateVariable') {
-		const variableId = this.getNodeParameter('variableId', i) as string;
-		const key = this.getNodeParameter('key', i) as string;
-		const value = this.getNodeParameter('value', i, '') as string;
-		const secret = this.getNodeParameter('secret', i, false) as boolean;
-		const response = await appwriteApiRequest.call(
-			this,
-			'PUT',
-			`/functions/${encodeURIComponent(functionId)}/variables/${encodeURIComponent(variableId)}`,
-			{
-				body: {
-					key,
-					value: value === '' ? undefined : value,
-					// `secret` is one-way in Appwrite: once set it cannot be turned back
-					// off, and omitting it keeps the variable's current setting - which
-					// is what an untouched toggle promises in the UI.
-					secret: secret ? true : undefined,
-				},
-			},
-			i,
-		);
-		return toItems(response, i);
-	}
+	const computeResult = await executeComputeOperation.call(this, FUNCTION_RESOURCE, operation, i);
+	if (computeResult !== undefined) return computeResult;
 
 	throw new NodeOperationError(this.getNode(), `Unknown function operation "${operation}"`, {
 		itemIndex: i,

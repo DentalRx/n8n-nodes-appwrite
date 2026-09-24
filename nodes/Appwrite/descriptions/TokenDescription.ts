@@ -1,5 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
+import { bucketLocator, fileLocator } from './locators';
 import { queriesProperties, returnAllAndLimitProperties } from './shared';
 
 export const tokenOperations: INodeProperties[] = [
@@ -50,36 +51,11 @@ export const tokenOperations: INodeProperties[] = [
 ];
 
 export const tokenFields: INodeProperties[] = [
-	{
-		displayName: 'Bucket Name or ID',
-		name: 'bucketId',
-		type: 'options',
-		typeOptions: { loadOptionsMethod: 'getBuckets' },
-		required: true,
-		default: '',
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-		displayOptions: {
-			show: {
-				resource: ['token'],
-				operation: ['create', 'getMany'],
-			},
-		},
-	},
-	{
-		displayName: 'File ID',
-		name: 'fileId',
-		type: 'string',
-		required: true,
-		default: '',
-		description: 'The unique ID of the file',
-		displayOptions: {
-			show: {
-				resource: ['token'],
-				operation: ['create', 'getMany'],
-			},
-		},
-	},
+	bucketLocator({
+		resource: ['token'],
+		operation: ['create', 'getMany'],
+	}),
+	fileLocator({ resource: ['token'], operation: ['create', 'getMany'] }),
 	{
 		displayName: 'Token ID',
 		name: 'tokenId',

@@ -3,55 +3,78 @@ import { NodeOperationError } from 'n8n-workflow';
 
 import {
 	buildQueries,
-	fetchAllPages,
+	fetchAllPagesByOffset,
+	getStringParameter,
 	parseJsonArrayParameter,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
+import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
-export async function executeTransactionOperation(
+/**
+ * What can be done with a transaction. TablesDB, DocumentsDB and VectorsDB
+ * each serve the same transactions API under their own base path.
+ */
+export type TransactionAction =
+	'commit' | 'create' | 'createOperations' | 'delete' | 'get' | 'getMany' | 'rollback';
+
+const TRANSACTION_ACTIONS: readonly string[] = [
+	'commit',
+	'create',
+	'createOperations',
+	'delete',
+	'get',
+	'getMany',
+	'rollback',
+] satisfies TransactionAction[];
+
+/**
+ * Run a transaction action against the transactions API of one database type,
+ * e.g. `/tablesdb` or `/documentsdb`.
+ */
+export async function executeTransactionAction(
 	this: IExecuteFunctions,
-	operation: string,
+	apiPath: string,
+	action: TransactionAction,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	if (operation === 'create') {
+	const transactionsPath = `${apiPath}/transactions`;
+	const transactionPath = (): string =>
+		`${transactionsPath}/${encodeURIComponent(getStringParameter.call(this, 'transactionId', i))}`;
+
+	if (action === 'create') {
 		const ttl = this.getNodeParameter('ttl', i, 300) as number;
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
-			'/tablesdb/transactions',
+			transactionsPath,
 			{ body: { ttl } },
 			i,
 		);
 		return toItems(response, i);
 	}
 
-	if (operation === 'get') {
-		const transactionId = this.getNodeParameter('transactionId', i) as string;
-		const response = await appwriteApiRequest.call(
-			this,
-			'GET',
-			`/tablesdb/transactions/${encodeURIComponent(transactionId)}`,
-			{},
-			i,
-		);
+	if (action === 'get') {
+		const response = await appwriteApiRequest.call(this, 'GET', transactionPath(), {}, i);
 		return toItems(response, i);
 	}
 
-	if (operation === 'getMany') {
+	if (action === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
 		const queries = buildQueries.call(this, i);
 
 		if (returnAll) {
-			const transactions = await fetchAllPages.call(
+			// Appwrite's transaction list cannot resolve a cursor (it fails with a
+			// server error on the second page), so it is paged by offset.
+			const transactions = await fetchAllPagesByOffset.call(
 				this,
 				queries,
 				async (pageQueries) =>
 					await appwriteApiRequest.call(
 						this,
 						'GET',
-						'/tablesdb/transactions',
+						transactionsPath,
 						{ qs: { queries: pageQueries } },
 						i,
 					),
@@ -65,23 +88,22 @@ export async function executeTransactionOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
-			'/tablesdb/transactions',
+			transactionsPath,
 			{ qs: { queries: withLimit(queries, limit) } },
 			i,
 		);
 		return toItems(response.transactions as IDataObject[], i);
 	}
 
-	if (operation === 'commit' || operation === 'rollback') {
-		const transactionId = this.getNodeParameter('transactionId', i) as string;
+	if (action === 'commit' || action === 'rollback') {
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
-			`/tablesdb/transactions/${encodeURIComponent(transactionId)}`,
+			transactionPath(),
 			{
 				body: {
-					commit: operation === 'commit' ? true : undefined,
-					rollback: operation === 'rollback' ? true : undefined,
+					commit: action === 'commit' ? true : undefined,
+					rollback: action === 'rollback' ? true : undefined,
 				},
 			},
 			i,
@@ -89,34 +111,52 @@ export async function executeTransactionOperation(
 		return toItems(response, i);
 	}
 
-	if (operation === 'createOperations') {
-		const transactionId = this.getNodeParameter('transactionId', i) as string;
-		const operations = parseJsonArrayParameter.call(
-			this,
-			this.getNodeParameter('operationsJson', i),
-			'Operations (JSON)',
-			i,
-		) as object[];
-		const response = await appwriteApiRequest.call(
-			this,
-			'POST',
-			`/tablesdb/transactions/${encodeURIComponent(transactionId)}/operations`,
-			{ body: { operations } },
-			i,
-		);
+	if (action === 'createOperations') {
+		const path = `${transactionPath()}/operations`;
+		// Appwrite stores a staged record under the ID it is given: unlike the
+		// create endpoints, it does not turn unique() into a generated ID.
+		const operations = (
+			parseJsonArrayParameter.call(
+				this,
+				this.getNodeParameter('operationsJson', i),
+				'Operations (JSON)',
+				i,
+			) as IDataObject[]
+		).map((operation) => {
+			const staged = { ...operation };
+			for (const key of ['rowId', 'documentId']) {
+				if (staged[key] === 'unique()') staged[key] = resolveId(staged[key]);
+			}
+			return staged;
+		});
+		const response = await appwriteApiRequest.call(this, 'POST', path, { body: { operations } }, i);
 		return toItems(response, i);
 	}
 
-	if (operation === 'delete') {
-		const transactionId = this.getNodeParameter('transactionId', i) as string;
-		await appwriteApiRequest.call(
+	// The one action left is 'delete'.
+	const transactionId = getStringParameter.call(this, 'transactionId', i);
+	await appwriteApiRequest.call(
+		this,
+		'DELETE',
+		`${transactionsPath}/${encodeURIComponent(transactionId)}`,
+		{},
+		i,
+	);
+	return toItems({ deleted: true, transactionId }, i);
+}
+
+export async function executeTransactionOperation(
+	this: IExecuteFunctions,
+	operation: string,
+	i: number,
+): Promise<INodeExecutionData[]> {
+	if (TRANSACTION_ACTIONS.includes(operation)) {
+		return await executeTransactionAction.call(
 			this,
-			'DELETE',
-			`/tablesdb/transactions/${encodeURIComponent(transactionId)}`,
-			{},
+			'/tablesdb',
+			operation as TransactionAction,
 			i,
 		);
-		return toItems({ deleted: true, transactionId }, i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown transaction operation "${operation}"`, {

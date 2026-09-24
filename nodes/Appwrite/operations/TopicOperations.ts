@@ -4,11 +4,14 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
+	getResourceId,
+	getStringParameter,
 	parseStringList,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
-import { extractId, resolveId } from '../helpers/appwrite';
+import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeTopicOperation(
@@ -22,13 +25,13 @@ export async function executeTopicOperation(
 	};
 
 	const topicPath = (): string =>
-		`/messaging/topics/${encodeURIComponent(extractId(this.getNodeParameter('topicId', i) as string, 'topic'))}`;
+		`/messaging/topics/${encodeURIComponent(getResourceId.call(this, 'topicId', i, 'topic', 'Topic'))}`;
 
 	if (operation === 'create') {
-		const topicId = resolveId(this.getNodeParameter('topicId', i, '') as string);
-		const name = this.getNodeParameter('name', i) as string;
+		const topicId = resolveId(getStringParameter.call(this, 'topicId', i, ''));
+		const name = getStringParameter.call(this, 'name', i);
 		const subscribe = listOrUndefined(
-			this.getNodeParameter('subscribe', i, '') as string,
+			getStringParameter.call(this, 'subscribe', i, ''),
 			'Subscribe Roles',
 		);
 		const response = await appwriteApiRequest.call(
@@ -43,8 +46,8 @@ export async function executeTopicOperation(
 
 	if (operation === 'createSubscriber') {
 		const path = `${topicPath()}/subscribers`;
-		const subscriberId = resolveId(this.getNodeParameter('subscriberId', i, '') as string);
-		const targetId = this.getNodeParameter('targetId', i) as string;
+		const subscriberId = resolveId(getStringParameter.call(this, 'subscriberId', i, ''));
+		const targetId = getStringParameter.call(this, 'targetId', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
@@ -56,7 +59,7 @@ export async function executeTopicOperation(
 	}
 
 	if (operation === 'delete') {
-		const topicId = extractId(this.getNodeParameter('topicId', i) as string, 'topic');
+		const topicId = getResourceId.call(this, 'topicId', i, 'topic', 'Topic');
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -68,8 +71,8 @@ export async function executeTopicOperation(
 	}
 
 	if (operation === 'deleteSubscriber') {
-		const topicId = extractId(this.getNodeParameter('topicId', i) as string, 'topic');
-		const subscriberId = this.getNodeParameter('subscriberId', i) as string;
+		const topicId = getResourceId.call(this, 'topicId', i, 'topic', 'Topic');
+		const subscriberId = getStringParameter.call(this, 'subscriberId', i);
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -89,7 +92,8 @@ export async function executeTopicOperation(
 
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
@@ -125,7 +129,8 @@ export async function executeTopicOperation(
 	if (operation === 'getManySubscribers') {
 		const path = `${topicPath()}/subscribers`;
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
@@ -159,7 +164,7 @@ export async function executeTopicOperation(
 	}
 
 	if (operation === 'getSubscriber') {
-		const subscriberId = this.getNodeParameter('subscriberId', i) as string;
+		const subscriberId = getStringParameter.call(this, 'subscriberId', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -172,7 +177,7 @@ export async function executeTopicOperation(
 
 	if (operation === 'update') {
 		const path = topicPath();
-		const updateFields = this.getNodeParameter('updateFields', i, {}) as {
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i) as {
 			name?: string;
 			subscribe?: string;
 		};

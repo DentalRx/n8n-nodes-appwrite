@@ -4,8 +4,11 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
-	fetchAllPagesByOffset,
+	getCollectionParameter,
+	getResourceId,
 	getStringListParameter,
+	getStringParameter,
+	lookupEnum,
 	parseJsonParameter,
 	simplifyItems,
 	toItems,
@@ -13,6 +16,17 @@ import {
 } from '../GenericFunctions';
 import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
+
+/** The endpoint that imports users whose passwords were hashed with each algorithm. */
+const PASSWORD_HASH_PATHS: Record<string, string> = {
+	argon2: '/users/argon2',
+	bcrypt: '/users/bcrypt',
+	md5: '/users/md5',
+	phpass: '/users/phpass',
+	scrypt: '/users/scrypt',
+	scryptModified: '/users/scrypt-modified',
+	sha: '/users/sha',
+};
 
 /** The user-model fields most workflows read, for the Simplify toggle. */
 const SIMPLIFY_FIELDS = [
@@ -33,12 +47,15 @@ export async function executeUserOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const userId = this.getNodeParameter('userId', i, '') as string;
-	const userPath = `/users/${encodeURIComponent(userId)}`;
+	// Resolved on first use: create and the list operations act on no existing user.
+	const userId = (): string => getResourceId.call(this, 'userId', i, 'user', 'User');
+	const userPath = (): string => `/users/${encodeURIComponent(userId())}`;
+	const targetId = (): string => getStringParameter.call(this, 'targetId', i);
+	const targetPath = (): string => `${userPath()}/targets/${encodeURIComponent(targetId())}`;
 
 	if (operation === 'create') {
-		const createUserId = resolveId(userId);
-		const options = this.getNodeParameter('options', i, {}) as {
+		const createUserId = resolveId(getStringParameter.call(this, 'userId', i, ''));
+		const options = getCollectionParameter.call(this, 'options', i) as {
 			email?: string;
 			name?: string;
 			password?: string;
@@ -63,47 +80,112 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'createJWT') {
-		const options = this.getNodeParameter('options', i, {}) as {
+		const options = getCollectionParameter.call(this, 'options', i) as {
 			duration?: number;
 			sessionId?: string;
 		};
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
-			`${userPath}/jwts`,
+			`${userPath()}/jwts`,
 			{ body: { sessionId: options.sessionId || undefined, duration: options.duration ?? 900 } },
 			i,
 		);
 		return toItems(response, i);
 	}
 
+	if (operation === 'createMfaRecoveryCodes') {
+		const response = await appwriteApiRequest.call(
+			this,
+			'PATCH',
+			`${userPath()}/mfa/recovery-codes`,
+			{},
+			i,
+		);
+		return toItems(response, i);
+	}
+
 	if (operation === 'createSession') {
-		const response = await appwriteApiRequest.call(this, 'POST', `${userPath}/sessions`, {}, i);
+		const response = await appwriteApiRequest.call(this, 'POST', `${userPath()}/sessions`, {}, i);
+		return toItems(response, i);
+	}
+
+	if (operation === 'createTarget') {
+		const options = getCollectionParameter.call(this, 'options', i) as {
+			name?: string;
+			providerId?: string;
+		};
+		const response = await appwriteApiRequest.call(
+			this,
+			'POST',
+			`${userPath()}/targets`,
+			{
+				body: {
+					targetId: resolveId(getStringParameter.call(this, 'targetId', i, '')),
+					providerType: getStringParameter.call(this, 'targetProviderType', i),
+					identifier: getStringParameter.call(this, 'targetIdentifier', i),
+					providerId: options.providerId || undefined,
+					name: options.name || undefined,
+				},
+			},
+			i,
+		);
 		return toItems(response, i);
 	}
 
 	if (operation === 'createToken') {
-		const options = this.getNodeParameter('options', i, {}) as {
+		const options = getCollectionParameter.call(this, 'options', i) as {
 			expire?: number;
 			length?: number;
 		};
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
-			`${userPath}/tokens`,
+			`${userPath()}/tokens`,
 			{ body: { length: options.length ?? 6, expire: options.expire ?? 900 } },
 			i,
 		);
 		return toItems(response, i);
 	}
 
+	if (operation === 'createWithPasswordHash') {
+		const algorithm = getStringParameter.call(this, 'passwordHashAlgorithm', i);
+		const path = lookupEnum(this, PASSWORD_HASH_PATHS, algorithm, 'hash algorithm', i);
+		const { name } = getCollectionParameter.call(this, 'options', i) as { name?: string };
+		const body: IDataObject = {
+			userId: resolveId(getStringParameter.call(this, 'userId', i, '')),
+			email: getStringParameter.call(this, 'email', i),
+			password: getStringParameter.call(this, 'passwordHash', i),
+			name: name || undefined,
+		};
+
+		// Each algorithm's endpoint takes its own hashing parameters; the others
+		// are hidden in the UI and must not be read.
+		if (algorithm === 'scrypt') {
+			body.passwordSalt = getStringParameter.call(this, 'passwordSalt', i);
+			body.passwordCpu = this.getNodeParameter('passwordCpu', i) as number;
+			body.passwordMemory = this.getNodeParameter('passwordMemory', i) as number;
+			body.passwordParallel = this.getNodeParameter('passwordParallel', i) as number;
+			body.passwordLength = this.getNodeParameter('passwordLength', i) as number;
+		} else if (algorithm === 'scryptModified') {
+			body.passwordSalt = getStringParameter.call(this, 'passwordSalt', i);
+			body.passwordSaltSeparator = getStringParameter.call(this, 'passwordSaltSeparator', i);
+			body.passwordSignerKey = getStringParameter.call(this, 'passwordSignerKey', i);
+		} else if (algorithm === 'sha') {
+			body.passwordVersion = getStringParameter.call(this, 'passwordVersion', i);
+		}
+
+		const response = await appwriteApiRequest.call(this, 'POST', path, { body }, i);
+		return toItems(response, i);
+	}
+
 	if (operation === 'delete') {
-		await appwriteApiRequest.call(this, 'DELETE', userPath, {}, i);
-		return toItems({ deleted: true, userId }, i);
+		await appwriteApiRequest.call(this, 'DELETE', userPath(), {}, i);
+		return toItems({ deleted: true, userId: userId() }, i);
 	}
 
 	if (operation === 'deleteIdentity') {
-		const identityId = this.getNodeParameter('identityId', i) as string;
+		const identityId = getStringParameter.call(this, 'identityId', i);
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -114,32 +196,44 @@ export async function executeUserOperation(
 		return toItems({ deleted: true, identityId }, i);
 	}
 
+	if (operation === 'deleteMfaAuthenticator') {
+		// An authenticator app (TOTP) is the only authenticator type Appwrite has.
+		await appwriteApiRequest.call(this, 'DELETE', `${userPath()}/mfa/authenticators/totp`, {}, i);
+		return toItems({ deleted: true, userId: userId() }, i);
+	}
+
 	if (operation === 'deleteSession') {
-		const sessionId = this.getNodeParameter('sessionId', i) as string;
+		const sessionId = getStringParameter.call(this, 'sessionId', i);
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
-			`${userPath}/sessions/${encodeURIComponent(sessionId)}`,
+			`${userPath()}/sessions/${encodeURIComponent(sessionId)}`,
 			{},
 			i,
 		);
-		return toItems({ deleted: true, userId, sessionId }, i);
+		return toItems({ deleted: true, userId: userId(), sessionId }, i);
 	}
 
 	if (operation === 'deleteSessions') {
-		await appwriteApiRequest.call(this, 'DELETE', `${userPath}/sessions`, {}, i);
-		return toItems({ deleted: true, userId }, i);
+		await appwriteApiRequest.call(this, 'DELETE', `${userPath()}/sessions`, {}, i);
+		return toItems({ deleted: true, userId: userId() }, i);
+	}
+
+	if (operation === 'deleteTarget') {
+		await appwriteApiRequest.call(this, 'DELETE', targetPath(), {}, i);
+		return toItems({ deleted: true, userId: userId(), targetId: targetId() }, i);
 	}
 
 	if (operation === 'get') {
-		const response = await appwriteApiRequest.call(this, 'GET', userPath, {}, i);
+		const response = await appwriteApiRequest.call(this, 'GET', userPath(), {}, i);
 		const simplify = this.getNodeParameter('simplify', i, false) as boolean;
 		return toItems(simplify ? simplifyItems(response, SIMPLIFY_FIELDS) : response, i);
 	}
 
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
@@ -178,7 +272,8 @@ export async function executeUserOperation(
 
 	if (operation === 'getManyIdentities') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
@@ -211,43 +306,10 @@ export async function executeUserOperation(
 		return toItems(response.identities as IDataObject[], i);
 	}
 
-	if (operation === 'getManyLogs') {
-		// Log entries have no ID, so cursor pagination cannot be used here.
-		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const queries = buildQueries.call(this, i);
-
-		if (returnAll) {
-			const logs = await fetchAllPagesByOffset.call(
-				this,
-				queries,
-				async (pageQueries) =>
-					await appwriteApiRequest.call(
-						this,
-						'GET',
-						`${userPath}/logs`,
-						{ qs: { queries: pageQueries } },
-						i,
-					),
-				'logs',
-				i,
-			);
-			return toItems(logs as IDataObject[], i);
-		}
-
-		const limit = this.getNodeParameter('limit', i, 50) as number;
-		const response = await appwriteApiRequest.call(
-			this,
-			'GET',
-			`${userPath}/logs`,
-			{ qs: { queries: withLimit(queries, limit) } },
-			i,
-		);
-		return toItems(response.logs as IDataObject[], i);
-	}
-
 	if (operation === 'getManyMemberships') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 
@@ -259,7 +321,7 @@ export async function executeUserOperation(
 					await appwriteApiRequest.call(
 						this,
 						'GET',
-						`${userPath}/memberships`,
+						`${userPath()}/memberships`,
 						{ qs: { queries: pageQueries, search: searchArg } },
 						i,
 					),
@@ -273,7 +335,7 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
-			`${userPath}/memberships`,
+			`${userPath()}/memberships`,
 			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		);
@@ -281,21 +343,93 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'getManySessions') {
-		const response = await appwriteApiRequest.call(this, 'GET', `${userPath}/sessions`, {}, i);
+		const response = await appwriteApiRequest.call(this, 'GET', `${userPath()}/sessions`, {}, i);
 		return toItems(response.sessions as IDataObject[], i);
 	}
 
+	if (operation === 'getManyTargets') {
+		const path = `${userPath()}/targets`;
+		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
+		const queries = buildQueries.call(this, i);
+
+		if (returnAll) {
+			const targets = await fetchAllPages.call(
+				this,
+				queries,
+				async (pageQueries) =>
+					await appwriteApiRequest.call(this, 'GET', path, { qs: { queries: pageQueries } }, i),
+				'targets',
+				i,
+			);
+			return toItems(targets as IDataObject[], i);
+		}
+
+		const limit = this.getNodeParameter('limit', i, 50) as number;
+		const response = await appwriteApiRequest.call(
+			this,
+			'GET',
+			path,
+			{ qs: { queries: withLimit(queries, limit) } },
+			i,
+		);
+		return toItems(response.targets as IDataObject[], i);
+	}
+
+	if (operation === 'getMfaChallenge') {
+		const challengeId = getStringParameter.call(this, 'mfaChallengeId', i);
+		const response = await appwriteApiRequest.call(
+			this,
+			'GET',
+			`${userPath()}/mfa/challenges/${encodeURIComponent(challengeId)}`,
+			{},
+			i,
+		);
+		return toItems(response, i);
+	}
+
+	if (operation === 'getMfaFactors') {
+		const response = await appwriteApiRequest.call(this, 'GET', `${userPath()}/mfa/factors`, {}, i);
+		return toItems(response, i);
+	}
+
+	if (operation === 'getMfaRecoveryCodes') {
+		const response = await appwriteApiRequest.call(
+			this,
+			'GET',
+			`${userPath()}/mfa/recovery-codes`,
+			{},
+			i,
+		);
+		return toItems(response, i);
+	}
+
 	if (operation === 'getPrefs') {
-		const response = await appwriteApiRequest.call(this, 'GET', `${userPath}/prefs`, {}, i);
+		const response = await appwriteApiRequest.call(this, 'GET', `${userPath()}/prefs`, {}, i);
+		return toItems(response, i);
+	}
+
+	if (operation === 'getTarget') {
+		const response = await appwriteApiRequest.call(this, 'GET', targetPath(), {}, i);
+		return toItems(response, i);
+	}
+
+	if (operation === 'regenerateMfaRecoveryCodes') {
+		const response = await appwriteApiRequest.call(
+			this,
+			'PUT',
+			`${userPath()}/mfa/recovery-codes`,
+			{},
+			i,
+		);
 		return toItems(response, i);
 	}
 
 	if (operation === 'updateEmail') {
-		const email = this.getNodeParameter('email', i) as string;
+		const email = getStringParameter.call(this, 'email', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
-			`${userPath}/email`,
+			`${userPath()}/email`,
 			{ body: { email } },
 			i,
 		);
@@ -307,8 +441,20 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
-			`${userPath}/verification`,
+			`${userPath()}/verification`,
 			{ body: { emailVerification } },
+			i,
+		);
+		return toItems(response, i);
+	}
+
+	if (operation === 'updateImpersonator') {
+		const impersonator = this.getNodeParameter('impersonator', i, false) as boolean;
+		const response = await appwriteApiRequest.call(
+			this,
+			'PATCH',
+			`${userPath()}/impersonator`,
+			{ body: { impersonator } },
 			i,
 		);
 		return toItems(response, i);
@@ -319,19 +465,31 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'PUT',
-			`${userPath}/labels`,
+			`${userPath()}/labels`,
 			{ body: { labels } },
 			i,
 		);
 		return toItems(response, i);
 	}
 
-	if (operation === 'updateName') {
-		const name = this.getNodeParameter('name', i) as string;
+	if (operation === 'updateMfa') {
+		const mfa = this.getNodeParameter('mfa', i, true) as boolean;
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
-			`${userPath}/name`,
+			`${userPath()}/mfa`,
+			{ body: { mfa } },
+			i,
+		);
+		return toItems(response, i);
+	}
+
+	if (operation === 'updateName') {
+		const name = getStringParameter.call(this, 'name', i);
+		const response = await appwriteApiRequest.call(
+			this,
+			'PATCH',
+			`${userPath()}/name`,
 			{ body: { name } },
 			i,
 		);
@@ -339,11 +497,11 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'updatePassword') {
-		const password = this.getNodeParameter('password', i) as string;
+		const password = getStringParameter.call(this, 'password', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
-			`${userPath}/password`,
+			`${userPath()}/password`,
 			{ body: { password } },
 			i,
 		);
@@ -351,11 +509,11 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'updatePhone') {
-		const phone = this.getNodeParameter('phone', i) as string;
+		const phone = getStringParameter.call(this, 'phone', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
-			`${userPath}/phone`,
+			`${userPath()}/phone`,
 			{ body: { number: phone } },
 			i,
 		);
@@ -367,7 +525,7 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
-			`${userPath}/verification/phone`,
+			`${userPath()}/verification/phone`,
 			{ body: { phoneVerification } },
 			i,
 		);
@@ -384,7 +542,7 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
-			`${userPath}/prefs`,
+			`${userPath()}/prefs`,
 			{ body: { prefs } },
 			i,
 		);
@@ -396,8 +554,32 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
-			`${userPath}/status`,
+			`${userPath()}/status`,
 			{ body: { status } },
+			i,
+		);
+		return toItems(response, i);
+	}
+
+	if (operation === 'updateTarget') {
+		const updateFields = getCollectionParameter.call(this, 'updateFields', i) as {
+			name?: string;
+			providerId?: string;
+			targetIdentifier?: string;
+		};
+		// Appwrite leaves a field unchanged when it is sent empty, so an update
+		// needs no read of the current target.
+		const response = await appwriteApiRequest.call(
+			this,
+			'PATCH',
+			targetPath(),
+			{
+				body: {
+					identifier: updateFields.targetIdentifier || undefined,
+					providerId: updateFields.providerId || undefined,
+					name: updateFields.name || undefined,
+				},
+			},
 			i,
 		);
 		return toItems(response, i);

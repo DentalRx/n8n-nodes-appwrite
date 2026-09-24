@@ -1,6 +1,8 @@
 import type { INodeProperties } from 'n8n-workflow';
 
+import { teamLocator, userLocator } from './locators';
 import { listOptionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
+import { teamInstallationFields } from './TeamInstallationDescription';
 
 export const teamOperations: INodeProperties[] = [
 	{
@@ -15,10 +17,24 @@ export const teamOperations: INodeProperties[] = [
 		},
 		options: [
 			{
+				name: 'Accept Membership Invitation',
+				value: 'updateMembershipStatus',
+				description:
+					"Accept an invitation to join a team on the invited user's behalf, using the user ID and secret from the invitation link",
+				action: 'Accept team membership invitation',
+			},
+			{
 				name: 'Create',
 				value: 'create',
 				description: 'Create a new team',
 				action: 'Create team',
+			},
+			{
+				name: 'Create Installation',
+				value: 'createInstallation',
+				description:
+					'Install an app on a team. The installation gets the scopes the app asks for now.',
+				action: 'Create team installation',
 			},
 			{
 				name: 'Create Membership',
@@ -33,6 +49,12 @@ export const teamOperations: INodeProperties[] = [
 				action: 'Delete team',
 			},
 			{
+				name: 'Delete Installation',
+				value: 'deleteInstallation',
+				description: 'Uninstall an app from a team and revoke the tokens of that installation',
+				action: 'Delete team installation',
+			},
+			{
 				name: 'Delete Membership',
 				value: 'deleteMembership',
 				description: 'Remove a membership from a team',
@@ -45,10 +67,22 @@ export const teamOperations: INodeProperties[] = [
 				action: 'Get team',
 			},
 			{
+				name: 'Get Installation',
+				value: 'getInstallation',
+				description: 'Get an app installation on a team by ID',
+				action: 'Get team installation',
+			},
+			{
 				name: 'Get Many',
 				value: 'getMany',
 				description: 'List teams, with optional filters',
 				action: 'Get many teams',
+			},
+			{
+				name: 'Get Many Installations',
+				value: 'getManyInstallations',
+				description: 'List the apps installed on a team',
+				action: 'Get many team installations',
 			},
 			{
 				name: 'Get Many Memberships',
@@ -67,6 +101,13 @@ export const teamOperations: INodeProperties[] = [
 				value: 'getPrefs',
 				description: 'Get the shared preferences of a team',
 				action: 'Get team preferences',
+			},
+			{
+				name: 'Update Installation',
+				value: 'updateInstallation',
+				description:
+					"Change an installation's authorization details and refresh its scopes to the ones the app asks for now. Its tokens are revoked.",
+				action: 'Update team installation',
 			},
 			{
 				name: 'Update Membership',
@@ -92,30 +133,57 @@ export const teamOperations: INodeProperties[] = [
 ];
 
 export const teamFields: INodeProperties[] = [
+	teamLocator({
+		resource: ['team'],
+		operation: [
+			'createInstallation',
+			'createMembership',
+			'delete',
+			'deleteInstallation',
+			'deleteMembership',
+			'get',
+			'getInstallation',
+			'getManyInstallations',
+			'getManyMemberships',
+			'getMembership',
+			'getPrefs',
+			'updateInstallation',
+			'updateMembership',
+			'updateMembershipStatus',
+			'updateName',
+			'updatePrefs',
+		],
+	}),
+	...teamInstallationFields,
 	{
-		displayName: 'Team Name or ID',
-		name: 'teamId',
-		type: 'options',
-		typeOptions: { loadOptionsMethod: 'getTeams' },
-		required: true,
+		displayName:
+			"Accepting also marks the user's email address as verified and signs the user in: Appwrite opens a session for them, which stays open for the project's session length. The node does not return that session.",
+		name: 'membershipAcceptNotice',
+		type: 'notice',
 		default: '',
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		displayOptions: {
 			show: {
 				resource: ['team'],
-				operation: [
-					'createMembership',
-					'delete',
-					'deleteMembership',
-					'get',
-					'getManyMemberships',
-					'getMembership',
-					'getPrefs',
-					'updateMembership',
-					'updateName',
-					'updatePrefs',
-				],
+				operation: ['updateMembershipStatus'],
+			},
+		},
+	},
+	userLocator(
+		{ resource: ['team'], operation: ['updateMembershipStatus'] },
+		{ description: 'The invited user, from the userId parameter of the invitation link' },
+	),
+	{
+		displayName: 'Invitation Secret',
+		name: 'membershipSecret',
+		type: 'string',
+		typeOptions: { password: true },
+		required: true,
+		default: '',
+		description: 'The secret parameter of the invitation link Appwrite sent to the invited user',
+		displayOptions: {
+			show: {
+				resource: ['team'],
+				operation: ['updateMembershipStatus'],
 			},
 		},
 	},
@@ -138,7 +206,6 @@ export const teamFields: INodeProperties[] = [
 		name: 'teamId',
 		type: 'string',
 		default: '',
-		placeholder: 'unique()',
 		description:
 			'The ID for the team. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {
@@ -173,7 +240,12 @@ export const teamFields: INodeProperties[] = [
 		displayOptions: {
 			show: {
 				resource: ['team'],
-				operation: ['deleteMembership', 'getMembership', 'updateMembership'],
+				operation: [
+					'deleteMembership',
+					'getMembership',
+					'updateMembership',
+					'updateMembershipStatus',
+				],
 			},
 		},
 	},
@@ -200,7 +272,7 @@ export const teamFields: INodeProperties[] = [
 		default: '',
 		placeholder: 'e.g. name@email.com',
 		description:
-			'The email of the new team member. Set at least one of Email, User Name or ID, or Phone; when more than one is set, Appwrite uses the user, then the email, then the phone.',
+			'The email of the new team member. Set at least one of Email, User, or Phone; when more than one is set, Appwrite uses the user, then the email, then the phone.',
 		displayOptions: {
 			show: {
 				resource: ['team'],
@@ -208,22 +280,14 @@ export const teamFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'User Name or ID',
-		name: 'userId',
-		type: 'options',
-		typeOptions: { loadOptionsMethod: 'getUsers' },
-		default: '',
-		hint: 'Set at least one of Email, User Name or ID, or Phone',
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-		displayOptions: {
-			show: {
-				resource: ['team'],
-				operation: ['createMembership'],
-			},
+	userLocator(
+		{ resource: ['team'], operation: ['createMembership'] },
+		{
+			required: false,
+			description: 'The existing user to add to the team',
+			hint: 'Set at least one of Email, User, or Phone',
 		},
-	},
+	),
 	{
 		displayName: 'Phone',
 		name: 'phone',
@@ -231,7 +295,7 @@ export const teamFields: INodeProperties[] = [
 		default: '',
 		placeholder: 'e.g. +16175551212',
 		description:
-			'The phone number of the new team member, with a leading + and a country code. Set at least one of Email, User Name or ID, or Phone; when more than one is set, Appwrite uses the user, then the email, then the phone.',
+			'The phone number of the new team member, with a leading + and a country code. Set at least one of Email, User, or Phone; when more than one is set, Appwrite uses the user, then the email, then the phone.',
 		displayOptions: {
 			show: {
 				resource: ['team'],
@@ -239,8 +303,8 @@ export const teamFields: INodeProperties[] = [
 			},
 		},
 	},
-	...returnAllAndLimitProperties('team', ['getMany', 'getManyMemberships']),
-	...queriesProperties('team', ['getMany', 'getManyMemberships']),
+	...returnAllAndLimitProperties('team', ['getMany', 'getManyInstallations', 'getManyMemberships']),
+	...queriesProperties('team', ['getMany', 'getManyInstallations', 'getManyMemberships']),
 	{
 		displayName: 'Preferences',
 		name: 'prefs',

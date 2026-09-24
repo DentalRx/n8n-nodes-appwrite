@@ -1,8 +1,15 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { buildQueries, fetchAllPages, toItems, withLimit } from '../GenericFunctions';
-import { extractId } from '../helpers/appwrite';
+import {
+	buildQueries,
+	fetchAllPages,
+	getDateTimeParameter,
+	getResourceId,
+	getStringParameter,
+	toItems,
+	withLimit,
+} from '../GenericFunctions';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeTokenOperation(
@@ -12,13 +19,13 @@ export async function executeTokenOperation(
 ): Promise<INodeExecutionData[]> {
 	/** Tokens are scoped to a file: /tokens/buckets/{bucketId}/files/{fileId} */
 	const filePath = (): string => {
-		const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
-		const fileId = extractId(this.getNodeParameter('fileId', i) as string, 'file');
+		const bucketId = getResourceId.call(this, 'bucketId', i, 'bucket', 'Bucket');
+		const fileId = getResourceId.call(this, 'fileId', i, 'file', 'File');
 		return `/tokens/buckets/${encodeURIComponent(bucketId)}/files/${encodeURIComponent(fileId)}`;
 	};
 
 	if (operation === 'create') {
-		const expire = this.getNodeParameter('expire', i, '') as string;
+		const expire = getDateTimeParameter.call(this, 'expire', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
@@ -30,7 +37,7 @@ export async function executeTokenOperation(
 	}
 
 	if (operation === 'get') {
-		const tokenId = this.getNodeParameter('tokenId', i) as string;
+		const tokenId = getStringParameter.call(this, 'tokenId', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -70,8 +77,8 @@ export async function executeTokenOperation(
 	}
 
 	if (operation === 'update') {
-		const tokenId = this.getNodeParameter('tokenId', i) as string;
-		const expire = this.getNodeParameter('expire', i, '') as string;
+		const tokenId = getStringParameter.call(this, 'tokenId', i);
+		const expire = getDateTimeParameter.call(this, 'expire', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
@@ -83,7 +90,7 @@ export async function executeTokenOperation(
 	}
 
 	if (operation === 'delete') {
-		const tokenId = this.getNodeParameter('tokenId', i) as string;
+		const tokenId = getStringParameter.call(this, 'tokenId', i);
 		await appwriteApiRequest.call(this, 'DELETE', `/tokens/${encodeURIComponent(tokenId)}`, {}, i);
 		return toItems({ deleted: true, tokenId }, i);
 	}

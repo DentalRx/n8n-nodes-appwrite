@@ -11,24 +11,59 @@ import { randomBytes } from 'node:crypto';
 
 export type AppwriteContext = IExecuteFunctions | ILoadOptionsFunctions;
 
+/**
+ * The credential a request authenticates with: a project API key, or an
+ * organization API key for the endpoints that act on a whole organization.
+ */
+export type AppwriteCredentialType = 'appwriteApi' | 'appwriteOrganizationApi';
+
 /** Appwrite accepts files up to 5 MB in a single request; larger ones are chunked. */
 const CHUNK_SIZE = 5 * 1024 * 1024;
 
-interface AppwriteRequestOptions {
+export interface AppwriteRequestOptions {
 	/** Query string parameters. Arrays are indexed (`queries[0]`) as Appwrite expects. */
 	qs?: IDataObject;
 	/** JSON request body. Keys with an `undefined` value are dropped. */
 	body?: IDataObject;
 	/** Extra headers to merge into the request. */
 	headers?: IDataObject;
+	/** The credential that authenticates the request. Defaults to the project's (`appwriteApi`). */
+	credentialType?: AppwriteCredentialType;
+}
+
+/** The API base URL a credential names, without its trailing slash. */
+function endpointOf(credentials: IDataObject): string {
+	return (credentials.endpoint as string).replace(/\/+$/, '');
 }
 
 /**
- * Resolve the API base URL from the credentials, without its trailing slash.
+ * Resolve the API base URL (without its trailing slash) and the project ID
+ * from the credentials.
  */
-async function getBaseUrl(this: AppwriteContext): Promise<string> {
+export async function getProject(
+	this: AppwriteContext,
+): Promise<{ baseUrl: string; projectId: string; skipSslCertificateValidation: boolean }> {
 	const credentials = await this.getCredentials('appwriteApi');
-	return (credentials.endpoint as string).replace(/\/+$/, '');
+	return {
+		baseUrl: endpointOf(credentials),
+		projectId: credentials.projectId as string,
+		skipSslCertificateValidation: credentials.ignoreSslIssues === true,
+	};
+}
+
+/**
+ * The endpoint to call, and whether the credential allows an endpoint whose
+ * TLS certificate cannot be validated (e.g. a self-signed one).
+ */
+async function getConnection(
+	this: AppwriteContext,
+	credentialType: AppwriteCredentialType = 'appwriteApi',
+): Promise<{ baseUrl: string; skipSslCertificateValidation: boolean }> {
+	const credentials = await this.getCredentials(credentialType);
+	return {
+		baseUrl: endpointOf(credentials),
+		skipSslCertificateValidation: credentials.ignoreSslIssues === true,
+	};
 }
 
 /**
@@ -53,6 +88,21 @@ export function flattenQueryParameters(data: IDataObject, prefix = ''): IDataObj
 	}
 
 	return output;
+}
+
+/**
+ * The URL of an Appwrite endpoint for the user's browser to open, for the
+ * flows that start with a redirect meant for the browser rather than with a
+ * request n8n can send. The query string is encoded as the Appwrite SDKs
+ * encode it: with URLSearchParams, and array values under bracketed keys.
+ */
+export function browserUrl(baseUrl: string, path: string, qs: IDataObject): string {
+	const query = new URLSearchParams();
+	for (const [key, value] of Object.entries(flattenQueryParameters(qs))) {
+		query.append(key, String(value));
+	}
+	const search = query.toString();
+	return search === '' ? `${baseUrl}${path}` : `${baseUrl}${path}?${search}`;
 }
 
 /**
@@ -141,22 +191,34 @@ function parseErrorBuffer(buffer: Buffer): JsonObject | undefined {
 }
 
 /**
- * Make an authenticated request against the Appwrite REST API.
- *
- * The node talks to Appwrite over HTTP through n8n's request helpers rather
- * than through the Appwrite SDK, because n8n community nodes must ship without
- * runtime dependencies.
+ * Refuse a request path with an empty segment. Every segment after the
+ * service name is an ID, so an empty one means an ID field resolved to
+ * nothing, typically an expression that found no value. Appwrite's router
+ * drops empty segments, so `DELETE .../rows/` would otherwise reach the bulk
+ * route `DELETE .../rows` and act on every row in the table.
  */
-async function request(
-	context: AppwriteContext,
+function assertPathHasNoEmptyId(context: AppwriteContext, path: string, itemIndex?: number): void {
+	const pathname = path.split('?')[0];
+	if (pathname.includes('//') || (pathname.length > 1 && pathname.endsWith('/'))) {
+		throw new NodeOperationError(context.getNode(), 'An ID for this operation is empty', {
+			description:
+				'One of the ID fields resolved to an empty value, so the request was not sent. Check the IDs and any expressions in them, e.g. {{ $json.$id }} rather than {{ $json.id }}.',
+			itemIndex,
+		});
+	}
+}
+
+/**
+ * Shape a request the way every Appwrite call is sent: JSON in and out,
+ * bracketed query parameters, and a body without undefined keys.
+ */
+function buildRequestOptions(
+	baseUrl: string,
 	method: IHttpRequestMethods,
 	path: string,
 	options: AppwriteRequestOptions,
 	binary: boolean,
-	itemIndex?: number,
-): Promise<unknown> {
-	const baseUrl = await getBaseUrl.call(context);
-
+): IHttpRequestOptions {
 	const requestOptions: IHttpRequestOptions = {
 		method,
 		url: `${baseUrl}${path}`,
@@ -180,10 +242,37 @@ async function request(
 		requestOptions.json = false;
 	}
 
+	return requestOptions;
+}
+
+/**
+ * Make an authenticated request against the Appwrite REST API.
+ *
+ * The node talks to Appwrite over HTTP through n8n's request helpers rather
+ * than through the Appwrite SDK, because n8n community nodes must ship without
+ * runtime dependencies.
+ */
+async function request(
+	context: AppwriteContext,
+	method: IHttpRequestMethods,
+	path: string,
+	options: AppwriteRequestOptions,
+	binary: boolean,
+	itemIndex?: number,
+): Promise<unknown> {
+	assertPathHasNoEmptyId(context, path, itemIndex);
+	const credentialType = options.credentialType ?? 'appwriteApi';
+	const { baseUrl, skipSslCertificateValidation } = await getConnection.call(
+		context,
+		credentialType,
+	);
+	const requestOptions = buildRequestOptions(baseUrl, method, path, options, binary);
+	if (skipSslCertificateValidation) requestOptions.skipSslCertificateValidation = true;
+
 	try {
 		return await context.helpers.httpRequestWithAuthentication.call(
 			context,
-			'appwriteApi',
+			credentialType,
 			requestOptions,
 		);
 	} catch (error) {
@@ -219,6 +308,89 @@ export async function appwriteApiRequestBinary(
 }
 
 /**
+ * Who an Account request acts as. Appwrite identifies a signed-in user by a
+ * JWT or a session secret; a caller with neither is a guest, which is enough
+ * for the endpoints whose own parameters prove who is calling, such as
+ * completing an email verification with the secret from the email.
+ */
+export type UserAuthentication =
+	{ type: 'jwt'; jwt: string } | { type: 'session'; secret: string } | { type: 'guest' };
+
+function userHeaders(authentication: UserAuthentication): IDataObject {
+	if (authentication.type === 'jwt') return { 'X-Appwrite-JWT': authentication.jwt };
+	if (authentication.type === 'session') return { 'X-Appwrite-Session': authentication.secret };
+	return {};
+}
+
+/**
+ * Make a request as an end user instead of with the API key, for the Account
+ * endpoints that act on the signed-in user. It cannot go through the
+ * credential: an API key replaces the user's scopes with the key's own, and no
+ * API key can hold the `account` scope those endpoints need. So the request
+ * carries the project ID and the user's JWT or session secret, and never the
+ * API key; getProject reads the credential so that this function never holds
+ * it.
+ */
+export async function appwriteUserRequest(
+	this: AppwriteContext,
+	method: IHttpRequestMethods,
+	path: string,
+	authentication: UserAuthentication,
+	options: AppwriteRequestOptions = {},
+	itemIndex?: number,
+): Promise<IDataObject> {
+	assertPathHasNoEmptyId(this, path, itemIndex);
+	const { baseUrl, projectId, skipSslCertificateValidation } = await getProject.call(this);
+	const requestOptions = buildRequestOptions(baseUrl, method, path, options, false);
+	if (skipSslCertificateValidation) requestOptions.skipSslCertificateValidation = true;
+	requestOptions.headers = {
+		...requestOptions.headers,
+		'X-Appwrite-Project': projectId,
+		...userHeaders(authentication),
+	};
+
+	try {
+		return (await this.helpers.httpRequest(requestOptions)) as IDataObject;
+	} catch (error) {
+		// httpRequestWithAuthentication wraps a failed response in a
+		// NodeApiError, httpRequest hands over the HTTP client's own error.
+		// Wrapping it the same way surfaces Appwrite's message exactly as it
+		// does for API-key requests.
+		const wrapped =
+			error instanceof NodeApiError ? error : new NodeApiError(this.getNode(), error as JsonObject);
+		// n8n titles a 401 "check your credentials", but the credential's API key
+		// played no part here: Appwrite refused the user's JWT or session secret.
+		if (authentication.type !== 'guest' && String(wrapped.httpCode) === '401') {
+			const body = wrapped.context?.data;
+			const payload = body !== null && typeof body === 'object' ? (body as JsonObject) : {};
+			throw new NodeApiError(this.getNode(), payload, {
+				message: "Appwrite did not accept the user's JWT or session secret",
+				description: `A JWT expires after 15 minutes, and a session secret stops working when the session ends. Appwrite said: ${wrapped.description ?? wrapped.message}`,
+				httpCode: '401',
+				itemIndex,
+			});
+		}
+		toNodeApiError(this, wrapped, itemIndex);
+	}
+}
+
+/**
+ * Request a route whose scope is `public`, such as the runtime and framework
+ * lists. Appwrite grants an API key only the scopes chosen on it (plus
+ * `global`, `health.read` and `graphql`), never `public`, so these go out
+ * without the key, identified by the project alone.
+ */
+export async function appwritePublicRequest(
+	this: AppwriteContext,
+	method: IHttpRequestMethods,
+	path: string,
+	options: AppwriteRequestOptions = {},
+	itemIndex?: number,
+): Promise<IDataObject> {
+	return await appwriteUserRequest.call(this, method, path, { type: 'guest' }, options, itemIndex);
+}
+
+/**
  * Build a `multipart/form-data` body by hand. n8n community nodes can't depend
  * on a form-data library, and Appwrite's upload endpoint needs precise control
  * over the file part and its filename.
@@ -238,15 +410,14 @@ function buildMultipartBody(
 	const parts: Buffer[] = [];
 
 	for (const [name, value] of fields) {
-		// A field value lands in the part's body, where a CRLF is only content
-		// and could not forge a part without also guessing the boundary. Strip
-		// it anyway: none of these values (IDs, permission strings) may span
-		// lines, so there is nothing to lose and one less thing to reason about.
+		// A field value lands in the part's body, where a line break is only
+		// content: forging a part would also take guessing the CSPRNG boundary.
+		// Values are sent as they are, so multi-line build commands survive.
 		parts.push(
 			Buffer.from(
 				`--${boundary}\r\nContent-Disposition: form-data; name="${escapeHeaderParameter(
 					name,
-				)}"\r\n\r\n${value.replace(/[\r\n]/g, '')}\r\n`,
+				)}"\r\n\r\n${value}\r\n`,
 			),
 		);
 	}
@@ -270,15 +441,20 @@ function buildMultipartBody(
 /**
  * Upload a file to Appwrite, splitting it into 5 MB chunks when needed. Every
  * chunk after the first carries the ID Appwrite assigned to the upload.
+ *
+ * Storage takes the file in the `file` form field; function and site
+ * deployments take their code package in `code` with the same chunking, so
+ * the field name can be set per upload.
  */
 export async function appwriteFileUpload(
 	this: IExecuteFunctions,
 	path: string,
-	file: { content: Buffer; filename: string; contentType: string },
+	file: { content: Buffer; filename: string; contentType: string; field?: string },
 	fields: Array<[string, string]>,
 	itemIndex: number,
 ): Promise<IDataObject> {
-	const baseUrl = await getBaseUrl.call(this);
+	assertPathHasNoEmptyId(this, path, itemIndex);
+	const { baseUrl, skipSslCertificateValidation } = await getConnection.call(this);
 	const url = `${baseUrl}${path}`;
 	const total = file.content.length;
 
@@ -299,7 +475,7 @@ export async function appwriteFileUpload(
 		}
 
 		const body = buildMultipartBody(boundary, fields, {
-			field: 'file',
+			field: file.field ?? 'file',
 			filename: file.filename,
 			content: file.content.subarray(start, end),
 			contentType: file.contentType,
@@ -313,6 +489,7 @@ export async function appwriteFileUpload(
 				body,
 				json: false,
 				returnFullResponse: false,
+				...(skipSslCertificateValidation ? { skipSslCertificateValidation } : {}),
 			})) as IDataObject;
 		} catch (error) {
 			toNodeApiError(this, error, itemIndex);

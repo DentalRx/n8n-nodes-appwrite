@@ -1,5 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
+import { resourceLocator } from './locators';
 import {
 	databaseIdProperty,
 	queriesProperties,
@@ -93,12 +94,17 @@ export const columnFields: INodeProperties[] = [
 			{ name: 'Point', value: 'point' },
 			{ name: 'Polygon', value: 'polygon' },
 			{ name: 'Relationship', value: 'relationship' },
-			{ name: 'String', value: 'string' },
+			{
+				name: 'String (Legacy)',
+				value: 'string',
+				description:
+					'Deprecated since Appwrite 1.9 in favour of Varchar and the Text types. Use it only on Appwrite 1.8, which has no other text type.',
+			},
 			{ name: 'Text', value: 'text' },
 			{ name: 'URL', value: 'url' },
 			{ name: 'Varchar', value: 'varchar' },
 		],
-		default: 'string',
+		default: 'varchar',
 		description:
 			"The data type of the column. When updating, this must match the column's existing type.",
 		displayOptions: {
@@ -173,23 +179,24 @@ export const columnFields: INodeProperties[] = [
 		},
 	},
 	// Relationship-specific
-	{
-		displayName: 'Related Table Name or ID',
-		name: 'relatedTableId',
-		type: 'options',
-		typeOptions: { loadOptionsDependsOn: ['databaseId'], loadOptionsMethod: 'getTables' },
-		required: true,
-		default: '',
-		description:
-			'The table to create the relationship with. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-		displayOptions: {
-			show: {
-				resource: ['column'],
-				operation: ['create'],
-				columnType: ['relationship'],
-			},
+	resourceLocator(
+		{
+			name: 'relatedTableId',
+			displayName: 'Related Table',
+			kind: 'table',
+			searchListMethod: 'searchTables',
+			placeholder: 'e.g. customers',
+			urlPlaceholder:
+				'e.g. https://cloud.appwrite.io/console/project-fra-myproject/databases/database-main/table-customers',
+			dependsOn: ['databaseId.value'],
+			description: 'The table to create the relationship with, in the same database',
 		},
-	},
+		{
+			resource: ['column'],
+			operation: ['create'],
+			columnType: ['relationship'],
+		},
+	),
 	{
 		displayName: 'Relationship Type',
 		name: 'relationshipType',
@@ -235,7 +242,7 @@ export const columnFields: INodeProperties[] = [
 		displayOptions: {
 			show: {
 				resource: ['column'],
-				operation: ['create', 'update'],
+				operation: ['create'],
 			},
 			hide: {
 				columnType: ['relationship'],
@@ -276,7 +283,7 @@ export const columnFields: INodeProperties[] = [
 				type: 'string',
 				default: '',
 				description:
-					'The default value for the column. It is parsed according to the column type (e.g. true/false for booleans, numbers for integer/float, a JSON array of coordinates for spatial types). It cannot be set when Required is enabled. Appwrite makes this part of the column definition rather than a patch, so leaving it out on Update clears any default the column already had.',
+					'The default value for the column. It is parsed according to the column type (e.g. true/false for booleans, numbers for integer/float, a JSON array of coordinates for spatial types). It cannot be set when Required is enabled. On Update, leave it out to keep the current default, or add it empty to remove the default.',
 				displayOptions: {
 					hide: {
 						'/columnType': ['relationship'],
@@ -375,6 +382,22 @@ export const columnFields: INodeProperties[] = [
 					"What happens to related rows when a row is deleted. A new column defaults to Restrict; leaving this option out on Update keeps the column's current setting.",
 				displayOptions: {
 					show: {
+						'/columnType': ['relationship'],
+					},
+				},
+			},
+			{
+				displayName: 'Required',
+				name: 'required',
+				type: 'boolean',
+				default: false,
+				description:
+					"Whether the column is required. Leave it out to keep the column's current setting. Making a column required removes its default value.",
+				displayOptions: {
+					show: {
+						'/operation': ['update'],
+					},
+					hide: {
 						'/columnType': ['relationship'],
 					},
 				},

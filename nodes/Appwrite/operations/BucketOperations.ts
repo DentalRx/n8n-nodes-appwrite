@@ -4,14 +4,17 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getPermissions,
+	getResourceId,
+	getStringParameter,
 	lookupEnum,
 	parseStringList,
 	simplifyItems,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
-import { extractId, resolveId } from '../helpers/appwrite';
+import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 /** The compression algorithms Appwrite accepts, keyed by the value the UI stores. */
@@ -52,7 +55,7 @@ export async function executeBucketOperation(
 	i: number,
 ): Promise<INodeExecutionData[]> {
 	const getBucketOptionArgs = (current?: IDataObject): IDataObject => {
-		const options = this.getNodeParameter('options', i, {}) as BucketOptions;
+		const options = getCollectionParameter.call(this, 'options', i) as BucketOptions;
 		// An option the user never added keeps whatever the bucket already has
 		// (`current` is set on update only); an option added and left blank clears it.
 		const extensions =
@@ -76,8 +79,8 @@ export async function executeBucketOperation(
 	};
 
 	if (operation === 'create') {
-		const bucketId = resolveId(this.getNodeParameter('bucketId', i, '') as string);
-		const name = this.getNodeParameter('name', i) as string;
+		const bucketId = resolveId(getStringParameter.call(this, 'bucketId', i, ''));
+		const name = getStringParameter.call(this, 'name', i);
 		const permissions = getPermissions.call(this, i);
 		const response = await appwriteApiRequest.call(
 			this,
@@ -90,7 +93,7 @@ export async function executeBucketOperation(
 	}
 
 	if (operation === 'get') {
-		const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
+		const bucketId = getResourceId.call(this, 'bucketId', i, 'bucket', 'Bucket');
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -104,7 +107,8 @@ export async function executeBucketOperation(
 
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 		const simplify = this.getNodeParameter('simplify', i, false) as boolean;
@@ -141,8 +145,8 @@ export async function executeBucketOperation(
 	}
 
 	if (operation === 'update') {
-		const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
-		const name = this.getNodeParameter('name', i) as string;
+		const bucketId = getResourceId.call(this, 'bucketId', i, 'bucket', 'Bucket');
+		const name = getStringParameter.call(this, 'name', i);
 		const permissions = getPermissions.call(this, i);
 		// PUT /storage/buckets/{id} is a full replace: any setting left out of the
 		// body is reset to the API's own default rather than kept, so renaming a
@@ -166,7 +170,7 @@ export async function executeBucketOperation(
 	}
 
 	if (operation === 'delete') {
-		const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
+		const bucketId = getResourceId.call(this, 'bucketId', i, 'bucket', 'Bucket');
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',

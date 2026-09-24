@@ -3,6 +3,11 @@ import { NodeHelpers } from 'n8n-workflow';
 import { describe, expect, it } from 'vitest';
 
 import { AppwriteApi } from '../credentials/AppwriteApi.credentials';
+import { AppwriteOrganizationApi } from '../credentials/AppwriteOrganizationApi.credentials';
+import codex from '../nodes/Appwrite/Appwrite.node.json';
+import { ORGANIZATION_RESOURCES } from '../nodes/Appwrite/helpers/organization';
+import packageJson from '../package.json';
+import tsconfig from '../tsconfig.json';
 import { description, node, resolveParameters, testNode } from './helpers/mock-context';
 
 const { properties } = description;
@@ -35,6 +40,20 @@ export function visibleProperties(values: Record<string, string>): INodeProperti
 	);
 }
 
+/** The node panel categories n8n accepts in a codex file. */
+const CODEX_CATEGORIES = [
+	'Analytics',
+	'Communication',
+	'Data & Storage',
+	'Development',
+	'Finance & Accounting',
+	'Marketing & Content',
+	'Miscellaneous',
+	'Productivity',
+	'Sales',
+	'Utility',
+];
+
 const staticOptionValues = (property: INodeProperties): unknown[] =>
 	((property.options ?? []) as INodePropertyOptions[]).map((option) => option.value);
 
@@ -53,13 +72,64 @@ describe('node metadata', () => {
 		expect(description.outputs).toHaveLength(1);
 		expect(description.usableAsTool).toBe(true);
 		expect(description.subtitle).toContain('$parameter["operation"]');
-		expect(description.codex?.categories?.length).toBeGreaterThan(0);
-		expect(description.codex?.resources?.primaryDocumentation?.[0]?.url).toMatch(/^https:\/\//);
 	});
 
-	it('requires the credential type this package ships', () => {
-		const credential = new AppwriteApi();
-		expect(description.credentials).toEqual([{ name: credential.name, required: true }]);
+	it('ships a codex file that n8n can load next to the compiled node', () => {
+		// n8n reads the codex from `<node file>.json` beside the compiled node, so
+		// the build must emit it into dist/ (tsconfig includes nodes/**/*.json).
+		const packageName = packageJson.name;
+
+		expect(codex.node).toBe(packageName);
+		expect(codex.nodeVersion).toBe(`${description.version as number}.0`);
+		expect(codex.codexVersion).toBe('1.0');
+		expect(codex.categories.length).toBeGreaterThan(0);
+		for (const category of codex.categories) {
+			expect(CODEX_CATEGORIES).toContain(category);
+		}
+		expect(codex.resources.primaryDocumentation[0].url).toMatch(/^https:\/\//);
+		expect(codex.resources.credentialDocumentation[0].url).toMatch(/^https:\/\//);
+		expect(tsconfig.include).toContain('nodes/**/*.json');
+	});
+
+	it('requires the project credential, or the organization one for the organization-level resources', () => {
+		const project = new AppwriteApi();
+		const organization = new AppwriteOrganizationApi();
+		expect(description.credentials).toEqual([
+			{
+				name: project.name,
+				required: true,
+				displayOptions: { hide: { resource: ORGANIZATION_RESOURCES } },
+			},
+			{
+				name: organization.name,
+				required: true,
+				displayOptions: { show: { resource: ORGANIZATION_RESOURCES } },
+			},
+		]);
+		for (const resource of ORGANIZATION_RESOURCES) expect(resources).toContain(resource);
+		expect(packageJson.n8n.credentials).toEqual([
+			'dist/credentials/AppwriteApi.credentials.js',
+			'dist/credentials/AppwriteOrganizationApi.credentials.js',
+		]);
+	});
+
+	it('shows exactly one credential for every resource', () => {
+		for (const resource of resources) {
+			const shown = (description.credentials ?? []).filter((credential) =>
+				NodeHelpers.displayParameter(
+					resolveParameters({ resource }),
+					credential,
+					testNode,
+					description,
+				),
+			);
+			expect(
+				shown.map((credential) => credential.name),
+				resource,
+			).toEqual([
+				ORGANIZATION_RESOURCES.includes(resource) ? 'appwriteOrganizationApi' : 'appwriteApi',
+			]);
+		}
 	});
 
 	it('defaults the resource selector to one of its options', () => {
@@ -137,18 +207,53 @@ describe('property references', () => {
 		}
 	});
 
-	it('only reference load options methods the node implements', () => {
+	it('only reference load options and list search methods the node implements', () => {
 		const implemented = Object.keys(node.methods.loadOptions);
+		const searches = Object.keys(node.methods.listSearch);
 		const topLevelNames = new Set(properties.map((property) => property.name));
+		const locatorNames = new Set(
+			properties
+				.filter((property) => property.type === 'resourceLocator')
+				.map((property) => property.name),
+		);
 		walk(properties, (property) => {
 			const method = property.typeOptions?.loadOptionsMethod;
 			if (method !== undefined) {
 				expect(implemented, `${property.name} uses ${method}`).toContain(method);
 			}
+			for (const mode of property.modes ?? []) {
+				const search = mode.typeOptions?.searchListMethod;
+				if (search !== undefined) {
+					expect(searches, `${property.name} uses ${search}`).toContain(search);
+				}
+			}
 			for (const dependency of property.typeOptions?.loadOptionsDependsOn ?? []) {
-				expect(topLevelNames, `${property.name} depends on ${dependency}`).toContain(dependency);
+				// A locator's value lives under `.value`; depending on the bare name
+				// would never fire, because the locator object itself is replaced.
+				const [name, path] = dependency.split('.');
+				expect(topLevelNames, `${property.name} depends on ${dependency}`).toContain(name);
+				if (locatorNames.has(name)) {
+					expect(path, `${property.name} depends on ${dependency}`).toBe('value');
+				}
 			}
 		});
+	});
+
+	it('default every resource locator to its From List mode', () => {
+		// The n8n UX guidelines ask for From List as the default wherever a list exists.
+		for (const property of properties.filter((candidate) => candidate.type === 'resourceLocator')) {
+			expect(property.default, property.name).toEqual({ mode: 'list', value: '' });
+			expect(property.modes?.[0]?.name, property.name).toBe('list');
+			// Records the Console gives no page of their own (proxy and firewall
+			// rules, apps) have no URL to paste, so they offer no By URL mode.
+			expect(
+				[
+					['list', 'url', 'id'],
+					['list', 'id'],
+				],
+				property.name,
+			).toContainEqual(property.modes?.map((mode) => mode.name));
+		}
 	});
 
 	it('default every options field to one of its values', () => {
@@ -178,7 +283,7 @@ describe('property references', () => {
 		// but a name must always mean the same kind of value. The one accepted
 		// pair is a picker for an existing record next to a free-text field for
 		// the ID of a record being created, which both resolve to an ID string.
-		const idPair = new Set(['options', 'string']);
+		const idPair = new Set(['resourceLocator', 'string']);
 		for (const [name, types] of typesByName) {
 			if (name === 'options') continue;
 			const unexpected = [...types].filter((type) => !idPair.has(type));

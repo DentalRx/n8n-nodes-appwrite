@@ -1,0 +1,61 @@
+{
+	"name": "Daily digest of new Appwrite rows",
+	"nodes": [
+		{
+			"parameters": {
+				"content": "## Daily digest of new Appwrite rows\n\nEvery morning, fetches every row created in the last 24 hours, newest first, as one item per row. Connect the output to Slack, email or a spreadsheet.\n\n**Setup**\n1. Create an **Appwrite API** credential (API key scope: `rows.read`).\n2. Pick your database and table in **Get New Rows**.",
+				"height": 280,
+				"width": 420
+			},
+			"id": "f1c3e5a7-2b4d-4f68-9a0c-1e3b5d7f9a21",
+			"name": "Sticky Note",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [-80, -260]
+		},
+		{
+			"parameters": {
+				"rule": { "interval": [{ "triggerAtHour": 7 }] }
+			},
+			"id": "2d4f6b8a-0c1e-4a35-b7d9-f1a3c5e7b922",
+			"name": "Every Morning",
+			"type": "n8n-nodes-base.scheduleTrigger",
+			"typeVersion": 1.2,
+			"position": [0, 100]
+		},
+		{
+			"parameters": {
+				"resource": "row",
+				"operation": "getMany",
+				"databaseId": { "__rl": true, "mode": "id", "value": "main" },
+				"tableId": { "__rl": true, "mode": "id", "value": "orders" },
+				"returnAll": true,
+				"queriesUi": {
+					"queryValues": [
+						{
+							"type": "greaterThan",
+							"column": "$createdAt",
+							"value": "={{ $now.minus({ days: 1 }).toISO() }}",
+							"treatValueAsString": true
+						}
+					]
+				},
+				"sortUi": {
+					"sortValues": [{ "column": "$createdAt", "direction": "desc" }]
+				}
+			},
+			"id": "9a1b3c5d-7e8f-4012-a345-6b7c8d9e0f23",
+			"name": "Get New Rows",
+			"type": "@dentalrx/n8n-nodes-appwrite.appwrite",
+			"typeVersion": 1,
+			"position": [220, 100]
+		}
+	],
+	"connections": {
+		"Every Morning": {
+			"main": [[{ "node": "Get New Rows", "type": "main", "index": 0 }]]
+		}
+	},
+	"pinData": {},
+	"settings": { "executionOrder": "v1" }
+}

@@ -38,6 +38,12 @@ export const Query = {
 	offset: (value: number) => query('offset', undefined, value),
 	cursorAfter: (rowId: string) => query('cursorAfter', undefined, rowId),
 	cursorBefore: (rowId: string) => query('cursorBefore', undefined, rowId),
+	// Similarity searches (VectorsDB). The vector is one value, so it is
+	// wrapped rather than spread into the values list.
+	vectorCosine: (attribute: string, vector: number[]) => query('vectorCosine', attribute, [vector]),
+	vectorDot: (attribute: string, vector: number[]) => query('vectorDot', attribute, [vector]),
+	vectorEuclidean: (attribute: string, vector: number[]) =>
+		query('vectorEuclidean', attribute, [vector]),
 };
 
 /**
@@ -62,8 +68,10 @@ export function uniqueId(padding = 7): string {
  * Resolve an ID parameter: an empty value or the literal `unique()` means
  * "let Appwrite pick one".
  */
-export function resolveId(value: string): string {
-	return value === '' || value === 'unique()' ? uniqueId() : value;
+export function resolveId(value: unknown): string {
+	// An expression can resolve to a number; Appwrite IDs are always strings.
+	const id = value === undefined || value === null ? '' : String(value);
+	return id === '' || id === 'unique()' ? uniqueId() : id;
 }
 
 /**
@@ -71,8 +79,8 @@ export function resolveId(value: string): string {
  * Console URLs carry the ID as a `<kind>-<id>` path segment, e.g.
  * `.../databases/database-main/table-orders`.
  */
-export function extractId(value: string, kind: string): string {
-	const trimmed = value.trim();
+export function extractId(value: unknown, kind: string): string {
+	const trimmed = (value === undefined || value === null ? '' : String(value)).trim();
 	if (!/^https?:\/\//i.test(trimmed)) return trimmed;
 
 	const prefix = `${kind}-`;

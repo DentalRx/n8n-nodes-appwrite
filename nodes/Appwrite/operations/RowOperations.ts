@@ -2,16 +2,22 @@ import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-wor
 import { NodeOperationError } from 'n8n-workflow';
 
 import {
+	assertBulkTargetsChosen,
 	buildQueries,
+	bulkDeleteItems,
+	bulkWriteItems,
 	fetchAllPages,
+	getCollectionParameter,
 	getPermissions,
+	getResourceId,
 	getRowData,
 	getSortQueries,
+	getStringParameter,
 	parseJsonArrayParameter,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
-import { extractId, resolveId } from '../helpers/appwrite';
+import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeRowOperation(
@@ -19,9 +25,9 @@ export async function executeRowOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
-	const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
-	const options = this.getNodeParameter('options', i, {}) as {
+	const databaseId = getResourceId.call(this, 'databaseId', i, 'database', 'Database');
+	const tableId = getResourceId.call(this, 'tableId', i, 'table', 'Table');
+	const options = getCollectionParameter.call(this, 'options', i) as {
 		transactionId?: string;
 		min?: number;
 		max?: number;
@@ -31,7 +37,7 @@ export async function executeRowOperation(
 	const rowsPath = `/tablesdb/${encodeURIComponent(databaseId)}/tables/${encodeURIComponent(tableId)}/rows`;
 
 	if (operation === 'create') {
-		const rowId = resolveId(this.getNodeParameter('rowId', i, '') as string);
+		const rowId = resolveId(getStringParameter.call(this, 'rowId', i, ''));
 		const data = getRowData.call(this, i);
 		const permissions = getPermissions.call(this, i);
 		const response = await appwriteApiRequest.call(
@@ -58,11 +64,11 @@ export async function executeRowOperation(
 			{ body: { rows, transactionId } },
 			i,
 		);
-		return toItems(response.rows as IDataObject[], i);
+		return bulkWriteItems(response, 'rows', i, transactionId);
 	}
 
 	if (operation === 'get') {
-		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
+		const rowId = getResourceId.call(this, 'rowId', i, 'row', 'Row ID');
 		const queries = buildQueries.call(this, i);
 		const response = await appwriteApiRequest.call(
 			this,
@@ -114,7 +120,7 @@ export async function executeRowOperation(
 	}
 
 	if (operation === 'update') {
-		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
+		const rowId = getResourceId.call(this, 'rowId', i, 'row', 'Row ID');
 		const data = getRowData.call(this, i);
 		const permissions = getPermissions.call(this, i);
 		const response = await appwriteApiRequest.call(
@@ -130,6 +136,7 @@ export async function executeRowOperation(
 	if (operation === 'updateMany') {
 		const data = getRowData.call(this, i);
 		const queries = buildQueries.call(this, i);
+		assertBulkTargetsChosen.call(this, queries, 'row', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
@@ -143,11 +150,11 @@ export async function executeRowOperation(
 			},
 			i,
 		);
-		return toItems(response.rows as IDataObject[], i);
+		return bulkWriteItems(response, 'rows', i, transactionId);
 	}
 
 	if (operation === 'upsert') {
-		const rowId = resolveId(this.getNodeParameter('rowId', i, '') as string);
+		const rowId = resolveId(getStringParameter.call(this, 'rowId', i, ''));
 		const data = getRowData.call(this, i);
 		const permissions = getPermissions.call(this, i);
 		const response = await appwriteApiRequest.call(
@@ -174,11 +181,11 @@ export async function executeRowOperation(
 			{ body: { rows, transactionId } },
 			i,
 		);
-		return toItems(response.rows as IDataObject[], i);
+		return bulkWriteItems(response, 'rows', i, transactionId);
 	}
 
 	if (operation === 'delete') {
-		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
+		const rowId = getResourceId.call(this, 'rowId', i, 'row', 'Row ID');
 		// The spec declares transactionId a query-string parameter on DELETE.
 		await appwriteApiRequest.call(
 			this,
@@ -192,6 +199,7 @@ export async function executeRowOperation(
 
 	if (operation === 'deleteMany') {
 		const queries = buildQueries.call(this, i);
+		assertBulkTargetsChosen.call(this, queries, 'row', i);
 		// The spec declares queries and transactionId query-string parameters on
 		// DELETE, unlike the update/upsert bodies.
 		const response = await appwriteApiRequest.call(
@@ -206,13 +214,12 @@ export async function executeRowOperation(
 			},
 			i,
 		);
-		// One item per deleted row, matching Create/Update/Upsert Many.
-		return toItems(response.rows as IDataObject[], i);
+		return bulkDeleteItems(response, i, transactionId);
 	}
 
 	if (operation === 'increment') {
-		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
-		const column = this.getNodeParameter('column', i) as string;
+		const rowId = getResourceId.call(this, 'rowId', i, 'row', 'Row ID');
+		const column = getStringParameter.call(this, 'column', i);
 		const value = this.getNodeParameter('amount', i, 1) as number;
 		const response = await appwriteApiRequest.call(
 			this,
@@ -225,8 +232,8 @@ export async function executeRowOperation(
 	}
 
 	if (operation === 'decrement') {
-		const rowId = extractId(this.getNodeParameter('rowId', i) as string, 'row');
-		const column = this.getNodeParameter('column', i) as string;
+		const rowId = getResourceId.call(this, 'rowId', i, 'row', 'Row ID');
+		const column = getStringParameter.call(this, 'column', i);
 		const value = this.getNodeParameter('amount', i, 1) as number;
 		const response = await appwriteApiRequest.call(
 			this,

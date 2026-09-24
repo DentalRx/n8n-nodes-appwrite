@@ -4,13 +4,17 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
+	getResourceId,
+	getStringParameter,
 	lookupEnum,
 	parseJsonParameter,
+	simplifyItems,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
-import { extractId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
+import { EXECUTION_SIMPLIFY_FIELDS } from './compute';
 
 /** The HTTP methods an execution can be triggered with. */
 const EXECUTION_METHOD_MAP: Record<string, string> = {
@@ -35,13 +39,17 @@ export async function executeExecutionOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const functionId = extractId(this.getNodeParameter('functionId', i) as string, 'function');
+	const functionId = getResourceId.call(this, 'functionId', i, 'function', 'Function');
 	const executionsPath = `/functions/${encodeURIComponent(functionId)}/executions`;
+	const simplified = (data: IDataObject | IDataObject[]) =>
+		(this.getNodeParameter('simplify', i, false) as boolean)
+			? simplifyItems(data, EXECUTION_SIMPLIFY_FIELDS)
+			: data;
 
 	if (operation === 'create') {
-		const body = this.getNodeParameter('body', i, '') as string;
+		const body = getStringParameter.call(this, 'body', i, '');
 		const async = this.getNodeParameter('async', i, false) as boolean;
-		const options = this.getNodeParameter('options', i, {}) as ExecutionCreateOptions;
+		const options = getCollectionParameter.call(this, 'options', i) as ExecutionCreateOptions;
 		const headers =
 			options.headers === undefined
 				? undefined
@@ -70,7 +78,7 @@ export async function executeExecutionOperation(
 	}
 
 	if (operation === 'delete') {
-		const executionId = this.getNodeParameter('executionId', i) as string;
+		const executionId = getStringParameter.call(this, 'executionId', i);
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -82,7 +90,7 @@ export async function executeExecutionOperation(
 	}
 
 	if (operation === 'get') {
-		const executionId = this.getNodeParameter('executionId', i) as string;
+		const executionId = getStringParameter.call(this, 'executionId', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -90,7 +98,7 @@ export async function executeExecutionOperation(
 			{},
 			i,
 		);
-		return toItems(response, i);
+		return toItems(simplified(response), i);
 	}
 
 	if (operation === 'getMany') {
@@ -112,7 +120,7 @@ export async function executeExecutionOperation(
 				'executions',
 				i,
 			);
-			return toItems(executions as IDataObject[], i);
+			return toItems(simplified(executions as IDataObject[]), i);
 		}
 
 		const limit = this.getNodeParameter('limit', i, 50) as number;
@@ -123,7 +131,7 @@ export async function executeExecutionOperation(
 			{ qs: { queries: withLimit(queries, limit) } },
 			i,
 		);
-		return toItems(response.executions as IDataObject[], i);
+		return toItems(simplified(response.executions as IDataObject[]), i);
 	}
 
 	throw new NodeOperationError(this.getNode(), `Unknown execution operation "${operation}"`, {

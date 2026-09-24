@@ -51,7 +51,7 @@ export const transactionOperations: INodeProperties[] = [
 				action: 'Get many transactions',
 			},
 			{
-				name: 'Rollback',
+				name: 'Roll Back',
 				value: 'rollback',
 				description: 'Roll back a transaction, discarding all its staged operations',
 				action: 'Roll back transaction',
@@ -80,10 +80,9 @@ export const transactionFields: INodeProperties[] = [
 		displayName: 'TTL (Seconds)',
 		name: 'ttl',
 		type: 'number',
-		typeOptions: { minValue: 1 },
+		typeOptions: { minValue: 60, maxValue: 3600 },
 		default: 300,
-		description:
-			'Number of seconds before the transaction expires. Appwrite rejects a value outside the range its deployment allows.',
+		description: 'Number of seconds before the transaction expires, from 60 to 3600',
 		displayOptions: {
 			show: {
 				resource: ['transaction'],
@@ -98,7 +97,7 @@ export const transactionFields: INodeProperties[] = [
 		required: true,
 		default: '[]',
 		placeholder:
-			'[{"action": "create", "databaseId": "main", "tableId": "posts", "rowId": "unique()", "data": {"title": "Hello"}}]',
+			'e.g. [{"action": "create", "databaseId": "main", "tableId": "posts", "rowId": "unique()", "data": {"title": "Hello"}}]',
 		description:
 			'A JSON array of operations to stage in the transaction. Each entry describes an action (e.g. create, update, delete) with its databaseId, tableId, rowId, and data.',
 		displayOptions: {

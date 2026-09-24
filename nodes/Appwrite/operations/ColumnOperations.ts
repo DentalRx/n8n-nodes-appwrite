@@ -9,13 +9,15 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
+	getResourceId,
 	getStringListParameter,
+	getStringParameter,
 	lookupEnum,
 	parseJsonArrayParameter,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
-import { extractId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 const RELATION_MUTATE_MAP: Record<string, string> = {
@@ -23,9 +25,6 @@ const RELATION_MUTATE_MAP: Record<string, string> = {
 	restrict: 'restrict',
 	setNull: 'setNull',
 };
-
-/** The column types whose update endpoint does not take a `default`. */
-const SPATIAL_COLUMN_TYPES = new Set(['point', 'line', 'polygon']);
 
 const RELATIONSHIP_TYPE_MAP: Record<string, string> = {
 	oneToOne: 'oneToOne',
@@ -39,14 +38,14 @@ export async function executeColumnOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
-	const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
+	const databaseId = getResourceId.call(this, 'databaseId', i, 'database', 'Database');
+	const tableId = getResourceId.call(this, 'tableId', i, 'table', 'Table');
 	const columnsPath = `/tablesdb/${encodeURIComponent(databaseId)}/tables/${encodeURIComponent(
 		tableId,
 	)}/columns`;
 
 	if (operation === 'get') {
-		const key = this.getNodeParameter('key', i) as string;
+		const key = getStringParameter.call(this, 'key', i);
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -58,7 +57,7 @@ export async function executeColumnOperation(
 	}
 
 	if (operation === 'delete') {
-		const key = this.getNodeParameter('key', i) as string;
+		const key = getStringParameter.call(this, 'key', i);
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -108,9 +107,9 @@ export async function executeColumnOperation(
 		});
 	}
 
-	const columnType = this.getNodeParameter('columnType', i) as string;
+	const columnType = getStringParameter.call(this, 'columnType', i);
 	const isCreate = operation === 'create';
-	const options = this.getNodeParameter('options', i, {}) as {
+	const options = getCollectionParameter.call(this, 'options', i) as {
 		array?: boolean;
 		defaultValue?: string;
 		encrypt?: boolean;
@@ -119,6 +118,7 @@ export async function executeColumnOperation(
 		newKey?: string;
 		newSize?: number | string;
 		onDelete?: string;
+		required?: boolean;
 		twoWay?: boolean;
 		twoWayKey?: string;
 	};
@@ -133,13 +133,16 @@ export async function executeColumnOperation(
 				'on-delete action',
 				i,
 			);
-			const relatedTableId = extractId(
-				this.getNodeParameter('relatedTableId', i) as string,
+			const relatedTableId = getResourceId.call(
+				this,
+				'relatedTableId',
+				i,
 				'table',
+				'Related Table',
 			);
-			const typeRaw = this.getNodeParameter('relationshipType', i) as string;
+			const typeRaw = getStringParameter.call(this, 'relationshipType', i);
 			const twoWay = options.twoWay ?? false;
-			const relationshipKey = this.getNodeParameter('key', i, '') as string;
+			const relationshipKey = getStringParameter.call(this, 'key', i, '');
 			const twoWayKey = options.twoWayKey ?? '';
 			const response = await appwriteApiRequest.call(
 				this,
@@ -160,7 +163,7 @@ export async function executeColumnOperation(
 			return toItems(response, i);
 		}
 
-		const key = this.getNodeParameter('key', i) as string;
+		const key = getStringParameter.call(this, 'key', i);
 		const newKeyRaw = options.newKey ?? '';
 		const response = await appwriteApiRequest.call(
 			this,
@@ -184,7 +187,7 @@ export async function executeColumnOperation(
 	}
 
 	// All other column types share a common parameter set.
-	const key = this.getNodeParameter('key', i) as string;
+	const key = getStringParameter.call(this, 'key', i);
 	const required = this.getNodeParameter('columnRequired', i, false) as boolean;
 	const defaultRaw = options.defaultValue ?? '';
 	const array = isCreate ? (options.array ?? false) : undefined;
@@ -198,15 +201,29 @@ export async function executeColumnOperation(
 	/**
 	 * PATCH /tablesdb/{databaseId}/tables/{tableId}/columns/{type}/{key}
 	 *
-	 * Appwrite marks `default` required-but-nullable on every scalar column
-	 * update, so an absent Default Value has to be sent as an explicit null;
-	 * omitting the key is rejected. The spatial types do not require it.
+	 * Appwrite requires `required` on every column update, and `default`
+	 * (nullable) on the scalar ones, and overwrites both. So the column is read
+	 * first and keeps its current values for whichever the user left out; an
+	 * empty Default Value removes the default.
 	 */
 	const updateColumn = async (type: string, body: IDataObject): Promise<IDataObject> => {
-		const payload =
-			SPATIAL_COLUMN_TYPES.has(type) || body.default !== undefined
-				? body
-				: { ...body, default: null };
+		const current = await appwriteApiRequest.call(
+			this,
+			'GET',
+			`${columnsPath}/${encodeURIComponent(key)}`,
+			{},
+			i,
+		);
+		const payload: IDataObject = {
+			...body,
+			required: options.required ?? (current.required as boolean | undefined) ?? false,
+		};
+		if (options.defaultValue === undefined) {
+			// A required column cannot keep a default.
+			payload.default = payload.required ? null : (current.default ?? null);
+		}
+		// Default Value added but left empty: remove the default.
+		if (payload.default === undefined) payload.default = null;
 		return await appwriteApiRequest.call(
 			this,
 			'PATCH',

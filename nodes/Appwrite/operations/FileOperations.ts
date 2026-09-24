@@ -4,13 +4,16 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getCollectionParameter,
 	getPermissions,
+	getResourceId,
+	getStringParameter,
 	simplifyItems,
 	stripHexHash,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
-import { extractId, resolveId } from '../helpers/appwrite';
+import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest, appwriteApiRequestBinary, appwriteFileUpload } from '../transport';
 
 /** Crop positions Appwrite accepts for a preview. The UI stores the wire value directly. */
@@ -60,7 +63,7 @@ export async function executeFileOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
+	const bucketId = getResourceId.call(this, 'bucketId', i, 'bucket', 'Bucket');
 	const filesPath = `/storage/buckets/${encodeURIComponent(bucketId)}/files`;
 
 	const toBinaryItem = async (
@@ -76,7 +79,7 @@ export async function executeFileOperation(
 			{},
 			i,
 		);
-		const outputBinaryField = this.getNodeParameter('outputBinaryField', i, 'data') as string;
+		const outputBinaryField = getStringParameter.call(this, 'outputBinaryField', i, 'data');
 		const name = meta.name as string;
 		const fileName = fileExtensionOverride
 			? `${name.replace(/\.[^.]+$/, '')}.${fileExtensionOverride}`
@@ -96,12 +99,12 @@ export async function executeFileOperation(
 	};
 
 	if (operation === 'upload') {
-		const fileId = resolveId(this.getNodeParameter('fileId', i, '') as string);
-		const binaryPropertyName = this.getNodeParameter('inputBinaryField', i) as string;
+		const fileId = resolveId(getStringParameter.call(this, 'fileId', i, ''));
+		const binaryPropertyName = getStringParameter.call(this, 'inputBinaryField', i);
 		const binaryData = this.helpers.assertBinaryData(i, binaryPropertyName);
 		const buffer = await this.helpers.getBinaryDataBuffer(i, binaryPropertyName);
 		const fileName =
-			(this.getNodeParameter('fileName', i, '') as string) || binaryData.fileName || 'file';
+			getStringParameter.call(this, 'fileName', i, '') || binaryData.fileName || 'file';
 		const permissions = getPermissions.call(this, i);
 
 		const fields: Array<[string, string]> = [['fileId', fileId]];
@@ -124,7 +127,7 @@ export async function executeFileOperation(
 	}
 
 	if (operation === 'get') {
-		const fileId = extractId(this.getNodeParameter('fileId', i) as string, 'file');
+		const fileId = getResourceId.call(this, 'fileId', i, 'file', 'File');
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -138,7 +141,8 @@ export async function executeFileOperation(
 
 	if (operation === 'getMany') {
 		const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
-		const search = (this.getNodeParameter('options', i, {}) as { search?: string }).search ?? '';
+		const search =
+			(getCollectionParameter.call(this, 'options', i) as { search?: string }).search ?? '';
 		const queries = buildQueries.call(this, i);
 		const searchArg = search === '' ? undefined : search;
 		const simplify = this.getNodeParameter('simplify', i, false) as boolean;
@@ -175,8 +179,8 @@ export async function executeFileOperation(
 	}
 
 	if (operation === 'update') {
-		const fileId = extractId(this.getNodeParameter('fileId', i) as string, 'file');
-		const name = this.getNodeParameter('fileName', i, '') as string;
+		const fileId = getResourceId.call(this, 'fileId', i, 'file', 'File');
+		const name = getStringParameter.call(this, 'fileName', i, '');
 		const permissions = getPermissions.call(this, i);
 		const response = await appwriteApiRequest.call(
 			this,
@@ -189,7 +193,7 @@ export async function executeFileOperation(
 	}
 
 	if (operation === 'delete') {
-		const fileId = extractId(this.getNodeParameter('fileId', i) as string, 'file');
+		const fileId = getResourceId.call(this, 'fileId', i, 'file', 'File');
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -201,8 +205,8 @@ export async function executeFileOperation(
 	}
 
 	if (operation === 'download' || operation === 'getView') {
-		const fileId = extractId(this.getNodeParameter('fileId', i) as string, 'file');
-		const options = this.getNodeParameter('options', i, {}) as { token?: string };
+		const fileId = getResourceId.call(this, 'fileId', i, 'file', 'File');
+		const options = getCollectionParameter.call(this, 'options', i) as { token?: string };
 		const token = options.token === '' ? undefined : options.token;
 		const content = await appwriteApiRequestBinary.call(
 			this,
@@ -217,8 +221,8 @@ export async function executeFileOperation(
 	}
 
 	if (operation === 'getPreview') {
-		const fileId = extractId(this.getNodeParameter('fileId', i) as string, 'file');
-		const options = this.getNodeParameter('options', i, {}) as PreviewOptions;
+		const fileId = getResourceId.call(this, 'fileId', i, 'file', 'File');
+		const options = getCollectionParameter.call(this, 'options', i) as PreviewOptions;
 
 		const output = options.output || undefined;
 		if (output !== undefined && !IMAGE_FORMATS.has(output)) {

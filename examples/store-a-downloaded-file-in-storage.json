@@ -1,0 +1,62 @@
+{
+	"name": "Store a downloaded file in Appwrite Storage",
+	"nodes": [
+		{
+			"parameters": {
+				"content": "## Store a downloaded file in Appwrite Storage\n\nDownloads a file over HTTP and uploads it to a storage bucket. Files over 5 MB are uploaded in chunks automatically; the output is the new file's metadata.\n\n**Setup**\n1. Create an **Appwrite API** credential (API key scope: `files.write`).\n2. Set the file URL in **Download File** and pick your bucket in **Upload File**.",
+				"height": 280,
+				"width": 420
+			},
+			"id": "c2b7e1f0-4a3d-4e6b-9f12-8d5a0b3c6e11",
+			"name": "Sticky Note",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [-80, -260]
+		},
+		{
+			"parameters": {},
+			"id": "5e9d3a7b-1c4f-4b28-a6e0-2f8c7d1b4a12",
+			"name": "When clicking 'Execute workflow'",
+			"type": "n8n-nodes-base.manualTrigger",
+			"typeVersion": 1,
+			"position": [0, 100]
+		},
+		{
+			"parameters": {
+				"url": "https://appwrite.io/images/logos/appwrite.svg",
+				"options": {
+					"response": { "response": { "responseFormat": "file" } }
+				}
+			},
+			"id": "7b1c4e8a-9d2f-4a63-b5e7-3c0a6f9d2b13",
+			"name": "Download File",
+			"type": "n8n-nodes-base.httpRequest",
+			"typeVersion": 4.2,
+			"position": [220, 100]
+		},
+		{
+			"parameters": {
+				"resource": "file",
+				"operation": "upload",
+				"bucketId": { "__rl": true, "mode": "id", "value": "uploads" },
+				"inputBinaryField": "data",
+				"permissions": "read(\"any\")"
+			},
+			"id": "e4a8c2d6-3b7f-4e91-8a0c-5d2f7b9e1c14",
+			"name": "Upload File",
+			"type": "@dentalrx/n8n-nodes-appwrite.appwrite",
+			"typeVersion": 1,
+			"position": [440, 100]
+		}
+	],
+	"connections": {
+		"When clicking 'Execute workflow'": {
+			"main": [[{ "node": "Download File", "type": "main", "index": 0 }]]
+		},
+		"Download File": {
+			"main": [[{ "node": "Upload File", "type": "main", "index": 0 }]]
+		}
+	},
+	"pinData": {},
+	"settings": { "executionOrder": "v1" }
+}

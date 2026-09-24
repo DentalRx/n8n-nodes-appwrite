@@ -1,48 +1,25 @@
 import type { INodeProperties } from 'n8n-workflow';
 
+import { databaseLocator, tableLocator } from './locators';
+
 /**
- * Standard Database ID parameter, shown for the given resources/operations.
+ * Standard Database locator, shown for the given resources/operations.
  */
 export function databaseIdProperty(resources: string[], operations?: string[]): INodeProperties {
-	return {
-		displayName: 'Database Name or ID',
-		name: 'databaseId',
-		type: 'options',
-		typeOptions: { loadOptionsMethod: 'getDatabases' },
-		required: true,
-		default: '',
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-		displayOptions: {
-			show: {
-				resource: resources,
-				...(operations ? { operation: operations } : {}),
-			},
-		},
-	};
+	return databaseLocator({
+		resource: resources,
+		...(operations ? { operation: operations } : {}),
+	});
 }
 
 /**
- * Standard Table ID parameter (a table is what Appwrite previously called a collection).
+ * Standard Table locator (a table is what Appwrite previously called a collection).
  */
 export function tableIdProperty(resources: string[], operations?: string[]): INodeProperties {
-	return {
-		displayName: 'Table Name or ID',
-		name: 'tableId',
-		type: 'options',
-		typeOptions: { loadOptionsDependsOn: ['databaseId'], loadOptionsMethod: 'getTables' },
-		required: true,
-		default: '',
-		hint: 'A table is what Appwrite used to call a collection',
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-		displayOptions: {
-			show: {
-				resource: resources,
-				...(operations ? { operation: operations } : {}),
-			},
-		},
-	};
+	return tableLocator({
+		resource: resources,
+		...(operations ? { operation: operations } : {}),
+	});
 }
 
 /**
@@ -99,15 +76,64 @@ const NO_COLUMN_TYPES = ['limit', 'offset', 'cursorAfter', 'cursorBefore', 'sele
 const NO_VALUE_TYPES = ['isNull', 'isNotNull', 'orderAsc', 'orderDesc'];
 
 /**
+ * The words the query builder, the Sort collection and the data inputs use for
+ * the records a resource lists and their fields, so each database type reads
+ * in its own terms: TablesDB has rows of columns, DocumentsDB and VectorsDB
+ * have documents of attributes.
+ */
+export interface RecordTerms {
+	/** One listed record, e.g. `row`. Cursor queries take its ID. */
+	record: string;
+	/** A field of that record, e.g. `column`. */
+	field: string;
+	/** An extra sentence for the tooltip of the query builder's field input. */
+	fieldNote?: string;
+}
+
+/** The default terms, used by every TablesDB resource. */
+const ROW_TERMS: RecordTerms = {
+	record: 'row',
+	field: 'column',
+	fieldNote: 'A column is what Appwrite used to call an attribute.',
+};
+
+const titleCase = (word: string): string => word.charAt(0).toUpperCase() + word.slice(1);
+
+/**
+ * The explicit opt-in Update Many and Delete Many need before they run without
+ * a query: Appwrite applies them to every record then.
+ */
+export function applyToAllProperty(
+	resource: string,
+	terms: RecordTerms = ROW_TERMS,
+): INodeProperties {
+	const plural = `${terms.record}s`;
+	return {
+		displayName: `Apply to All ${titleCase(plural)}`,
+		name: 'applyToAll',
+		type: 'boolean',
+		default: false,
+		description: `Whether to update or delete every ${terms.record} when no query selects which ones. Off, the node refuses to run without a query.`,
+		displayOptions: {
+			show: {
+				resource: [resource],
+				operation: ['updateMany', 'deleteMany'],
+			},
+		},
+	};
+}
+
+/**
  * Query parameters: a mode switch plus a visual builder and a raw JSON field.
  * The operations layer reads them via buildQueries().
  */
 export function queriesProperties(
 	resource: string,
 	operations: string[],
-	options: { hint?: string } = {},
+	options: { hint?: string; terms?: RecordTerms } = {},
 ): INodeProperties[] {
 	const show = { resource: [resource], operation: operations };
+	const { record, field, fieldNote } = options.terms ?? ROW_TERMS;
 	return [
 		{
 			displayName: 'Query Mode',
@@ -148,12 +174,13 @@ export function queriesProperties(
 					// controls.
 					values: [
 						{
-							displayName: 'Column',
+							displayName: titleCase(field),
 							name: 'column',
 							type: 'string',
 							default: '',
-							description:
-								'The column to query on. A column is what Appwrite used to call an attribute.',
+							description: fieldNote
+								? `The ${field} to query on. ${fieldNote}`
+								: `The ${field} to query on`,
 							displayOptions: { hide: { type: NO_COLUMN_TYPES } },
 						},
 						{
@@ -200,8 +227,7 @@ export function queriesProperties(
 							name: 'value',
 							type: 'string',
 							default: '',
-							description:
-								'The comparison value. Numbers, booleans, and JSON arrays are parsed automatically; use "Treat Value as String" to disable that. For Select, provide column names separated by commas (or a JSON array). For Limit/Offset, provide a number. For cursors, provide a row ID.',
+							description: `The comparison value. Numbers, booleans, and JSON arrays are parsed automatically; use "Treat Value as String" to disable that. For Select, provide ${field} names separated by commas (or a JSON array). For Limit/Offset, provide a number. For cursors, provide a ${record} ID.`,
 							displayOptions: { hide: { type: NO_VALUE_TYPES } },
 						},
 					],
@@ -218,6 +244,14 @@ export function queriesProperties(
 			displayOptions: { show: { ...show, queriesMode: ['json'] } },
 		},
 	];
+}
+
+/**
+ * The description of a setting offered both on Create, as an option, and on
+ * Update, as an update field, where leaving it out keeps the current value.
+ */
+export function settingDescription(description: string, update: boolean): string {
+	return update ? `${description} Leave this out to keep the current setting.` : description;
 }
 
 /**
@@ -239,7 +273,11 @@ export function simplifyProperty(resource: string, operations: string[]): INodeP
  * Dedicated Sort collection for Get Many operations, translated into
  * orderAsc/orderDesc queries by the operations layer via getSortQueries().
  */
-export function sortProperty(resource: string, operations: string[]): INodeProperties {
+export function sortProperty(
+	resource: string,
+	operations: string[],
+	terms: RecordTerms = ROW_TERMS,
+): INodeProperties {
 	return {
 		displayName: 'Sort',
 		name: 'sortUi',
@@ -255,11 +293,11 @@ export function sortProperty(resource: string, operations: string[]): INodePrope
 				displayName: 'Sort Rule',
 				values: [
 					{
-						displayName: 'Column',
+						displayName: titleCase(terms.field),
 						name: 'column',
 						type: 'string',
 						default: '',
-						description: 'The column to sort by',
+						description: `The ${terms.field} to sort by`,
 					},
 					{
 						displayName: 'Direction',
@@ -276,6 +314,91 @@ export function sortProperty(resource: string, operations: string[]): INodePrope
 			},
 		],
 	};
+}
+
+/**
+ * Record data input for create/update operations: a mode switch between
+ * individual fields and a raw JSON object. The operations layer reads it via
+ * getRowData().
+ */
+export function dataProperties(
+	resource: string,
+	operations: string[],
+	terms: RecordTerms = ROW_TERMS,
+): INodeProperties[] {
+	const { record, field } = terms;
+	const show = { resource: [resource], operation: operations };
+	return [
+		{
+			displayName: 'Data Mode',
+			name: 'dataMode',
+			type: 'options',
+			options: [
+				{
+					name: 'Define Fields Below',
+					value: 'fields',
+					description: `Set each ${field} value individually`,
+				},
+				{
+					name: 'JSON',
+					value: 'json',
+					description: `Provide the ${record} data as a JSON object`,
+				},
+			],
+			default: 'fields',
+			description: `How to specify the ${record} data`,
+			displayOptions: { show },
+		},
+		{
+			displayName: 'Fields',
+			name: 'dataFieldsUi',
+			type: 'fixedCollection',
+			typeOptions: { multipleValues: true, sortable: true },
+			placeholder: 'Add field',
+			default: {},
+			description: `The ${field} values to set on the ${record}`,
+			displayOptions: { show: { ...show, dataMode: ['fields'] } },
+			options: [
+				{
+					name: 'fieldValues',
+					displayName: 'Field',
+					values: [
+						{
+							displayName: titleCase(field),
+							name: 'fieldName',
+							type: 'string',
+							default: '',
+							description: `Name of the ${field} to set`,
+						},
+						{
+							displayName: 'Treat Value as String',
+							name: 'treatValueAsString',
+							type: 'boolean',
+							default: false,
+							description:
+								'Whether to always send the value as a string instead of auto-detecting numbers, booleans, and arrays',
+						},
+						{
+							displayName: 'Value',
+							name: 'fieldValue',
+							type: 'string',
+							default: '',
+							description:
+								'Value to set. Numbers, booleans, null, and JSON arrays/objects are parsed automatically.',
+						},
+					],
+				},
+			],
+		},
+		{
+			displayName: 'Data (JSON)',
+			name: 'dataJson',
+			type: 'json',
+			default: '{}',
+			description: `The ${record} data as a JSON object of ${field}-value pairs`,
+			displayOptions: { show: { ...show, dataMode: ['json'] } },
+		},
+	];
 }
 
 /**

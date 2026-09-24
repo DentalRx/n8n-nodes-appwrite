@@ -1,12 +1,14 @@
 {
 	"name": "@dentalrx/n8n-nodes-appwrite",
 	"version": "0.1.0",
-	"description": "n8n community node for Appwrite: TablesDB databases (tables, rows, columns, transactions), storage, users and teams, functions, messaging, and more",
+	"description": "n8n community node for the Appwrite API: TablesDB, DocumentsDB and VectorsDB databases, dedicated databases, storage, functions, sites, users, teams and accounts, messaging, and project administration",
 	"keywords": [
 		"n8n-community-node-package",
 		"n8n",
 		"appwrite",
 		"tablesdb",
+		"vectorsdb",
+		"documentsdb",
 		"backend",
 		"baas",
 		"database",
@@ -53,7 +55,8 @@
 		"n8nNodesApiVersion": 1,
 		"strict": true,
 		"credentials": [
-			"dist/credentials/AppwriteApi.credentials.js"
+			"dist/credentials/AppwriteApi.credentials.js",
+			"dist/credentials/AppwriteOrganizationApi.credentials.js"
 		],
 		"nodes": [
 			"dist/nodes/Appwrite/Appwrite.node.js"
@@ -66,7 +69,7 @@
 		"n8n-workflow": "*"
 	},
 	"devDependencies": {
-		"@n8n/node-cli": "^0.45.4",
+		"@n8n/node-cli": "^0.49.1",
 		"@types/node": "^22.15.0",
 		"eslint": "^9.32.0",
 		"n8n-workflow": "2.36.3",

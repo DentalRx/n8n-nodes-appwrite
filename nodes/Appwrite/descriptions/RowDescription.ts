@@ -1,6 +1,8 @@
 import type { INodeProperties } from 'n8n-workflow';
 
 import {
+	applyToAllProperty,
+	dataProperties,
 	databaseIdProperty,
 	permissionsProperty,
 	queriesProperties,
@@ -98,95 +100,6 @@ export const rowOperations: INodeProperties[] = [
 	},
 ];
 
-const dataProperties: INodeProperties[] = [
-	{
-		displayName: 'Data Mode',
-		name: 'dataMode',
-		type: 'options',
-		options: [
-			{
-				name: 'Define Fields Below',
-				value: 'fields',
-				description: 'Set each column value individually',
-			},
-			{
-				name: 'JSON',
-				value: 'json',
-				description: 'Provide the row data as a JSON object',
-			},
-		],
-		default: 'fields',
-		description: 'How to specify the row data',
-		displayOptions: {
-			show: {
-				resource: ['row'],
-				operation: ['create', 'update', 'upsert', 'updateMany'],
-			},
-		},
-	},
-	{
-		displayName: 'Fields',
-		name: 'dataFieldsUi',
-		type: 'fixedCollection',
-		typeOptions: { multipleValues: true, sortable: true },
-		placeholder: 'Add field',
-		default: {},
-		description: 'The column values to set on the row',
-		displayOptions: {
-			show: {
-				resource: ['row'],
-				operation: ['create', 'update', 'upsert', 'updateMany'],
-				dataMode: ['fields'],
-			},
-		},
-		options: [
-			{
-				name: 'fieldValues',
-				displayName: 'Field',
-				values: [
-					{
-						displayName: 'Column',
-						name: 'fieldName',
-						type: 'string',
-						default: '',
-						description: 'Name of the column to set',
-					},
-					{
-						displayName: 'Treat Value as String',
-						name: 'treatValueAsString',
-						type: 'boolean',
-						default: false,
-						description:
-							'Whether to always send the value as a string instead of auto-detecting numbers, booleans, and arrays',
-					},
-					{
-						displayName: 'Value',
-						name: 'fieldValue',
-						type: 'string',
-						default: '',
-						description:
-							'Value to set. Numbers, booleans, null, and JSON arrays/objects are parsed automatically.',
-					},
-				],
-			},
-		],
-	},
-	{
-		displayName: 'Data (JSON)',
-		name: 'dataJson',
-		type: 'json',
-		default: '{}',
-		description: 'The row data as a JSON object of column-value pairs',
-		displayOptions: {
-			show: {
-				resource: ['row'],
-				operation: ['create', 'update', 'upsert', 'updateMany'],
-				dataMode: ['json'],
-			},
-		},
-	},
-];
-
 export const rowFields: INodeProperties[] = [
 	databaseIdProperty(['row']),
 	tableIdProperty(['row']),
@@ -209,7 +122,6 @@ export const rowFields: INodeProperties[] = [
 		name: 'rowId',
 		type: 'string',
 		default: '',
-		placeholder: 'unique()',
 		description:
 			'The ID for the row. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
 		displayOptions: {
@@ -224,7 +136,6 @@ export const rowFields: INodeProperties[] = [
 		name: 'rowId',
 		type: 'string',
 		default: '',
-		placeholder: 'unique()',
 		hint: 'Create or Update needs the ID of an existing row. An auto-generated ID always creates a new row.',
 		description:
 			'The ID for the row. Leave empty (or use unique()) to auto-generate a unique ID. Allowed characters: a-z, A-Z, 0-9, period, hyphen, underscore; must not start with a special character.',
@@ -235,7 +146,7 @@ export const rowFields: INodeProperties[] = [
 			},
 		},
 	},
-	...dataProperties,
+	...dataProperties('row', ['create', 'update', 'upsert', 'updateMany']),
 	permissionsProperty('row', ['create', 'update', 'upsert']),
 	{
 		displayName: 'Rows (JSON)',
@@ -259,7 +170,7 @@ export const rowFields: INodeProperties[] = [
 		name: 'column',
 		type: 'options',
 		typeOptions: {
-			loadOptionsDependsOn: ['databaseId', 'tableId'],
+			loadOptionsDependsOn: ['databaseId.value', 'tableId.value'],
 			loadOptionsMethod: 'getColumns',
 		},
 		required: true,
@@ -288,8 +199,9 @@ export const rowFields: INodeProperties[] = [
 	},
 	...returnAllAndLimitProperties('row', ['getMany']),
 	...queriesProperties('row', ['getMany', 'get', 'updateMany', 'deleteMany'], {
-		hint: 'Get uses only Select queries. For Update Many and Delete Many the queries choose which rows are affected, and no queries means every row in the table.',
+		hint: 'Get uses only Select queries. For Update Many and Delete Many the queries choose which rows are affected.',
 	}),
+	applyToAllProperty('row'),
 	sortProperty('row', ['getMany']),
 	{
 		displayName: 'Options',

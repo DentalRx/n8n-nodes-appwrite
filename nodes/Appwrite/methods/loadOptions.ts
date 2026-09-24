@@ -1,7 +1,7 @@
 import type { IDataObject, ILoadOptionsFunctions, INodePropertyOptions } from 'n8n-workflow';
 
 import { Query, extractId } from '../helpers/appwrite';
-import { appwriteApiRequest } from '../transport';
+import { appwriteApiRequest, appwritePublicRequest } from '../transport';
 
 /** Fetch picker lists in pages of 100. */
 const PAGE_SIZE = 100;
@@ -69,25 +69,25 @@ function toOptions(
  * execute time.
  */
 function dependency(context: ILoadOptionsFunctions, name: string, kind: string): string {
-	const value = context.getCurrentNodeParameter(name);
+	const value = context.getCurrentNodeParameter(name, { extractValue: true });
 	return typeof value === 'string' ? extractId(value, kind) : '';
 }
 
-export async function getDatabases(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const databases = await listAll(this, '/tablesdb', 'databases');
-	return toOptions(databases, (database) => database.name ?? '');
-}
-
-export async function getTables(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const databaseId = dependency(this, 'databaseId', 'database');
-	if (databaseId === '') return [];
-
-	const tables = await listAll(
-		this,
-		`/tablesdb/${encodeURIComponent(databaseId)}/tables`,
-		'tables',
-	);
-	return toOptions(tables, (table) => table.name ?? '');
+export async function getAppInstallationScopes(
+	this: ILoadOptionsFunctions,
+): Promise<INodePropertyOptions[]> {
+	const response = await appwriteApiRequest.call(this, 'GET', '/apps/scopes/installations');
+	const scopes = (response.scopes ?? []) as AppwriteListItem[];
+	// Appwrite keeps deprecated scopes working but asks that they not be
+	// offered for new grants.
+	return scopes
+		.filter((scope) => scope.deprecated !== true && typeof scope.value === 'string')
+		.map((scope) => ({
+			name: scope.value as string,
+			value: scope.value as string,
+			...(scope.description ? { description: scope.description as string } : {}),
+		}))
+		.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function getColumns(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
@@ -107,36 +107,41 @@ export async function getColumns(this: ILoadOptionsFunctions): Promise<INodeProp
 	);
 }
 
-export async function getBuckets(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const buckets = await listAll(this, '/storage/buckets', 'buckets');
-	return toOptions(buckets, (bucket) => bucket.name ?? '');
-}
-
-export async function getFunctions(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const functions = await listAll(this, '/functions', 'functions');
-	return toOptions(functions, (fn) => fn.name ?? '');
-}
-
-export async function getTeams(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const teams = await listAll(this, '/teams', 'teams');
-	return toOptions(teams, (team) => team.name ?? '');
-}
-
-export async function getTopics(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const topics = await listAll(this, '/messaging/topics', 'topics');
-	return toOptions(topics, (topic) => topic.name ?? '');
-}
-
-export async function getUsers(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const users = await listAll(this, '/users', 'users');
+export async function getFrameworks(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+	const response = await appwritePublicRequest.call(this, 'GET', '/sites/frameworks');
 	return toOptions(
-		users,
-		(user) => (user.name as string) || (user.email as string) || (user.phone as string) || '',
+		(response.frameworks ?? []) as AppwriteListItem[],
+		(framework) => framework.name ?? '',
+		(framework) => framework.key ?? '',
+	);
+}
+
+export async function getSiteBuildRuntimes(
+	this: ILoadOptionsFunctions,
+): Promise<INodePropertyOptions[]> {
+	const response = await appwritePublicRequest.call(this, 'GET', '/sites/frameworks');
+	const frameworks = (response.frameworks ?? []) as AppwriteListItem[];
+
+	// Create picks the framework on the node's face, Update inside its Options.
+	const options = this.getCurrentNodeParameter('options') as IDataObject | undefined;
+	const chosen = this.getCurrentNodeParameter('siteFramework') ?? options?.siteFramework;
+	const matching = frameworks.filter((framework) => framework.key === chosen);
+
+	// Until a framework is chosen, or while an update keeps the current one,
+	// offer every runtime that some framework builds with.
+	const runtimes = new Set(
+		(matching.length > 0 ? matching : frameworks).flatMap(
+			(framework) => (framework.runtimes as string[] | undefined) ?? [],
+		),
+	);
+	return toOptions(
+		[...runtimes].map((runtime) => ({ $id: runtime })),
+		(runtime) => runtime.$id ?? '',
 	);
 }
 
 export async function getRuntimes(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const response = await appwriteApiRequest.call(this, 'GET', '/functions/runtimes');
+	const response = await appwritePublicRequest.call(this, 'GET', '/functions/runtimes');
 	const runtimes = (response.runtimes ?? []) as AppwriteListItem[];
 	// The runtime model's `name` is the family alone ("Node.js"), so without the
 	// version the dropdown would show many indistinguishable duplicates.
@@ -145,4 +150,46 @@ export async function getRuntimes(this: ILoadOptionsFunctions): Promise<INodePro
 		const version = (runtime.version as string) ?? '';
 		return version === '' ? name : `${name} ${version}`;
 	});
+}
+
+/**
+ * The extensions a PostgreSQL dedicated database can install, or has
+ * installed. Appwrite adds a display name and description for the extensions
+ * it curates; any other shows under its own name.
+ */
+async function postgresqlExtensions(
+	context: ILoadOptionsFunctions,
+	list: 'available' | 'installed',
+): Promise<INodePropertyOptions[]> {
+	const databaseId = dependency(context, 'dedicatedDatabaseId', 'database');
+	if (databaseId === '') return [];
+
+	const response = await appwriteApiRequest.call(
+		context,
+		'GET',
+		`/postgresql/${encodeURIComponent(databaseId)}/extensions`,
+	);
+	const metadata = new Map(
+		((response.metadata ?? []) as IDataObject[]).map((entry) => [entry.key, entry]),
+	);
+	return ((response[list] ?? []) as string[])
+		.map((key) => {
+			const entry = metadata.get(key);
+			const option: INodePropertyOptions = { name: (entry?.name as string) || key, value: key };
+			if (typeof entry?.description === 'string') option.description = entry.description;
+			return option;
+		})
+		.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+}
+
+export async function getAvailablePostgresqlExtensions(
+	this: ILoadOptionsFunctions,
+): Promise<INodePropertyOptions[]> {
+	return await postgresqlExtensions(this, 'available');
+}
+
+export async function getInstalledPostgresqlExtensions(
+	this: ILoadOptionsFunctions,
+): Promise<INodePropertyOptions[]> {
+	return await postgresqlExtensions(this, 'installed');
 }

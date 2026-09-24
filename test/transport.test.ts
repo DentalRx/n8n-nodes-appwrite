@@ -1,4 +1,4 @@
-import type { IHttpRequestOptions } from 'n8n-workflow';
+import type { IDataObject, IHttpRequestOptions } from 'n8n-workflow';
 import { NodeApiError, NodeOperationError } from 'n8n-workflow';
 import { describe, expect, it } from 'vitest';
 
@@ -8,7 +8,13 @@ import {
 	appwriteFileUpload,
 	flattenQueryParameters,
 } from '../nodes/Appwrite/transport';
-import { BASE_URL, createExecuteContext, testNode } from './helpers/mock-context';
+import {
+	BASE_URL,
+	CREDENTIALS,
+	createExecuteContext,
+	node,
+	testNode,
+} from './helpers/mock-context';
 
 const PARAMETERS = { resource: 'database', operation: 'getMany' };
 
@@ -227,6 +233,35 @@ describe('appwriteFileUpload', () => {
 		expect(lastBody).toContain('Content-Type: application/pdf\r\n\r\na\r\n');
 	});
 
+	it('puts the file in the form field the endpoint names, in every chunk', async () => {
+		const { context, requests } = createExecuteContext({
+			parameters: { resource: 'site', operation: 'createDeployment' },
+			respond: (_request, index) => JSON.stringify({ $id: `deployment-${index}` }),
+		});
+		const response = await appwriteFileUpload.call(
+			context,
+			'/sites/s1/deployments',
+			{
+				content: Buffer.alloc(CHUNK + 1, 'a'),
+				filename: 'code.tar.gz',
+				contentType: 'application/gzip',
+				field: 'code',
+			},
+			[['activate', 'true']],
+			0,
+		);
+
+		expect(response).toEqual({ $id: 'deployment-1' });
+		expect(requests).toHaveLength(2);
+		expect(requests[1].headers).toMatchObject({ 'x-appwrite-id': 'deployment-0' });
+		for (const request of requests) {
+			const body = (request.body as Buffer).toString('latin1');
+			expect(body).toContain('name="activate"\r\n\r\ntrue\r\n');
+			expect(body).toContain('name="code"; filename="code.tar.gz"\r\n');
+			expect(body).not.toContain('name="file"');
+		}
+	});
+
 	it('still uploads an empty file once', async () => {
 		const { requests } = await upload(Buffer.alloc(0));
 		expect(requests).toHaveLength(1);
@@ -239,5 +274,44 @@ describe('appwriteFileUpload', () => {
 		await expect(upload(Buffer.from('x'), 'a.pdf', () => '<html>')).rejects.toThrow(
 			NodeOperationError,
 		);
+	});
+});
+
+describe('Ignore SSL Issues', () => {
+	it('skips certificate validation on API-key, user and upload requests only when set', async () => {
+		const sent = async (ignoreSslIssues: boolean, parameters: IDataObject) => {
+			const { context, requests } = createExecuteContext({
+				parameters: parameters as never,
+				credentials: { appwriteApi: { ...CREDENTIALS, ignoreSslIssues } },
+				binary: {
+					data: { buffer: Buffer.from('hello'), fileName: 'a.txt', mimeType: 'text/plain' },
+				},
+			});
+			await node.execute.call(context).catch(() => undefined);
+			return requests.map((request) => request.skipSslCertificateValidation);
+		};
+		const operations: IDataObject[] = [
+			{
+				resource: 'database',
+				operation: 'get',
+				databaseId: { __rl: true, mode: 'id', value: 'main' },
+			},
+			{
+				resource: 'account',
+				operation: 'get',
+				accountAuthentication: 'jwt',
+				accountJwt: 'user-jwt',
+			},
+			{
+				resource: 'file',
+				operation: 'upload',
+				bucketId: { __rl: true, mode: 'id', value: 'photos' },
+				inputBinaryField: 'data',
+			},
+		];
+		for (const parameters of operations) {
+			expect(await sent(true, parameters)).toEqual([true]);
+			expect(await sent(false, parameters)).toEqual([undefined]);
+		}
 	});
 });
