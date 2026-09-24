@@ -13,7 +13,7 @@ import {
 	withLimit,
 } from '../GenericFunctions';
 import { resolveId } from '../helpers/appwrite';
-import { appwriteApiRequest } from '../transport';
+import { appwriteApiRequest, appwritePublicRequest } from '../transport';
 import type { ComputeResource } from './compute';
 import { executeComputeOperation } from './compute';
 
@@ -167,7 +167,7 @@ export async function executeFunctionOperation(
 	}
 
 	if (operation === 'getManyRuntimes') {
-		const response = await appwriteApiRequest.call(this, 'GET', '/functions/runtimes', {}, i);
+		const response = await appwritePublicRequest.call(this, 'GET', '/functions/runtimes', {}, i);
 		return toItems((response.runtimes ?? []) as IDataObject[], i);
 	}
 

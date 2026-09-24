@@ -26,6 +26,8 @@ import {
 interface ApiOperation {
 	id: string;
 	deprecated?: boolean;
+	/** Its only scope is `public`, which Appwrite never grants an API key. */
+	publicOnly?: boolean;
 	query: Record<string, unknown[] | null>;
 	body: Record<string, unknown[] | null>;
 	/** JSON type of each body parameter; a trailing `?` means null is allowed. */
@@ -181,7 +183,11 @@ function typeViolations(body: IDataObject, types: Record<string, string>): strin
 }
 
 /** Everything wrong with one request, as readable strings. */
-function violations(request: IHttpRequestOptions, smokeCase: SmokeCase): string[] {
+function violations(
+	request: IHttpRequestOptions,
+	smokeCase: SmokeCase,
+	withApiKey: boolean,
+): string[] {
 	const { filled } = smokeCase;
 	// A number typed into a free-text field that only takes certain words is
 	// the user's mistake for Appwrite to report; only its type is checked.
@@ -199,6 +205,9 @@ function violations(request: IHttpRequestOptions, smokeCase: SmokeCase): string[
 	const problems: string[] = [];
 	if (operation.deprecated && !DEPRECATED_ALLOWED.some((entry) => entry.key === key)) {
 		problems.push(`${key} (${operation.id}) is deprecated`);
+	}
+	if (operation.publicOnly && withApiKey) {
+		problems.push(`${key} is public and refuses the API key, so it must be sent without it`);
 	}
 
 	const query = queryKeys(request);
@@ -246,15 +255,17 @@ function violations(request: IHttpRequestOptions, smokeCase: SmokeCase): string[
 	return problems.map((problem) => `${problem}`);
 }
 
-async function requestsOf(smokeCase: SmokeCase): Promise<IHttpRequestOptions[]> {
-	const { context, requests } = createExecuteContext({
+async function requestsOf(
+	smokeCase: SmokeCase,
+): Promise<{ requests: IHttpRequestOptions[]; withApiKey: boolean[] }> {
+	const { context, requests, withApiKey } = createExecuteContext({
 		parameters: smokeCase.parameters,
 		respond: universalResponse,
 		binary: BINARY,
 	});
 	// The smoke test owns whether an operation runs; here only the requests matter.
 	await node.execute.call(context).catch(() => undefined);
-	return requests;
+	return { requests, withApiKey };
 }
 
 describe('every request matches the Appwrite server API', () => {
@@ -269,8 +280,10 @@ describe('every request matches the Appwrite server API', () => {
 			.filter((smokeCase) => smokeCase.filled);
 
 		it.each(cases)('$name', async (smokeCase) => {
-			const requests = await requestsOf(smokeCase);
-			const problems = requests.flatMap((request) => violations(request, smokeCase));
+			const { requests, withApiKey } = await requestsOf(smokeCase);
+			const problems = requests.flatMap((request, index) =>
+				violations(request, smokeCase, withApiKey[index]),
+			);
 			expect(problems).toEqual([]);
 		});
 	});

@@ -216,14 +216,22 @@ export interface LoadOptionsContextOptions {
 export interface LoadOptionsContext {
 	context: ILoadOptionsFunctions;
 	requests: IHttpRequestOptions[];
+	/** Whether each request went out with the API key, in order. */
+	withApiKey: boolean[];
 }
 
 export function createLoadOptionsContext(
 	options: LoadOptionsContextOptions = {},
 ): LoadOptionsContext {
 	const requests: IHttpRequestOptions[] = [];
+	const withApiKey: boolean[] = [];
 	const respond: Responder = options.respond ?? (() => ({}));
 	const current = options.current ?? {};
+	const send = async (request: IHttpRequestOptions, apiKey: boolean): Promise<unknown> => {
+		requests.push(request);
+		withApiKey.push(apiKey);
+		return await respond(request, requests.length - 1);
+	};
 
 	const context = {
 		getNode: () => testNode,
@@ -236,12 +244,10 @@ export function createLoadOptionsContext(
 			httpRequestWithAuthentication: async (
 				_credentialType: string,
 				request: IHttpRequestOptions,
-			) => {
-				requests.push(request);
-				return await respond(request, requests.length - 1);
-			},
+			) => await send(request, true),
+			httpRequest: async (request: IHttpRequestOptions) => await send(request, false),
 		},
 	};
 
-	return { context: context as unknown as ILoadOptionsFunctions, requests };
+	return { context: context as unknown as ILoadOptionsFunctions, requests, withApiKey };
 }

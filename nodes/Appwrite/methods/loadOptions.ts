@@ -1,7 +1,7 @@
 import type { IDataObject, ILoadOptionsFunctions, INodePropertyOptions } from 'n8n-workflow';
 
 import { Query, extractId } from '../helpers/appwrite';
-import { appwriteApiRequest } from '../transport';
+import { appwriteApiRequest, appwritePublicRequest } from '../transport';
 
 /** Fetch picker lists in pages of 100. */
 const PAGE_SIZE = 100;
@@ -108,7 +108,7 @@ export async function getColumns(this: ILoadOptionsFunctions): Promise<INodeProp
 }
 
 export async function getFrameworks(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const response = await appwriteApiRequest.call(this, 'GET', '/sites/frameworks');
+	const response = await appwritePublicRequest.call(this, 'GET', '/sites/frameworks');
 	return toOptions(
 		(response.frameworks ?? []) as AppwriteListItem[],
 		(framework) => framework.name ?? '',
@@ -119,7 +119,7 @@ export async function getFrameworks(this: ILoadOptionsFunctions): Promise<INodeP
 export async function getSiteBuildRuntimes(
 	this: ILoadOptionsFunctions,
 ): Promise<INodePropertyOptions[]> {
-	const response = await appwriteApiRequest.call(this, 'GET', '/sites/frameworks');
+	const response = await appwritePublicRequest.call(this, 'GET', '/sites/frameworks');
 	const frameworks = (response.frameworks ?? []) as AppwriteListItem[];
 
 	// Create picks the framework on the node's face, Update inside its Options.
@@ -141,7 +141,7 @@ export async function getSiteBuildRuntimes(
 }
 
 export async function getRuntimes(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const response = await appwriteApiRequest.call(this, 'GET', '/functions/runtimes');
+	const response = await appwritePublicRequest.call(this, 'GET', '/functions/runtimes');
 	const runtimes = (response.runtimes ?? []) as AppwriteListItem[];
 	// The runtime model's `name` is the family alone ("Node.js"), so without the
 	// version the dropdown would show many indistinguishable duplicates.

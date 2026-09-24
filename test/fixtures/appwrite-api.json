@@ -2890,6 +2890,7 @@
 		},
 		"GET /functions/runtimes": {
 			"id": "functionsListRuntimes",
+			"publicOnly": true,
 			"query": {},
 			"body": {},
 			"bodyTypes": {},
@@ -3517,6 +3518,7 @@
 		},
 		"GET /oauth2/{project_id}/authorize": {
 			"id": "oauth2Authorize",
+			"publicOnly": true,
 			"query": {
 				"client_id": null,
 				"redirect_uri": null,
@@ -4501,6 +4503,7 @@
 		},
 		"GET /sites/frameworks": {
 			"id": "sitesListFrameworks",
+			"publicOnly": true,
 			"query": {},
 			"body": {},
 			"bodyTypes": {},
@@ -9485,6 +9488,7 @@
 		},
 		"PATCH /teams/{teamId}/memberships/{membershipId}/status": {
 			"id": "teamsUpdateMembershipStatus",
+			"publicOnly": true,
 			"query": {},
 			"body": {
 				"userId": null,
@@ -13270,6 +13274,7 @@
 		},
 		"POST /oauth2/{project_id}/authorize": {
 			"id": "oauth2AuthorizePost",
+			"publicOnly": true,
 			"query": {},
 			"body": {
 				"client_id": null,
@@ -13312,6 +13317,7 @@
 		},
 		"POST /oauth2/{project_id}/device_authorization": {
 			"id": "oauth2CreateDeviceAuthorization",
+			"publicOnly": true,
 			"query": {},
 			"body": {
 				"client_id": null,
@@ -13354,6 +13360,7 @@
 		},
 		"POST /oauth2/{project_id}/par": {
 			"id": "oauth2CreatePAR",
+			"publicOnly": true,
 			"query": {},
 			"body": {
 				"client_id": null,
@@ -13416,6 +13423,7 @@
 		},
 		"POST /oauth2/{project_id}/revoke": {
 			"id": "oauth2Revoke",
+			"publicOnly": true,
 			"query": {},
 			"body": {
 				"token": null,
@@ -13440,6 +13448,7 @@
 		},
 		"POST /oauth2/{project_id}/token": {
 			"id": "oauth2CreateToken",
+			"publicOnly": true,
 			"query": {},
 			"body": {
 				"grant_type": null,
@@ -16578,6 +16587,7 @@
 		},
 		"PUT /account/verifications/email": {
 			"id": "accountUpdateEmailVerification",
+			"publicOnly": true,
 			"query": {},
 			"body": {
 				"userId": null,
@@ -16606,6 +16616,7 @@
 		},
 		"PUT /account/verifications/email/otp": {
 			"id": "accountUpdateEmailVerificationOTP",
+			"publicOnly": true,
 			"query": {},
 			"body": {
 				"userId": null,
@@ -16627,6 +16638,7 @@
 		},
 		"PUT /account/verifications/phone": {
 			"id": "accountUpdatePhoneVerification",
+			"publicOnly": true,
 			"query": {},
 			"body": {
 				"userId": null,

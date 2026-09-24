@@ -155,6 +155,20 @@ describe('load options', () => {
 		});
 	});
 
+	it('lists runtimes and frameworks without the API key, as their scope is public', async () => {
+		const { context, requests, withApiKey } = createLoadOptionsContext({
+			respond: () => ({ runtimes: [], frameworks: [] }),
+		});
+		await getRuntimes.call(context);
+		await getFrameworks.call(context);
+		await getSiteBuildRuntimes.call(context);
+		expect(withApiKey).toEqual([false, false, false]);
+		for (const request of requests) {
+			expect(request.headers).toMatchObject({ 'X-Appwrite-Project': expect.any(String) });
+			expect(request.headers).not.toHaveProperty('X-Appwrite-Key');
+		}
+	});
+
 	it('labels runtimes with their version so families are distinguishable', async () => {
 		const { context } = createLoadOptionsContext({
 			respond: () => ({

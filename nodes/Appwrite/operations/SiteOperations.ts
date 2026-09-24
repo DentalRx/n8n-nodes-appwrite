@@ -13,7 +13,7 @@ import {
 	withLimit,
 } from '../GenericFunctions';
 import { resolveId } from '../helpers/appwrite';
-import { appwriteApiRequest } from '../transport';
+import { appwriteApiRequest, appwritePublicRequest } from '../transport';
 import type { ComputeResource } from './compute';
 import { EXECUTION_SIMPLIFY_FIELDS, executeComputeOperation } from './compute';
 
@@ -183,7 +183,7 @@ export async function executeSiteOperation(
 	}
 
 	if (operation === 'getManyFrameworks') {
-		const response = await appwriteApiRequest.call(this, 'GET', '/sites/frameworks', {}, i);
+		const response = await appwritePublicRequest.call(this, 'GET', '/sites/frameworks', {}, i);
 		return toItems((response.frameworks ?? []) as IDataObject[], i);
 	}
 

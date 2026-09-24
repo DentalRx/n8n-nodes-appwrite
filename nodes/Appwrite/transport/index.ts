@@ -302,7 +302,7 @@ function userHeaders(authentication: UserAuthentication): IDataObject {
  * it.
  */
 export async function appwriteUserRequest(
-	this: IExecuteFunctions,
+	this: AppwriteContext,
 	method: IHttpRequestMethods,
 	path: string,
 	authentication: UserAuthentication,
@@ -331,6 +331,22 @@ export async function appwriteUserRequest(
 			itemIndex,
 		);
 	}
+}
+
+/**
+ * Request a route whose scope is `public`, such as the runtime and framework
+ * lists. Appwrite grants an API key only the scopes chosen on it (plus
+ * `global`, `health.read` and `graphql`), never `public`, so these go out
+ * without the key, identified by the project alone.
+ */
+export async function appwritePublicRequest(
+	this: AppwriteContext,
+	method: IHttpRequestMethods,
+	path: string,
+	options: AppwriteRequestOptions = {},
+	itemIndex?: number,
+): Promise<IDataObject> {
+	return await appwriteUserRequest.call(this, method, path, { type: 'guest' }, options, itemIndex);
 }
 
 /**
