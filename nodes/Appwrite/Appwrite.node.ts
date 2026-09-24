@@ -7,7 +7,7 @@ import type {
 } from 'n8n-workflow';
 import { NodeApiError, NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
-import * as loadOptions from './methods/loadOptions';
+import { listSearch, loadOptions } from './methods';
 import { getExecutor, properties } from './resources';
 
 export class Appwrite implements INodeType {
@@ -35,7 +35,7 @@ export class Appwrite implements INodeType {
 		properties,
 	};
 
-	methods = { loadOptions };
+	methods = { listSearch, loadOptions };
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();

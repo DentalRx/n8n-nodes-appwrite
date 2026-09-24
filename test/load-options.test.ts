@@ -2,78 +2,122 @@ import { describe, expect, it } from 'vitest';
 
 import { Query } from '../nodes/Appwrite/helpers/appwrite';
 import {
-	getBuckets,
-	getColumns,
-	getDatabases,
-	getRuntimes,
-	getTables,
-	getUsers,
-} from '../nodes/Appwrite/methods/loadOptions';
+	searchBuckets,
+	searchDatabases,
+	searchFiles,
+	searchTables,
+	searchUsers,
+} from '../nodes/Appwrite/methods/listSearch';
+import { getColumns, getRuntimes } from '../nodes/Appwrite/methods/loadOptions';
 import { BASE_URL, createLoadOptionsContext } from './helpers/mock-context';
 
 const parse = (query: string) => JSON.parse(query) as { method: string; values?: unknown[] };
 
-describe('load options', () => {
-	it('lists databases sorted by name, ignoring case', async () => {
+/** A resource locator value as n8n stores it. */
+const locator = (mode: 'list' | 'id' | 'url', value: string) => ({ __rl: true, mode, value });
+
+describe('list search (resource locator From List mode)', () => {
+	it('lists databases by name, falling back to the ID', async () => {
 		const { context, requests } = createLoadOptionsContext({
 			respond: () => ({
 				databases: [
 					{ $id: 'b', name: 'beta' },
-					{ $id: 'a', name: 'Alpha' },
 					{ $id: 'c', name: '' },
 				],
 			}),
 		});
 
-		expect(await getDatabases.call(context)).toEqual([
-			{ name: 'Alpha', value: 'a' },
-			{ name: 'beta', value: 'b' },
-			{ name: 'c', value: 'c' },
-		]);
+		expect(await searchDatabases.call(context)).toEqual({
+			results: [
+				{ name: 'beta', value: 'b' },
+				{ name: 'c', value: 'c' },
+			],
+			paginationToken: undefined,
+		});
 		expect(requests[0].url).toBe(`${BASE_URL}/tablesdb`);
 		expect(parse((requests[0].qs as Record<string, string>)['queries[0]'])).toEqual({
 			method: 'limit',
 			values: [100],
 		});
+		expect((requests[0].qs as Record<string, string>).search).toBeUndefined();
 	});
 
-	it('pages through long lists with cursors, up to the option cap', async () => {
-		const page = (from: number, count: number) =>
-			Array.from({ length: count }, (_, i) => ({
-				$id: `b${from + i}`,
-				name: `Bucket ${from + i}`,
-			}));
+	it("sends the typed filter to Appwrite's search", async () => {
+		const { context, requests } = createLoadOptionsContext({ respond: () => ({ buckets: [] }) });
+		await searchBuckets.call(context, 'avatars');
+		expect((requests[0].qs as Record<string, string>).search).toBe('avatars');
+	});
+
+	it('hands back a cursor after a full page and resumes from it', async () => {
+		const page = Array.from({ length: 100 }, (_, i) => ({ $id: `b${i}`, name: `Bucket ${i}` }));
 		const { context, requests } = createLoadOptionsContext({
-			respond: (_request, index) => ({ buckets: index === 0 ? page(0, 100) : page(100, 20) }),
+			respond: (_request, index) => ({ buckets: index === 0 ? page : [] }),
 		});
 
-		expect(await getBuckets.call(context)).toHaveLength(120);
-		expect(requests).toHaveLength(2);
+		const first = await searchBuckets.call(context);
+		expect(first.results).toHaveLength(100);
+		expect(first.paginationToken).toBe('b99');
+
+		await searchBuckets.call(context, undefined, first.paginationToken as string);
 		const second = requests[1].qs as Record<string, string>;
 		expect(parse(second['queries[1]'])).toEqual({ method: 'cursorAfter', values: ['b99'] });
 	});
 
-	it('returns nothing for dependent pickers until their parent is chosen', async () => {
-		const { context, requests } = createLoadOptionsContext({ current: { databaseId: '' } });
-		expect(await getTables.call(context)).toEqual([]);
+	it('returns nothing for dependent lists until their parent is chosen', async () => {
+		const { context, requests } = createLoadOptionsContext({
+			current: { databaseId: locator('list', ''), bucketId: locator('list', '') },
+		});
+		expect(await searchTables.call(context)).toEqual({ results: [] });
+		expect(await searchFiles.call(context)).toEqual({ results: [] });
 		expect(await getColumns.call(context)).toEqual([]);
 		expect(requests).toHaveLength(0);
 	});
 
-	it('accepts a Console URL in the parent picker', async () => {
+	it('reads the parent from any locator mode, including a Console URL', async () => {
 		const { context, requests } = createLoadOptionsContext({
 			current: {
-				databaseId: 'https://cloud.appwrite.io/console/project-p/databases/database-main',
+				databaseId: locator(
+					'url',
+					'https://cloud.appwrite.io/console/project-fra-p/databases/database-main',
+				),
 			},
 			respond: () => ({ tables: [{ $id: 't1', name: 'Orders' }] }),
 		});
-		expect(await getTables.call(context)).toEqual([{ name: 'Orders', value: 't1' }]);
+		expect((await searchTables.call(context)).results).toEqual([{ name: 'Orders', value: 't1' }]);
 		expect(requests[0].url).toBe(`${BASE_URL}/tablesdb/main/tables`);
 	});
 
+	it('lists the files of the chosen bucket', async () => {
+		const { context, requests } = createLoadOptionsContext({
+			current: { bucketId: locator('id', 'avatars') },
+			respond: () => ({ files: [{ $id: 'f1', name: 'photo.png' }] }),
+		});
+		expect((await searchFiles.call(context)).results).toEqual([{ name: 'photo.png', value: 'f1' }]);
+		expect(requests[0].url).toBe(`${BASE_URL}/storage/buckets/avatars/files`);
+	});
+
+	it('labels users by name, then email, then phone', async () => {
+		const { context } = createLoadOptionsContext({
+			respond: () => ({
+				users: [
+					{ $id: 'u1', name: '', email: 'a@example.com', phone: '+1' },
+					{ $id: 'u2', name: 'Bea', email: 'b@example.com' },
+					{ $id: 'u3', name: '', email: '', phone: '+2' },
+				],
+			}),
+		});
+		expect((await searchUsers.call(context)).results).toEqual([
+			{ name: 'a@example.com', value: 'u1' },
+			{ name: 'Bea', value: 'u2' },
+			{ name: '+2', value: 'u3' },
+		]);
+	});
+});
+
+describe('load options', () => {
 	it('identifies columns by key and pages them by offset', async () => {
 		const { context, requests } = createLoadOptionsContext({
-			current: { databaseId: 'db', tableId: 'orders' },
+			current: { databaseId: locator('list', 'db'), tableId: locator('id', 'orders') },
 			respond: (_request, index) =>
 				index === 0
 					? {
@@ -92,23 +136,6 @@ describe('load options', () => {
 			method: 'offset',
 			values: [100],
 		});
-	});
-
-	it('labels users by name, then email, then phone', async () => {
-		const { context } = createLoadOptionsContext({
-			respond: () => ({
-				users: [
-					{ $id: 'u1', name: '', email: 'a@example.com', phone: '+1' },
-					{ $id: 'u2', name: 'Bea', email: 'b@example.com' },
-					{ $id: 'u3', name: '', email: '', phone: '+2' },
-				],
-			}),
-		});
-		expect(await getUsers.call(context)).toEqual([
-			{ name: '+2', value: 'u3' },
-			{ name: 'a@example.com', value: 'u1' },
-			{ name: 'Bea', value: 'u2' },
-		]);
 	});
 
 	it('labels runtimes with their version so families are distinguishable', async () => {

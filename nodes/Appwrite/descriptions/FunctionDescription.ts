@@ -1,5 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
+import { functionLocator } from './locators';
 import {
 	listOptionsProperty,
 	queriesProperties,
@@ -197,35 +198,23 @@ const functionConfigOptions: INodeProperties[] = [
 ];
 
 export const functionFields: INodeProperties[] = [
-	{
-		displayName: 'Function Name or ID',
-		name: 'functionId',
-		type: 'options',
-		typeOptions: { loadOptionsMethod: 'getFunctions' },
-		required: true,
-		default: '',
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-		displayOptions: {
-			show: {
-				resource: ['function'],
-				operation: [
-					'activateDeployment',
-					'createVariable',
-					'delete',
-					'deleteDeployment',
-					'deleteVariable',
-					'get',
-					'getDeployment',
-					'getManyDeployments',
-					'getManyVariables',
-					'getVariable',
-					'update',
-					'updateVariable',
-				],
-			},
-		},
-	},
+	functionLocator({
+		resource: ['function'],
+		operation: [
+			'activateDeployment',
+			'createVariable',
+			'delete',
+			'deleteDeployment',
+			'deleteVariable',
+			'get',
+			'getDeployment',
+			'getManyDeployments',
+			'getManyVariables',
+			'getVariable',
+			'update',
+			'updateVariable',
+		],
+	}),
 	{
 		displayName: 'Deployment ID',
 		name: 'deploymentId',

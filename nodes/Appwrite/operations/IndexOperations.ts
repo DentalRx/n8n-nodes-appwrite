@@ -4,12 +4,12 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getResourceId,
 	lookupEnum,
 	parseStringList,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
-import { extractId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 /** The index types Appwrite accepts, keyed by the value the UI stores. */
@@ -25,8 +25,8 @@ export async function executeIndexOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
-	const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
+	const databaseId = getResourceId.call(this, 'databaseId', i, 'database', 'Database');
+	const tableId = getResourceId.call(this, 'tableId', i, 'table', 'Table');
 	const indexesPath = `/tablesdb/${encodeURIComponent(databaseId)}/tables/${encodeURIComponent(
 		tableId,
 	)}/indexes`;

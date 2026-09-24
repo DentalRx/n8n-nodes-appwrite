@@ -4,11 +4,12 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getResourceId,
 	parseStringList,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
-import { extractId, resolveId } from '../helpers/appwrite';
+import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeTopicOperation(
@@ -22,7 +23,7 @@ export async function executeTopicOperation(
 	};
 
 	const topicPath = (): string =>
-		`/messaging/topics/${encodeURIComponent(extractId(this.getNodeParameter('topicId', i) as string, 'topic'))}`;
+		`/messaging/topics/${encodeURIComponent(getResourceId.call(this, 'topicId', i, 'topic', 'Topic'))}`;
 
 	if (operation === 'create') {
 		const topicId = resolveId(this.getNodeParameter('topicId', i, '') as string);
@@ -56,7 +57,7 @@ export async function executeTopicOperation(
 	}
 
 	if (operation === 'delete') {
-		const topicId = extractId(this.getNodeParameter('topicId', i) as string, 'topic');
+		const topicId = getResourceId.call(this, 'topicId', i, 'topic', 'Topic');
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
@@ -68,7 +69,7 @@ export async function executeTopicOperation(
 	}
 
 	if (operation === 'deleteSubscriber') {
-		const topicId = extractId(this.getNodeParameter('topicId', i) as string, 'topic');
+		const topicId = getResourceId.call(this, 'topicId', i, 'topic', 'Topic');
 		const subscriberId = this.getNodeParameter('subscriberId', i) as string;
 		await appwriteApiRequest.call(
 			this,

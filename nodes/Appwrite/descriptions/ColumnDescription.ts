@@ -1,5 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
+import { resourceLocator } from './locators';
 import {
 	databaseIdProperty,
 	queriesProperties,
@@ -173,23 +174,24 @@ export const columnFields: INodeProperties[] = [
 		},
 	},
 	// Relationship-specific
-	{
-		displayName: 'Related Table Name or ID',
-		name: 'relatedTableId',
-		type: 'options',
-		typeOptions: { loadOptionsDependsOn: ['databaseId'], loadOptionsMethod: 'getTables' },
-		required: true,
-		default: '',
-		description:
-			'The table to create the relationship with. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-		displayOptions: {
-			show: {
-				resource: ['column'],
-				operation: ['create'],
-				columnType: ['relationship'],
-			},
+	resourceLocator(
+		{
+			name: 'relatedTableId',
+			displayName: 'Related Table',
+			kind: 'table',
+			searchListMethod: 'searchTables',
+			placeholder: 'e.g. customers',
+			urlPlaceholder:
+				'e.g. https://cloud.appwrite.io/console/project-fra-myproject/databases/database-main/table-customers',
+			dependsOn: ['databaseId.value'],
+			description: 'The table to create the relationship with, in the same database',
 		},
-	},
+		{
+			resource: ['column'],
+			operation: ['create'],
+			columnType: ['relationship'],
+		},
+	),
 	{
 		displayName: 'Relationship Type',
 		name: 'relationshipType',

@@ -1,5 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
+import { bucketLocator } from './locators';
 import {
 	listOptionsProperty,
 	permissionsProperty,
@@ -56,22 +57,10 @@ export const bucketOperations: INodeProperties[] = [
 ];
 
 export const bucketFields: INodeProperties[] = [
-	{
-		displayName: 'Bucket Name or ID',
-		name: 'bucketId',
-		type: 'options',
-		typeOptions: { loadOptionsMethod: 'getBuckets' },
-		required: true,
-		default: '',
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-		displayOptions: {
-			show: {
-				resource: ['bucket'],
-				operation: ['get', 'update', 'delete'],
-			},
-		},
-	},
+	bucketLocator({
+		resource: ['bucket'],
+		operation: ['get', 'update', 'delete'],
+	}),
 	{
 		displayName: 'Bucket ID',
 		name: 'bucketId',

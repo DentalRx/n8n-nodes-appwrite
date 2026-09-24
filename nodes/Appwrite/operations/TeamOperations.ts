@@ -4,12 +4,14 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getOptionalResourceId,
+	getResourceId,
 	getStringListParameter,
 	parseJsonParameter,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
-import { extractId, resolveId } from '../helpers/appwrite';
+import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeTeamOperation(
@@ -18,7 +20,7 @@ export async function executeTeamOperation(
 	i: number,
 ): Promise<INodeExecutionData[]> {
 	const teamPath = (): string =>
-		`/teams/${encodeURIComponent(extractId(this.getNodeParameter('teamId', i) as string, 'team'))}`;
+		`/teams/${encodeURIComponent(getResourceId.call(this, 'teamId', i, 'team', 'Team'))}`;
 
 	if (operation === 'create') {
 		const teamId = resolveId(this.getNodeParameter('teamId', i, '') as string);
@@ -38,7 +40,7 @@ export async function executeTeamOperation(
 		const path = `${teamPath()}/memberships`;
 		const roles = getStringListParameter.call(this, 'roles', i, 'Roles');
 		const email = this.getNodeParameter('email', i, '') as string;
-		const userId = this.getNodeParameter('userId', i, '') as string;
+		const userId = getOptionalResourceId.call(this, 'userId', i, 'user');
 		const phone = this.getNodeParameter('phone', i, '') as string;
 		const options = this.getNodeParameter('options', i, {}) as { name?: string; url?: string };
 		const url = options.url ?? '';
@@ -63,13 +65,13 @@ export async function executeTeamOperation(
 	}
 
 	if (operation === 'delete') {
-		const teamId = extractId(this.getNodeParameter('teamId', i) as string, 'team');
+		const teamId = getResourceId.call(this, 'teamId', i, 'team', 'Team');
 		await appwriteApiRequest.call(this, 'DELETE', `/teams/${encodeURIComponent(teamId)}`, {}, i);
 		return toItems({ deleted: true, teamId }, i);
 	}
 
 	if (operation === 'deleteMembership') {
-		const teamId = extractId(this.getNodeParameter('teamId', i) as string, 'team');
+		const teamId = getResourceId.call(this, 'teamId', i, 'team', 'Team');
 		const membershipId = this.getNodeParameter('membershipId', i) as string;
 		await appwriteApiRequest.call(
 			this,

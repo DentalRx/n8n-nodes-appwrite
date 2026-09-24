@@ -1,5 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
+import { databaseLocator } from './locators';
 import { listOptionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
 
 export const databaseOperations: INodeProperties[] = [
@@ -50,22 +51,10 @@ export const databaseOperations: INodeProperties[] = [
 ];
 
 export const databaseFields: INodeProperties[] = [
-	{
-		displayName: 'Database Name or ID',
-		name: 'databaseId',
-		type: 'options',
-		typeOptions: { loadOptionsMethod: 'getDatabases' },
-		required: true,
-		default: '',
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-		displayOptions: {
-			show: {
-				resource: ['database'],
-				operation: ['get', 'update', 'delete'],
-			},
-		},
-	},
+	databaseLocator({
+		resource: ['database'],
+		operation: ['get', 'update', 'delete'],
+	}),
 	{
 		displayName: 'Database ID',
 		name: 'databaseId',

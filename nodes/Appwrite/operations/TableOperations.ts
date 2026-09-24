@@ -5,11 +5,12 @@ import {
 	buildQueries,
 	fetchAllPages,
 	getPermissions,
+	getResourceId,
 	simplifyItems,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
-import { extractId, resolveId } from '../helpers/appwrite';
+import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 /** The table-model fields most workflows read, for the Simplify toggle. */
@@ -28,7 +29,7 @@ export async function executeTableOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
+	const databaseId = getResourceId.call(this, 'databaseId', i, 'database', 'Database');
 	const tablesPath = `/tablesdb/${encodeURIComponent(databaseId)}/tables`;
 
 	if (operation === 'create') {
@@ -48,7 +49,7 @@ export async function executeTableOperation(
 	}
 
 	if (operation === 'get') {
-		const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
+		const tableId = getResourceId.call(this, 'tableId', i, 'table', 'Table');
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -99,7 +100,7 @@ export async function executeTableOperation(
 	}
 
 	if (operation === 'update') {
-		const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
+		const tableId = getResourceId.call(this, 'tableId', i, 'table', 'Table');
 		const name = this.getNodeParameter('name', i) as string;
 		const permissions = getPermissions.call(this, i);
 		const updateFields = this.getNodeParameter('updateFields', i, {}) as {
@@ -139,7 +140,7 @@ export async function executeTableOperation(
 	}
 
 	if (operation === 'delete') {
-		const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
+		const tableId = getResourceId.call(this, 'tableId', i, 'table', 'Table');
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',

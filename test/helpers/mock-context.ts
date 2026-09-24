@@ -60,6 +60,35 @@ export function resolveParameters(values: INodeParameters): INodeParameters {
 	);
 }
 
+/**
+ * Resolve a resource locator value the way n8n's `extractValue` option does:
+ * By URL mode runs the mode's extraction regex (and fails when it does not
+ * match), every other mode yields the bare value.
+ */
+export function extractLocatorValue(
+	name: string,
+	value: unknown,
+	parameters: INodeParameters,
+): unknown {
+	if (value === null || typeof value !== 'object' || !('mode' in value) || !('value' in value)) {
+		return value;
+	}
+	const locator = value as { mode: string; value: unknown };
+	const property = description.properties.find(
+		(candidate) =>
+			candidate.name === name &&
+			candidate.type === 'resourceLocator' &&
+			NodeHelpers.displayParameter(parameters, candidate, testNode, description),
+	);
+	const mode = property?.modes?.find((candidate) => candidate.name === locator.mode);
+	if (mode?.extractValue?.type !== 'regex') return locator.value;
+	const match = new RegExp(mode.extractValue.regex).exec(String(locator.value));
+	if (match === null) {
+		throw new Error(`${property?.displayName ?? name} parameter's value is invalid`);
+	}
+	return match[1];
+}
+
 function getByPath(source: unknown, path: string): unknown {
 	let current: unknown = source;
 	for (const segment of path.split('.')) {
@@ -117,9 +146,16 @@ export function createExecuteContext(options: ExecuteContextOptions): ExecuteCon
 		getInputData: () => items,
 		continueOnFail: () => options.continueOnFail ?? false,
 		getCredentials: async () => ({ ...CREDENTIALS }),
-		getNodeParameter: (name: string, _itemIndex: number, fallback?: unknown) => {
+		getNodeParameter: (
+			name: string,
+			_itemIndex: number,
+			fallback?: unknown,
+			parameterOptions?: { extractValue?: boolean },
+		) => {
 			const value = getByPath(resolved, name);
-			if (value !== undefined) return value;
+			if (value !== undefined) {
+				return parameterOptions?.extractValue ? extractLocatorValue(name, value, resolved) : value;
+			}
 			if (fallback !== undefined) return fallback;
 			throw new Error(`Could not get parameter "${name}"`);
 		},
@@ -177,7 +213,10 @@ export function createLoadOptionsContext(
 	const context = {
 		getNode: () => testNode,
 		getCredentials: async () => ({ ...CREDENTIALS }),
-		getCurrentNodeParameter: (name: string) => current[name],
+		getCurrentNodeParameter: (name: string, parameterOptions?: { extractValue?: boolean }) =>
+			parameterOptions?.extractValue
+				? extractLocatorValue(name, current[name], current)
+				: current[name],
 		helpers: {
 			httpRequestWithAuthentication: async (
 				_credentialType: string,

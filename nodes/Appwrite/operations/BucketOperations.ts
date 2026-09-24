@@ -5,13 +5,14 @@ import {
 	buildQueries,
 	fetchAllPages,
 	getPermissions,
+	getResourceId,
 	lookupEnum,
 	parseStringList,
 	simplifyItems,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
-import { extractId, resolveId } from '../helpers/appwrite';
+import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 /** The compression algorithms Appwrite accepts, keyed by the value the UI stores. */
@@ -90,7 +91,7 @@ export async function executeBucketOperation(
 	}
 
 	if (operation === 'get') {
-		const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
+		const bucketId = getResourceId.call(this, 'bucketId', i, 'bucket', 'Bucket');
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -141,7 +142,7 @@ export async function executeBucketOperation(
 	}
 
 	if (operation === 'update') {
-		const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
+		const bucketId = getResourceId.call(this, 'bucketId', i, 'bucket', 'Bucket');
 		const name = this.getNodeParameter('name', i) as string;
 		const permissions = getPermissions.call(this, i);
 		// PUT /storage/buckets/{id} is a full replace: any setting left out of the
@@ -166,7 +167,7 @@ export async function executeBucketOperation(
 	}
 
 	if (operation === 'delete') {
-		const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
+		const bucketId = getResourceId.call(this, 'bucketId', i, 'bucket', 'Bucket');
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',

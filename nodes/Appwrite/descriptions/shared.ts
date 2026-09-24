@@ -1,48 +1,25 @@
 import type { INodeProperties } from 'n8n-workflow';
 
+import { databaseLocator, tableLocator } from './locators';
+
 /**
- * Standard Database ID parameter, shown for the given resources/operations.
+ * Standard Database locator, shown for the given resources/operations.
  */
 export function databaseIdProperty(resources: string[], operations?: string[]): INodeProperties {
-	return {
-		displayName: 'Database Name or ID',
-		name: 'databaseId',
-		type: 'options',
-		typeOptions: { loadOptionsMethod: 'getDatabases' },
-		required: true,
-		default: '',
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-		displayOptions: {
-			show: {
-				resource: resources,
-				...(operations ? { operation: operations } : {}),
-			},
-		},
-	};
+	return databaseLocator({
+		resource: resources,
+		...(operations ? { operation: operations } : {}),
+	});
 }
 
 /**
- * Standard Table ID parameter (a table is what Appwrite previously called a collection).
+ * Standard Table locator (a table is what Appwrite previously called a collection).
  */
 export function tableIdProperty(resources: string[], operations?: string[]): INodeProperties {
-	return {
-		displayName: 'Table Name or ID',
-		name: 'tableId',
-		type: 'options',
-		typeOptions: { loadOptionsDependsOn: ['databaseId'], loadOptionsMethod: 'getTables' },
-		required: true,
-		default: '',
-		hint: 'A table is what Appwrite used to call a collection',
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-		displayOptions: {
-			show: {
-				resource: resources,
-				...(operations ? { operation: operations } : {}),
-			},
-		},
-	};
+	return tableLocator({
+		resource: resources,
+		...(operations ? { operation: operations } : {}),
+	});
 }
 
 /**

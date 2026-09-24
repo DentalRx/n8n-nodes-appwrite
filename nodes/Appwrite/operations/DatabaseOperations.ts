@@ -1,8 +1,14 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { buildQueries, fetchAllPages, toItems, withLimit } from '../GenericFunctions';
-import { extractId, resolveId } from '../helpers/appwrite';
+import {
+	buildQueries,
+	fetchAllPages,
+	getResourceId,
+	toItems,
+	withLimit,
+} from '../GenericFunctions';
+import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeDatabaseOperation(
@@ -25,7 +31,7 @@ export async function executeDatabaseOperation(
 	}
 
 	if (operation === 'get') {
-		const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
+		const databaseId = getResourceId.call(this, 'databaseId', i, 'database', 'Database');
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
@@ -72,7 +78,7 @@ export async function executeDatabaseOperation(
 	}
 
 	if (operation === 'update') {
-		const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
+		const databaseId = getResourceId.call(this, 'databaseId', i, 'database', 'Database');
 		const name = this.getNodeParameter('name', i) as string;
 		const updateFields = this.getNodeParameter('updateFields', i, {}) as { enabled?: boolean };
 		// PUT /tablesdb/{id} treats an omitted `enabled` as its default (true), so
@@ -100,7 +106,7 @@ export async function executeDatabaseOperation(
 	}
 
 	if (operation === 'delete') {
-		const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
+		const databaseId = getResourceId.call(this, 'databaseId', i, 'database', 'Database');
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',

@@ -1,5 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
+import { functionLocator } from './locators';
 import { queriesProperties, returnAllAndLimitProperties } from './shared';
 
 export const executionOperations: INodeProperties[] = [
@@ -44,21 +45,9 @@ export const executionOperations: INodeProperties[] = [
 ];
 
 export const executionFields: INodeProperties[] = [
-	{
-		displayName: 'Function Name or ID',
-		name: 'functionId',
-		type: 'options',
-		typeOptions: { loadOptionsMethod: 'getFunctions' },
-		required: true,
-		default: '',
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-		displayOptions: {
-			show: {
-				resource: ['execution'],
-			},
-		},
-	},
+	functionLocator({
+		resource: ['execution'],
+	}),
 	{
 		displayName: 'Execution ID',
 		name: 'executionId',

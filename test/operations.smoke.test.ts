@@ -179,6 +179,8 @@ function valueFor(property: INodeProperties, filled: boolean, context: INodePara
 			}
 			return collection;
 		}
+		case 'resourceLocator':
+			return filled ? { __rl: true, mode: 'id', value: `${name}-id` } : property.default;
 		case 'notice':
 			return undefined;
 		default:
@@ -215,6 +217,8 @@ interface SmokeCase {
 	name: string;
 	filled: boolean;
 	parameters: INodeParameters;
+	/** A value some request must carry in its path or body, e.g. an ID extracted from a URL. */
+	expectInPath?: string;
 }
 
 function casesFor(resource: string, operation: string): SmokeCase[] {
@@ -240,6 +244,31 @@ function casesFor(resource: string, operation: string): SmokeCase[] {
 					name: `${resource} › ${operation} (${property.name}=${String(option.value)})`,
 					filled: true,
 					parameters: fillDisplayed({ ...base, [property.name]: option.value }, true),
+				});
+			}
+		}
+
+		if (property.type === 'resourceLocator') {
+			// By URL mode: the ID must come out of a pasted Console link.
+			const kind = /\/(\w+)-\(/.exec(
+				String(property.modes?.find((mode) => mode.name === 'url')?.extractValue?.regex ?? ''),
+			)?.[1];
+			if (kind !== undefined) {
+				cases.push({
+					name: `${resource} › ${operation} (${property.name} by URL)`,
+					filled: true,
+					parameters: fillDisplayed(
+						{
+							...base,
+							[property.name]: {
+								__rl: true,
+								mode: 'url',
+								value: `https://cloud.appwrite.io/console/project-fra-p/${kind}-${property.name}Url?tab=x`,
+							},
+						},
+						true,
+					),
+					expectInPath: `${property.name}Url`,
 				});
 			}
 		}
@@ -291,6 +320,14 @@ async function runCase(smokeCase: SmokeCase): Promise<void> {
 	}
 
 	expect(requests.length).toBeGreaterThan(0);
+	if (smokeCase.expectInPath !== undefined) {
+		const carried = requests.some(
+			(request) =>
+				request.url.includes(`/${smokeCase.expectInPath}`) ||
+				JSON.stringify(request.body ?? {}).includes(`"${smokeCase.expectInPath}"`),
+		);
+		expect(carried, `the ID extracted from the URL reaches the request`).toBe(true);
+	}
 	for (const request of requests) {
 		expect(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).toContain(request.method);
 		expect(request.url.startsWith(`${BASE_URL}/`)).toBe(true);

@@ -259,7 +259,7 @@ export const rowFields: INodeProperties[] = [
 		name: 'column',
 		type: 'options',
 		typeOptions: {
-			loadOptionsDependsOn: ['databaseId', 'tableId'],
+			loadOptionsDependsOn: ['databaseId.value', 'tableId.value'],
 			loadOptionsMethod: 'getColumns',
 		},
 		required: true,

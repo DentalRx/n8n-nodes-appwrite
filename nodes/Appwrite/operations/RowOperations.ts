@@ -5,6 +5,7 @@ import {
 	buildQueries,
 	fetchAllPages,
 	getPermissions,
+	getResourceId,
 	getRowData,
 	getSortQueries,
 	parseJsonArrayParameter,
@@ -19,8 +20,8 @@ export async function executeRowOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
-	const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
+	const databaseId = getResourceId.call(this, 'databaseId', i, 'database', 'Database');
+	const tableId = getResourceId.call(this, 'tableId', i, 'table', 'Table');
 	const options = this.getNodeParameter('options', i, {}) as {
 		transactionId?: string;
 		min?: number;

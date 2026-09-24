@@ -1,5 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
+import { teamLocator, userLocator } from './locators';
 import { listOptionsProperty, queriesProperties, returnAllAndLimitProperties } from './shared';
 
 export const teamOperations: INodeProperties[] = [
@@ -92,33 +93,21 @@ export const teamOperations: INodeProperties[] = [
 ];
 
 export const teamFields: INodeProperties[] = [
-	{
-		displayName: 'Team Name or ID',
-		name: 'teamId',
-		type: 'options',
-		typeOptions: { loadOptionsMethod: 'getTeams' },
-		required: true,
-		default: '',
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-		displayOptions: {
-			show: {
-				resource: ['team'],
-				operation: [
-					'createMembership',
-					'delete',
-					'deleteMembership',
-					'get',
-					'getManyMemberships',
-					'getMembership',
-					'getPrefs',
-					'updateMembership',
-					'updateName',
-					'updatePrefs',
-				],
-			},
-		},
-	},
+	teamLocator({
+		resource: ['team'],
+		operation: [
+			'createMembership',
+			'delete',
+			'deleteMembership',
+			'get',
+			'getManyMemberships',
+			'getMembership',
+			'getPrefs',
+			'updateMembership',
+			'updateName',
+			'updatePrefs',
+		],
+	}),
 	{
 		displayName: 'Name',
 		name: 'name',
@@ -200,7 +189,7 @@ export const teamFields: INodeProperties[] = [
 		default: '',
 		placeholder: 'e.g. name@email.com',
 		description:
-			'The email of the new team member. Set at least one of Email, User Name or ID, or Phone; when more than one is set, Appwrite uses the user, then the email, then the phone.',
+			'The email of the new team member. Set at least one of Email, User, or Phone; when more than one is set, Appwrite uses the user, then the email, then the phone.',
 		displayOptions: {
 			show: {
 				resource: ['team'],
@@ -208,22 +197,14 @@ export const teamFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'User Name or ID',
-		name: 'userId',
-		type: 'options',
-		typeOptions: { loadOptionsMethod: 'getUsers' },
-		default: '',
-		hint: 'Set at least one of Email, User Name or ID, or Phone',
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-		displayOptions: {
-			show: {
-				resource: ['team'],
-				operation: ['createMembership'],
-			},
+	userLocator(
+		{ resource: ['team'], operation: ['createMembership'] },
+		{
+			required: false,
+			description: 'The existing user to add to the team',
+			hint: 'Set at least one of Email, User, or Phone',
 		},
-	},
+	),
 	{
 		displayName: 'Phone',
 		name: 'phone',
@@ -231,7 +212,7 @@ export const teamFields: INodeProperties[] = [
 		default: '',
 		placeholder: 'e.g. +16175551212',
 		description:
-			'The phone number of the new team member, with a leading + and a country code. Set at least one of Email, User Name or ID, or Phone; when more than one is set, Appwrite uses the user, then the email, then the phone.',
+			'The phone number of the new team member, with a leading + and a country code. Set at least one of Email, User, or Phone; when more than one is set, Appwrite uses the user, then the email, then the phone.',
 		displayOptions: {
 			show: {
 				resource: ['team'],

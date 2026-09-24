@@ -69,25 +69,8 @@ function toOptions(
  * execute time.
  */
 function dependency(context: ILoadOptionsFunctions, name: string, kind: string): string {
-	const value = context.getCurrentNodeParameter(name);
+	const value = context.getCurrentNodeParameter(name, { extractValue: true });
 	return typeof value === 'string' ? extractId(value, kind) : '';
-}
-
-export async function getDatabases(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const databases = await listAll(this, '/tablesdb', 'databases');
-	return toOptions(databases, (database) => database.name ?? '');
-}
-
-export async function getTables(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const databaseId = dependency(this, 'databaseId', 'database');
-	if (databaseId === '') return [];
-
-	const tables = await listAll(
-		this,
-		`/tablesdb/${encodeURIComponent(databaseId)}/tables`,
-		'tables',
-	);
-	return toOptions(tables, (table) => table.name ?? '');
 }
 
 export async function getColumns(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
@@ -104,34 +87,6 @@ export async function getColumns(this: ILoadOptionsFunctions): Promise<INodeProp
 		columns,
 		(column) => column.key ?? '',
 		(column) => column.key ?? '',
-	);
-}
-
-export async function getBuckets(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const buckets = await listAll(this, '/storage/buckets', 'buckets');
-	return toOptions(buckets, (bucket) => bucket.name ?? '');
-}
-
-export async function getFunctions(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const functions = await listAll(this, '/functions', 'functions');
-	return toOptions(functions, (fn) => fn.name ?? '');
-}
-
-export async function getTeams(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const teams = await listAll(this, '/teams', 'teams');
-	return toOptions(teams, (team) => team.name ?? '');
-}
-
-export async function getTopics(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const topics = await listAll(this, '/messaging/topics', 'topics');
-	return toOptions(topics, (topic) => topic.name ?? '');
-}
-
-export async function getUsers(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const users = await listAll(this, '/users', 'users');
-	return toOptions(
-		users,
-		(user) => (user.name as string) || (user.email as string) || (user.phone as string) || '',
 	);
 }
 

@@ -1,5 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
+import { bucketLocator, fileLocator } from './locators';
 import {
 	listOptionsProperty,
 	permissionsProperty,
@@ -75,35 +76,13 @@ export const fileOperations: INodeProperties[] = [
 ];
 
 export const fileFields: INodeProperties[] = [
-	{
-		displayName: 'Bucket Name or ID',
-		name: 'bucketId',
-		type: 'options',
-		typeOptions: { loadOptionsMethod: 'getBuckets' },
-		required: true,
-		default: '',
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-		displayOptions: {
-			show: {
-				resource: ['file'],
-			},
-		},
-	},
-	{
-		displayName: 'File ID',
-		name: 'fileId',
-		type: 'string',
-		required: true,
-		default: '',
-		description: 'The unique ID of the file',
-		displayOptions: {
-			show: {
-				resource: ['file'],
-				operation: ['get', 'update', 'delete', 'download', 'getView', 'getPreview'],
-			},
-		},
-	},
+	bucketLocator({
+		resource: ['file'],
+	}),
+	fileLocator({
+		resource: ['file'],
+		operation: ['get', 'update', 'delete', 'download', 'getView', 'getPreview'],
+	}),
 	{
 		displayName: 'Input Data Field Name',
 		name: 'inputBinaryField',

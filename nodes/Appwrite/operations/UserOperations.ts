@@ -5,6 +5,7 @@ import {
 	buildQueries,
 	fetchAllPages,
 	fetchAllPagesByOffset,
+	getResourceId,
 	getStringListParameter,
 	parseJsonParameter,
 	simplifyItems,
@@ -33,11 +34,12 @@ export async function executeUserOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const userId = this.getNodeParameter('userId', i, '') as string;
-	const userPath = `/users/${encodeURIComponent(userId)}`;
+	// Resolved on first use: create and the list operations act on no existing user.
+	const userId = (): string => getResourceId.call(this, 'userId', i, 'user', 'User');
+	const userPath = (): string => `/users/${encodeURIComponent(userId())}`;
 
 	if (operation === 'create') {
-		const createUserId = resolveId(userId);
+		const createUserId = resolveId(this.getNodeParameter('userId', i, '') as string);
 		const options = this.getNodeParameter('options', i, {}) as {
 			email?: string;
 			name?: string;
@@ -70,7 +72,7 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
-			`${userPath}/jwts`,
+			`${userPath()}/jwts`,
 			{ body: { sessionId: options.sessionId || undefined, duration: options.duration ?? 900 } },
 			i,
 		);
@@ -78,7 +80,7 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'createSession') {
-		const response = await appwriteApiRequest.call(this, 'POST', `${userPath}/sessions`, {}, i);
+		const response = await appwriteApiRequest.call(this, 'POST', `${userPath()}/sessions`, {}, i);
 		return toItems(response, i);
 	}
 
@@ -90,7 +92,7 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
-			`${userPath}/tokens`,
+			`${userPath()}/tokens`,
 			{ body: { length: options.length ?? 6, expire: options.expire ?? 900 } },
 			i,
 		);
@@ -98,8 +100,8 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'delete') {
-		await appwriteApiRequest.call(this, 'DELETE', userPath, {}, i);
-		return toItems({ deleted: true, userId }, i);
+		await appwriteApiRequest.call(this, 'DELETE', userPath(), {}, i);
+		return toItems({ deleted: true, userId: userId() }, i);
 	}
 
 	if (operation === 'deleteIdentity') {
@@ -119,20 +121,20 @@ export async function executeUserOperation(
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
-			`${userPath}/sessions/${encodeURIComponent(sessionId)}`,
+			`${userPath()}/sessions/${encodeURIComponent(sessionId)}`,
 			{},
 			i,
 		);
-		return toItems({ deleted: true, userId, sessionId }, i);
+		return toItems({ deleted: true, userId: userId(), sessionId }, i);
 	}
 
 	if (operation === 'deleteSessions') {
-		await appwriteApiRequest.call(this, 'DELETE', `${userPath}/sessions`, {}, i);
-		return toItems({ deleted: true, userId }, i);
+		await appwriteApiRequest.call(this, 'DELETE', `${userPath()}/sessions`, {}, i);
+		return toItems({ deleted: true, userId: userId() }, i);
 	}
 
 	if (operation === 'get') {
-		const response = await appwriteApiRequest.call(this, 'GET', userPath, {}, i);
+		const response = await appwriteApiRequest.call(this, 'GET', userPath(), {}, i);
 		const simplify = this.getNodeParameter('simplify', i, false) as boolean;
 		return toItems(simplify ? simplifyItems(response, SIMPLIFY_FIELDS) : response, i);
 	}
@@ -224,7 +226,7 @@ export async function executeUserOperation(
 					await appwriteApiRequest.call(
 						this,
 						'GET',
-						`${userPath}/logs`,
+						`${userPath()}/logs`,
 						{ qs: { queries: pageQueries } },
 						i,
 					),
@@ -238,7 +240,7 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
-			`${userPath}/logs`,
+			`${userPath()}/logs`,
 			{ qs: { queries: withLimit(queries, limit) } },
 			i,
 		);
@@ -259,7 +261,7 @@ export async function executeUserOperation(
 					await appwriteApiRequest.call(
 						this,
 						'GET',
-						`${userPath}/memberships`,
+						`${userPath()}/memberships`,
 						{ qs: { queries: pageQueries, search: searchArg } },
 						i,
 					),
@@ -273,7 +275,7 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
-			`${userPath}/memberships`,
+			`${userPath()}/memberships`,
 			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		);
@@ -281,12 +283,12 @@ export async function executeUserOperation(
 	}
 
 	if (operation === 'getManySessions') {
-		const response = await appwriteApiRequest.call(this, 'GET', `${userPath}/sessions`, {}, i);
+		const response = await appwriteApiRequest.call(this, 'GET', `${userPath()}/sessions`, {}, i);
 		return toItems(response.sessions as IDataObject[], i);
 	}
 
 	if (operation === 'getPrefs') {
-		const response = await appwriteApiRequest.call(this, 'GET', `${userPath}/prefs`, {}, i);
+		const response = await appwriteApiRequest.call(this, 'GET', `${userPath()}/prefs`, {}, i);
 		return toItems(response, i);
 	}
 
@@ -295,7 +297,7 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
-			`${userPath}/email`,
+			`${userPath()}/email`,
 			{ body: { email } },
 			i,
 		);
@@ -307,7 +309,7 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
-			`${userPath}/verification`,
+			`${userPath()}/verification`,
 			{ body: { emailVerification } },
 			i,
 		);
@@ -319,7 +321,7 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'PUT',
-			`${userPath}/labels`,
+			`${userPath()}/labels`,
 			{ body: { labels } },
 			i,
 		);
@@ -331,7 +333,7 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
-			`${userPath}/name`,
+			`${userPath()}/name`,
 			{ body: { name } },
 			i,
 		);
@@ -343,7 +345,7 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
-			`${userPath}/password`,
+			`${userPath()}/password`,
 			{ body: { password } },
 			i,
 		);
@@ -355,7 +357,7 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
-			`${userPath}/phone`,
+			`${userPath()}/phone`,
 			{ body: { number: phone } },
 			i,
 		);
@@ -367,7 +369,7 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
-			`${userPath}/verification/phone`,
+			`${userPath()}/verification/phone`,
 			{ body: { phoneVerification } },
 			i,
 		);
@@ -384,7 +386,7 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
-			`${userPath}/prefs`,
+			`${userPath()}/prefs`,
 			{ body: { prefs } },
 			i,
 		);
@@ -396,7 +398,7 @@ export async function executeUserOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
-			`${userPath}/status`,
+			`${userPath()}/status`,
 			{ body: { status } },
 			i,
 		);

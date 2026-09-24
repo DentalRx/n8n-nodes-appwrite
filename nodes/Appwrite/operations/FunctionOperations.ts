@@ -4,12 +4,13 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getResourceId,
 	parseStringList,
 	simplifyItems,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
-import { extractId, resolveId } from '../helpers/appwrite';
+import { resolveId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 /** The function-model fields most workflows read, for the Simplify toggle. */
@@ -44,7 +45,9 @@ export async function executeFunctionOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const functionId = extractId(this.getNodeParameter('functionId', i, '') as string, 'function');
+	// Resolved on first use: create and the list operations act on no existing function.
+	const functionId = (): string =>
+		getResourceId.call(this, 'functionId', i, 'function', 'Function');
 
 	const getConfigOptionArgs = (current?: IDataObject): IDataObject => {
 		const options = this.getNodeParameter('options', i, {}) as FunctionConfigOptions;
@@ -75,7 +78,7 @@ export async function executeFunctionOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'PATCH',
-			`/functions/${encodeURIComponent(functionId)}/deployment`,
+			`/functions/${encodeURIComponent(functionId())}/deployment`,
 			{ body: { deploymentId } },
 			i,
 		);
@@ -107,7 +110,7 @@ export async function executeFunctionOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'POST',
-			`/functions/${encodeURIComponent(functionId)}/variables`,
+			`/functions/${encodeURIComponent(functionId())}/variables`,
 			{ body: { variableId, key, value, secret } },
 			i,
 		);
@@ -118,11 +121,11 @@ export async function executeFunctionOperation(
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
-			`/functions/${encodeURIComponent(functionId)}`,
+			`/functions/${encodeURIComponent(functionId())}`,
 			{},
 			i,
 		);
-		return toItems({ deleted: true, functionId }, i);
+		return toItems({ deleted: true, functionId: functionId() }, i);
 	}
 
 	if (operation === 'deleteDeployment') {
@@ -130,11 +133,11 @@ export async function executeFunctionOperation(
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
-			`/functions/${encodeURIComponent(functionId)}/deployments/${encodeURIComponent(deploymentId)}`,
+			`/functions/${encodeURIComponent(functionId())}/deployments/${encodeURIComponent(deploymentId)}`,
 			{},
 			i,
 		);
-		return toItems({ deleted: true, functionId, deploymentId }, i);
+		return toItems({ deleted: true, functionId: functionId(), deploymentId }, i);
 	}
 
 	if (operation === 'deleteVariable') {
@@ -142,18 +145,18 @@ export async function executeFunctionOperation(
 		await appwriteApiRequest.call(
 			this,
 			'DELETE',
-			`/functions/${encodeURIComponent(functionId)}/variables/${encodeURIComponent(variableId)}`,
+			`/functions/${encodeURIComponent(functionId())}/variables/${encodeURIComponent(variableId)}`,
 			{},
 			i,
 		);
-		return toItems({ deleted: true, functionId, variableId }, i);
+		return toItems({ deleted: true, functionId: functionId(), variableId }, i);
 	}
 
 	if (operation === 'get') {
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
-			`/functions/${encodeURIComponent(functionId)}`,
+			`/functions/${encodeURIComponent(functionId())}`,
 			{},
 			i,
 		);
@@ -166,7 +169,7 @@ export async function executeFunctionOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
-			`/functions/${encodeURIComponent(functionId)}/deployments/${encodeURIComponent(deploymentId)}`,
+			`/functions/${encodeURIComponent(functionId())}/deployments/${encodeURIComponent(deploymentId)}`,
 			{},
 			i,
 		);
@@ -226,7 +229,7 @@ export async function executeFunctionOperation(
 					await appwriteApiRequest.call(
 						this,
 						'GET',
-						`/functions/${encodeURIComponent(functionId)}/deployments`,
+						`/functions/${encodeURIComponent(functionId())}/deployments`,
 						{ qs: { queries: pageQueries, search: searchArg } },
 						i,
 					),
@@ -240,7 +243,7 @@ export async function executeFunctionOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
-			`/functions/${encodeURIComponent(functionId)}/deployments`,
+			`/functions/${encodeURIComponent(functionId())}/deployments`,
 			{ qs: { queries: withLimit(queries, limit), search: searchArg } },
 			i,
 		);
@@ -251,7 +254,7 @@ export async function executeFunctionOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
-			`/functions/${encodeURIComponent(functionId)}/variables`,
+			`/functions/${encodeURIComponent(functionId())}/variables`,
 			{},
 			i,
 		);
@@ -263,7 +266,7 @@ export async function executeFunctionOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'GET',
-			`/functions/${encodeURIComponent(functionId)}/variables/${encodeURIComponent(variableId)}`,
+			`/functions/${encodeURIComponent(functionId())}/variables/${encodeURIComponent(variableId)}`,
 			{},
 			i,
 		);
@@ -280,7 +283,7 @@ export async function executeFunctionOperation(
 		const current = await appwriteApiRequest.call(
 			this,
 			'GET',
-			`/functions/${encodeURIComponent(functionId)}`,
+			`/functions/${encodeURIComponent(functionId())}`,
 			{},
 			i,
 		);
@@ -291,7 +294,7 @@ export async function executeFunctionOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'PUT',
-			`/functions/${encodeURIComponent(functionId)}`,
+			`/functions/${encodeURIComponent(functionId())}`,
 			{
 				body: {
 					name,
@@ -325,7 +328,7 @@ export async function executeFunctionOperation(
 		const response = await appwriteApiRequest.call(
 			this,
 			'PUT',
-			`/functions/${encodeURIComponent(functionId)}/variables/${encodeURIComponent(variableId)}`,
+			`/functions/${encodeURIComponent(functionId())}/variables/${encodeURIComponent(variableId)}`,
 			{
 				body: {
 					key,

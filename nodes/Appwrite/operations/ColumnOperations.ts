@@ -9,13 +9,13 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getResourceId,
 	getStringListParameter,
 	lookupEnum,
 	parseJsonArrayParameter,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
-import { extractId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 const RELATION_MUTATE_MAP: Record<string, string> = {
@@ -39,8 +39,8 @@ export async function executeColumnOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const databaseId = extractId(this.getNodeParameter('databaseId', i) as string, 'database');
-	const tableId = extractId(this.getNodeParameter('tableId', i) as string, 'table');
+	const databaseId = getResourceId.call(this, 'databaseId', i, 'database', 'Database');
+	const tableId = getResourceId.call(this, 'tableId', i, 'table', 'Table');
 	const columnsPath = `/tablesdb/${encodeURIComponent(databaseId)}/tables/${encodeURIComponent(
 		tableId,
 	)}/columns`;
@@ -133,9 +133,12 @@ export async function executeColumnOperation(
 				'on-delete action',
 				i,
 			);
-			const relatedTableId = extractId(
-				this.getNodeParameter('relatedTableId', i) as string,
+			const relatedTableId = getResourceId.call(
+				this,
+				'relatedTableId',
+				i,
 				'table',
+				'Related Table',
 			);
 			const typeRaw = this.getNodeParameter('relationshipType', i) as string;
 			const twoWay = options.twoWay ?? false;

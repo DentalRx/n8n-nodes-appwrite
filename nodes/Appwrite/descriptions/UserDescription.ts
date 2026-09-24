@@ -1,5 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
+import { userLocator } from './locators';
 import {
 	listOptionsProperty,
 	queriesProperties,
@@ -169,43 +170,31 @@ export const userOperations: INodeProperties[] = [
 ];
 
 export const userFields: INodeProperties[] = [
-	{
-		displayName: 'User Name or ID',
-		name: 'userId',
-		type: 'options',
-		typeOptions: { loadOptionsMethod: 'getUsers' },
-		required: true,
-		default: '',
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-		displayOptions: {
-			show: {
-				resource: ['user'],
-				operation: [
-					'createJWT',
-					'createSession',
-					'createToken',
-					'delete',
-					'deleteSession',
-					'deleteSessions',
-					'get',
-					'getManyLogs',
-					'getManyMemberships',
-					'getManySessions',
-					'getPrefs',
-					'updateEmail',
-					'updateEmailVerification',
-					'updateLabels',
-					'updateName',
-					'updatePassword',
-					'updatePhone',
-					'updatePhoneVerification',
-					'updatePrefs',
-					'updateStatus',
-				],
-			},
-		},
-	},
+	userLocator({
+		resource: ['user'],
+		operation: [
+			'createJWT',
+			'createSession',
+			'createToken',
+			'delete',
+			'deleteSession',
+			'deleteSessions',
+			'get',
+			'getManyLogs',
+			'getManyMemberships',
+			'getManySessions',
+			'getPrefs',
+			'updateEmail',
+			'updateEmailVerification',
+			'updateLabels',
+			'updateName',
+			'updatePassword',
+			'updatePhone',
+			'updatePhoneVerification',
+			'updatePrefs',
+			'updateStatus',
+		],
+	}),
 	{
 		displayName: 'User ID',
 		name: 'userId',

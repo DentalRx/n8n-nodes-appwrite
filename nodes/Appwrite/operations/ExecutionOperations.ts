@@ -4,12 +4,12 @@ import { NodeOperationError } from 'n8n-workflow';
 import {
 	buildQueries,
 	fetchAllPages,
+	getResourceId,
 	lookupEnum,
 	parseJsonParameter,
 	toItems,
 	withLimit,
 } from '../GenericFunctions';
-import { extractId } from '../helpers/appwrite';
 import { appwriteApiRequest } from '../transport';
 
 /** The HTTP methods an execution can be triggered with. */
@@ -35,7 +35,7 @@ export async function executeExecutionOperation(
 	operation: string,
 	i: number,
 ): Promise<INodeExecutionData[]> {
-	const functionId = extractId(this.getNodeParameter('functionId', i) as string, 'function');
+	const functionId = getResourceId.call(this, 'functionId', i, 'function', 'Function');
 	const executionsPath = `/functions/${encodeURIComponent(functionId)}/executions`;
 
 	if (operation === 'create') {

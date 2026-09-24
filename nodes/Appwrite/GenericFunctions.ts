@@ -1,7 +1,7 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError, jsonParse } from 'n8n-workflow';
 
-import { Query } from './helpers/appwrite';
+import { Query, extractId } from './helpers/appwrite';
 
 /**
  * Wrap one or more API results as n8n output items paired to the input item
@@ -13,6 +13,47 @@ export function toItems(
 ): INodeExecutionData[] {
 	const list = Array.isArray(data) ? data : [data];
 	return list.map((json) => ({ json, pairedItem: { item: itemIndex } }));
+}
+
+/**
+ * Read the ID of an existing record from a resource locator (From List, By URL
+ * or ID mode) or a plain string parameter. A Console URL typed into ID mode or
+ * produced by an expression resolves too. Returns '' when the field is empty.
+ */
+export function getOptionalResourceId(
+	this: IExecuteFunctions,
+	parameterName: string,
+	itemIndex: number,
+	kind: string,
+): string {
+	const value = this.getNodeParameter(parameterName, itemIndex, '', { extractValue: true });
+	const raw =
+		value !== null && typeof value === 'object' && 'value' in value
+			? String((value as { value: unknown }).value ?? '')
+			: String(value ?? '');
+	return extractId(raw, kind);
+}
+
+/**
+ * Like getOptionalResourceId, for a required record: an empty value stops the
+ * item with a message naming the field, instead of sending a request with a
+ * blank path segment.
+ */
+export function getResourceId(
+	this: IExecuteFunctions,
+	parameterName: string,
+	itemIndex: number,
+	kind: string,
+	label: string,
+): string {
+	const id = getOptionalResourceId.call(this, parameterName, itemIndex, kind);
+	if (id === '') {
+		throw new NodeOperationError(this.getNode(), `The '${label}' parameter is empty`, {
+			description: `Choose a ${label.toLowerCase()} from the list, or enter its ID or Appwrite Console URL.`,
+			itemIndex,
+		});
+	}
+	return id;
 }
 
 /**

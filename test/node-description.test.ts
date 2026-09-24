@@ -1,10 +1,11 @@
 import type { INodeProperties, INodePropertyOptions } from 'n8n-workflow';
 import { NodeHelpers } from 'n8n-workflow';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { AppwriteApi } from '../credentials/AppwriteApi.credentials';
+import codex from '../nodes/Appwrite/Appwrite.node.json';
+import packageJson from '../package.json';
+import tsconfig from '../tsconfig.json';
 import { description, node, resolveParameters, testNode } from './helpers/mock-context';
 
 const { properties } = description;
@@ -74,24 +75,7 @@ describe('node metadata', () => {
 	it('ships a codex file that n8n can load next to the compiled node', () => {
 		// n8n reads the codex from `<node file>.json` beside the compiled node, so
 		// the build must emit it into dist/ (tsconfig includes nodes/**/*.json).
-		const codex = JSON.parse(
-			readFileSync(join(__dirname, '../nodes/Appwrite/Appwrite.node.json'), 'utf8'),
-		) as {
-			node: string;
-			nodeVersion: string;
-			codexVersion: string;
-			categories: string[];
-			resources: {
-				primaryDocumentation: Array<{ url: string }>;
-				credentialDocumentation: Array<{ url: string }>;
-			};
-		};
-		const tsconfig = JSON.parse(readFileSync(join(__dirname, '../tsconfig.json'), 'utf8')) as {
-			include: string[];
-		};
-		const packageName = (
-			JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf8')) as { name: string }
-		).name;
+		const packageName = packageJson.name;
 
 		expect(codex.node).toBe(packageName);
 		expect(codex.nodeVersion).toBe(`${description.version as number}.0`);
@@ -185,18 +169,48 @@ describe('property references', () => {
 		}
 	});
 
-	it('only reference load options methods the node implements', () => {
+	it('only reference load options and list search methods the node implements', () => {
 		const implemented = Object.keys(node.methods.loadOptions);
+		const searches = Object.keys(node.methods.listSearch);
 		const topLevelNames = new Set(properties.map((property) => property.name));
+		const locatorNames = new Set(
+			properties
+				.filter((property) => property.type === 'resourceLocator')
+				.map((property) => property.name),
+		);
 		walk(properties, (property) => {
 			const method = property.typeOptions?.loadOptionsMethod;
 			if (method !== undefined) {
 				expect(implemented, `${property.name} uses ${method}`).toContain(method);
 			}
+			for (const mode of property.modes ?? []) {
+				const search = mode.typeOptions?.searchListMethod;
+				if (search !== undefined) {
+					expect(searches, `${property.name} uses ${search}`).toContain(search);
+				}
+			}
 			for (const dependency of property.typeOptions?.loadOptionsDependsOn ?? []) {
-				expect(topLevelNames, `${property.name} depends on ${dependency}`).toContain(dependency);
+				// A locator's value lives under `.value`; depending on the bare name
+				// would never fire, because the locator object itself is replaced.
+				const [name, path] = dependency.split('.');
+				expect(topLevelNames, `${property.name} depends on ${dependency}`).toContain(name);
+				if (locatorNames.has(name)) {
+					expect(path, `${property.name} depends on ${dependency}`).toBe('value');
+				}
 			}
 		});
+	});
+
+	it('default every resource locator to its From List mode', () => {
+		// The n8n UX guidelines ask for From List as the default wherever a list exists.
+		for (const property of properties.filter((candidate) => candidate.type === 'resourceLocator')) {
+			expect(property.default, property.name).toEqual({ mode: 'list', value: '' });
+			expect(property.modes?.[0]?.name, property.name).toBe('list');
+			expect(
+				property.modes?.map((mode) => mode.name),
+				property.name,
+			).toEqual(['list', 'url', 'id']);
+		}
 	});
 
 	it('default every options field to one of its values', () => {
@@ -226,7 +240,7 @@ describe('property references', () => {
 		// but a name must always mean the same kind of value. The one accepted
 		// pair is a picker for an existing record next to a free-text field for
 		// the ID of a record being created, which both resolve to an ID string.
-		const idPair = new Set(['options', 'string']);
+		const idPair = new Set(['resourceLocator', 'string']);
 		for (const [name, types] of typesByName) {
 			if (name === 'options') continue;
 			const unexpected = [...types].filter((type) => !idPair.has(type));

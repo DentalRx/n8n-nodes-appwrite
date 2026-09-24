@@ -1,8 +1,13 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { buildQueries, fetchAllPages, toItems, withLimit } from '../GenericFunctions';
-import { extractId } from '../helpers/appwrite';
+import {
+	buildQueries,
+	fetchAllPages,
+	getResourceId,
+	toItems,
+	withLimit,
+} from '../GenericFunctions';
 import { appwriteApiRequest } from '../transport';
 
 export async function executeTokenOperation(
@@ -12,8 +17,8 @@ export async function executeTokenOperation(
 ): Promise<INodeExecutionData[]> {
 	/** Tokens are scoped to a file: /tokens/buckets/{bucketId}/files/{fileId} */
 	const filePath = (): string => {
-		const bucketId = extractId(this.getNodeParameter('bucketId', i) as string, 'bucket');
-		const fileId = extractId(this.getNodeParameter('fileId', i) as string, 'file');
+		const bucketId = getResourceId.call(this, 'bucketId', i, 'bucket', 'Bucket');
+		const fileId = getResourceId.call(this, 'fileId', i, 'file', 'File');
 		return `/tokens/buckets/${encodeURIComponent(bucketId)}/files/${encodeURIComponent(fileId)}`;
 	};
 
