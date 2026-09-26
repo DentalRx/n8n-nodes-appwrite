@@ -1,4 +1,4 @@
-import type { IDataObject, IHttpRequestOptions } from 'n8n-workflow';
+import type { IDataObject, IHttpRequestOptions, JsonObject } from 'n8n-workflow';
 import { NodeApiError, NodeOperationError } from 'n8n-workflow';
 import { describe, expect, it } from 'vitest';
 
@@ -193,6 +193,93 @@ describe('appwriteApiRequest', () => {
 			.call(context, 'GET', '/account/consents/c1', { type: 'jwt', jwt: 'token' }, {}, 0)
 			.catch((e) => e);
 		expect(failure.description).toBe('Consent with the requested ID could not be found.');
+	});
+});
+
+describe('connection resets', () => {
+	// n8n wraps a network failure in a NodeApiError whose httpCode is the
+	// socket error code.
+	const reset = () =>
+		new NodeApiError(
+			testNode,
+			Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }) as unknown as JsonObject,
+		);
+
+	it('sends a request that is safe to repeat once more when the connection was reset', async () => {
+		const { context, requests } = createExecuteContext({
+			parameters: PARAMETERS,
+			respond: (_request, index) => {
+				if (index === 0) throw reset();
+				return { total: 0, databases: [] };
+			},
+		});
+
+		const response = await appwriteApiRequest.call(context, 'GET', '/tablesdb', {}, 0);
+		expect(response).toEqual({ total: 0, databases: [] });
+		expect(requests).toHaveLength(2);
+	});
+
+	it('gives up after the second reset', async () => {
+		const { context, requests } = createExecuteContext({
+			parameters: PARAMETERS,
+			respond: () => {
+				throw reset();
+			},
+		});
+
+		const failure = await appwriteApiRequest
+			.call(context, 'DELETE', '/tablesdb/db1', {}, 0)
+			.catch((e) => e);
+		expect(failure).toBeInstanceOf(NodeApiError);
+		expect(requests).toHaveLength(2);
+	});
+
+	it('never repeats a POST, which Appwrite could apply twice', async () => {
+		const { context, requests } = createExecuteContext({
+			parameters: PARAMETERS,
+			respond: () => {
+				throw reset();
+			},
+		});
+
+		const failure = await appwriteApiRequest
+			.call(context, 'POST', '/tablesdb', { body: { databaseId: 'db1', name: 'DB' } }, 0)
+			.catch((e) => e);
+		expect(failure).toBeInstanceOf(NodeApiError);
+		expect(requests).toHaveLength(1);
+	});
+
+	it('does not repeat a request Appwrite answered with an error', async () => {
+		const { context, requests } = createExecuteContext({
+			parameters: PARAMETERS,
+			respond: () => {
+				throw new NodeApiError(testNode, { message: 'Database not found', code: 404 });
+			},
+		});
+
+		await appwriteApiRequest.call(context, 'GET', '/tablesdb/db1', {}, 0).catch((e) => e);
+		expect(requests).toHaveLength(1);
+	});
+
+	it('also repeats a user request after a reset', async () => {
+		const { context, requests } = createExecuteContext({
+			parameters: PARAMETERS,
+			respond: (_request, index) => {
+				if (index === 0) throw Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' });
+				return { $id: 'user-1' };
+			},
+		});
+
+		const response = await appwriteUserRequest.call(
+			context,
+			'GET',
+			'/account',
+			{ type: 'jwt', jwt: 'token' },
+			{},
+			0,
+		);
+		expect(response).toEqual({ $id: 'user-1' });
+		expect(requests).toHaveLength(2);
 	});
 });
 

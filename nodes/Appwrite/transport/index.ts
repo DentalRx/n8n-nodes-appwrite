@@ -261,6 +261,48 @@ function buildRequestOptions(
 	return requestOptions;
 }
 
+/** The methods that leave Appwrite the same whether they arrive once or twice. */
+const REPEATABLE_METHODS = new Set<string>(['GET', 'HEAD', 'PUT', 'DELETE', 'OPTIONS']);
+
+/** Whether the server closed the connection instead of answering. */
+function isConnectionReset(error: unknown): boolean {
+	const candidate = error as { code?: unknown; httpCode?: unknown; cause?: { code?: unknown } };
+	return [candidate.code, candidate.httpCode, candidate.cause?.code].includes('ECONNRESET');
+}
+
+/** A request's answer, or the error it failed with. */
+type Outcome<T> = { ok: true; value: T } | { ok: false; error: unknown };
+
+/**
+ * Send a request, and send it once more if the connection was reset before an
+ * answer came. A server closes a kept-alive connection it considers idle, and a
+ * request that reuses the connection at that moment fails with ECONNRESET; live
+ * runs against Appwrite Cloud hit this on about one request in a hundred. Only
+ * methods that are safe to repeat are retried, since a create or an increment
+ * sent twice could be applied twice.
+ */
+async function sendWithRetry<T>(
+	method: IHttpRequestMethods,
+	send: () => Promise<T>,
+): Promise<Outcome<T>> {
+	const attempt = async (): Promise<Outcome<T>> => {
+		try {
+			return { ok: true, value: await send() };
+		} catch (error) {
+			return { ok: false, error };
+		}
+	};
+	const first = await attempt();
+	if (
+		first.ok ||
+		!REPEATABLE_METHODS.has(method.toUpperCase()) ||
+		!isConnectionReset(first.error)
+	) {
+		return first;
+	}
+	return await attempt();
+}
+
 /**
  * Make an authenticated request against the Appwrite REST API.
  *
@@ -285,15 +327,17 @@ async function request(
 	const requestOptions = buildRequestOptions(baseUrl, method, path, options, binary);
 	if (skipSslCertificateValidation) requestOptions.skipSslCertificateValidation = true;
 
-	try {
-		return await context.helpers.httpRequestWithAuthentication.call(
-			context,
-			credentialType,
-			requestOptions,
-		);
-	} catch (error) {
-		toNodeApiError(context, error, itemIndex);
-	}
+	const outcome = await sendWithRetry(
+		method,
+		async () =>
+			await context.helpers.httpRequestWithAuthentication.call(
+				context,
+				credentialType,
+				requestOptions,
+			),
+	);
+	if (outcome.ok) return outcome.value;
+	toNodeApiError(context, outcome.error, itemIndex);
 }
 
 /**
@@ -365,29 +409,31 @@ export async function appwriteUserRequest(
 		...userHeaders(authentication),
 	};
 
-	try {
-		return (await this.helpers.httpRequest(requestOptions)) as IDataObject;
-	} catch (error) {
-		// httpRequestWithAuthentication wraps a failed response in a
-		// NodeApiError, httpRequest hands over the HTTP client's own error.
-		// Wrapping it the same way surfaces Appwrite's message exactly as it
-		// does for API-key requests.
-		const wrapped =
-			error instanceof NodeApiError ? error : new NodeApiError(this.getNode(), error as JsonObject);
-		// n8n titles a 401 "check your credentials", but the credential's API key
-		// played no part here: Appwrite refused the user's JWT or session secret.
-		if (authentication.type !== 'guest' && String(wrapped.httpCode) === '401') {
-			const body = wrapped.context?.data;
-			const payload = body !== null && typeof body === 'object' ? (body as JsonObject) : {};
-			throw new NodeApiError(this.getNode(), payload, {
-				message: "Appwrite did not accept the user's JWT or session secret",
-				description: `A JWT expires after 15 minutes, and a session secret stops working when the session ends. Appwrite said: ${describeOAuth2Error(body) ?? wrapped.description ?? wrapped.message}`,
-				httpCode: '401',
-				itemIndex,
-			});
-		}
-		toNodeApiError(this, wrapped, itemIndex);
+	const outcome = await sendWithRetry(
+		method,
+		async () => (await this.helpers.httpRequest(requestOptions)) as IDataObject,
+	);
+	if (outcome.ok) return outcome.value;
+	const { error } = outcome;
+	// httpRequestWithAuthentication wraps a failed response in a
+	// NodeApiError, httpRequest hands over the HTTP client's own error.
+	// Wrapping it the same way surfaces Appwrite's message exactly as it
+	// does for API-key requests.
+	const wrapped =
+		error instanceof NodeApiError ? error : new NodeApiError(this.getNode(), error as JsonObject);
+	// n8n titles a 401 "check your credentials", but the credential's API key
+	// played no part here: Appwrite refused the user's JWT or session secret.
+	if (authentication.type !== 'guest' && String(wrapped.httpCode) === '401') {
+		const body = wrapped.context?.data;
+		const payload = body !== null && typeof body === 'object' ? (body as JsonObject) : {};
+		throw new NodeApiError(this.getNode(), payload, {
+			message: "Appwrite did not accept the user's JWT or session secret",
+			description: `A JWT expires after 15 minutes, and a session secret stops working when the session ends. Appwrite said: ${describeOAuth2Error(body) ?? wrapped.description ?? wrapped.message}`,
+			httpCode: '401',
+			itemIndex,
+		});
 	}
+	toNodeApiError(this, wrapped, itemIndex);
 }
 
 /**

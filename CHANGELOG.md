@@ -11,6 +11,7 @@ Fixes from running every operation against Appwrite Cloud [`#17`](https://github
 - Health › Get Certificate: Domain is now a required field. Appwrite refuses the request without it, so the default configuration always failed. A 0.1.0 workflow that set Domain under Options needs it entered again.
 - Webhook › Create and Update: blank HTTP username and password are left out. Appwrite refuses empty credentials, so updating any webhook without basic authentication failed.
 - OAuth2 server errors now show Appwrite's reason (`error_description`) instead of "Request failed with status code 400".
+- A request that is safe to repeat (GET, HEAD, PUT, DELETE) is sent once more when the connection is reset before Appwrite answers. The live runs hit such resets on about one request in a hundred. Creates and other POST or PATCH requests are never repeated.
 
 #### 0.1.0
 
