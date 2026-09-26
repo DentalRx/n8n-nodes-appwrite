@@ -142,6 +142,11 @@ function toNodeApiError(context: AppwriteContext, error: unknown, itemIndex?: nu
 				itemIndex,
 			});
 		}
+		// The OAuth2 server endpoints answer errors the OAuth2 way (RFC 6749),
+		// with error and error_description rather than Appwrite's message, which
+		// n8n does not read, so the user would only see the status text.
+		const oauth2Description = describeOAuth2Error(buffered);
+		if (oauth2Description !== undefined) error.description = oauth2Description;
 		if (itemIndex !== undefined) error.context.itemIndex = itemIndex;
 		throw error;
 	}
@@ -175,6 +180,17 @@ function toNodeApiError(context: AppwriteContext, error: unknown, itemIndex?: nu
 		message: (payload as { message?: string })?.message ?? candidate.message,
 		itemIndex,
 	});
+}
+
+/** The description of an OAuth2 error body without an Appwrite message, if it is one. */
+function describeOAuth2Error(data: unknown): string | undefined {
+	if (data === null || typeof data !== 'object' || Array.isArray(data)) return undefined;
+	const body = data as { message?: unknown; error?: unknown; error_description?: unknown };
+	if (typeof body.message === 'string' && body.message !== '') return undefined;
+	if (typeof body.error !== 'string' || body.error === '') return undefined;
+	return typeof body.error_description === 'string' && body.error_description !== ''
+		? `${body.error_description} (${body.error})`
+		: body.error;
 }
 
 /** Decode an Appwrite JSON error body that came back as bytes, if it is one. */
@@ -365,7 +381,7 @@ export async function appwriteUserRequest(
 			const payload = body !== null && typeof body === 'object' ? (body as JsonObject) : {};
 			throw new NodeApiError(this.getNode(), payload, {
 				message: "Appwrite did not accept the user's JWT or session secret",
-				description: `A JWT expires after 15 minutes, and a session secret stops working when the session ends. Appwrite said: ${wrapped.description ?? wrapped.message}`,
+				description: `A JWT expires after 15 minutes, and a session secret stops working when the session ends. Appwrite said: ${describeOAuth2Error(body) ?? wrapped.description ?? wrapped.message}`,
 				httpCode: '401',
 				itemIndex,
 			});

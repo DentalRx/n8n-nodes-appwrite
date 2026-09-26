@@ -6,6 +6,7 @@ import {
 	appwriteApiRequest,
 	appwriteApiRequestBinary,
 	appwriteFileUpload,
+	appwriteUserRequest,
 	flattenQueryParameters,
 } from '../nodes/Appwrite/transport';
 import {
@@ -133,6 +134,65 @@ describe('appwriteApiRequest', () => {
 		expect(failure).toBeInstanceOf(NodeApiError);
 		expect(failure).not.toBe(wrapped);
 		expect(`${failure.message} ${failure.description ?? ''}`).toContain('File not found');
+	});
+
+	// An HTTP client error for a failed response, as n8n's httpRequest throws it.
+	const httpError = (status: number, data: unknown) =>
+		Object.assign(new Error(`Request failed with status code ${status}`), {
+			response: { status, data },
+		});
+
+	it('describes an OAuth2 error body, which carries error_description instead of a message', async () => {
+		const { context } = createExecuteContext({
+			parameters: PARAMETERS,
+			respond: () => {
+				throw httpError(400, {
+					error: 'invalid_grant',
+					error_description: 'The authorization code is invalid or expired.',
+				});
+			},
+		});
+
+		const failure = await appwriteUserRequest
+			.call(context, 'POST', '/oauth2/project-1/token', { type: 'guest' }, {}, 0)
+			.catch((e) => e);
+		expect(failure).toBeInstanceOf(NodeApiError);
+		expect(failure.httpCode).toBe('400');
+		expect(failure.description).toBe(
+			'The authorization code is invalid or expired. (invalid_grant)',
+		);
+	});
+
+	it('describes an OAuth2 error that has only an error code', async () => {
+		const { context } = createExecuteContext({
+			parameters: PARAMETERS,
+			respond: () => {
+				throw httpError(400, { error: 'invalid_request' });
+			},
+		});
+
+		const failure = await appwriteUserRequest
+			.call(context, 'POST', '/oauth2/project-1/token', { type: 'guest' }, {}, 0)
+			.catch((e) => e);
+		expect(failure.description).toBe('invalid_request');
+	});
+
+	it("keeps Appwrite's own message on a user request", async () => {
+		const { context } = createExecuteContext({
+			parameters: PARAMETERS,
+			respond: () => {
+				throw httpError(404, {
+					message: 'Consent with the requested ID could not be found.',
+					code: 404,
+					type: 'oauth2_consent_not_found',
+				});
+			},
+		});
+
+		const failure = await appwriteUserRequest
+			.call(context, 'GET', '/account/consents/c1', { type: 'jwt', jwt: 'token' }, {}, 0)
+			.catch((e) => e);
+		expect(failure.description).toBe('Consent with the requested ID could not be found.');
 	});
 });
 
