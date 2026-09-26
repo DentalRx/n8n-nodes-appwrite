@@ -81,27 +81,18 @@ export const healthOperations: INodeProperties[] = [
 
 export const healthFields: INodeProperties[] = [
 	{
-		displayName: 'Options',
-		name: 'options',
-		type: 'collection',
-		placeholder: 'Add option',
-		default: {},
+		displayName: 'Domain',
+		name: 'domain',
+		type: 'string',
+		required: true,
+		default: '',
+		placeholder: 'e.g. example.com',
+		description: 'The domain whose SSL certificate to check',
 		displayOptions: {
 			show: {
 				resource: ['health'],
 				operation: ['getCertificate'],
 			},
 		},
-		options: [
-			{
-				displayName: 'Domain',
-				name: 'domain',
-				type: 'string',
-				default: '',
-				placeholder: 'e.g. example.com',
-				description:
-					'The domain to fetch the SSL certificate for. Leave empty to check the Appwrite endpoint domain.',
-			},
-		],
 	},
 ];

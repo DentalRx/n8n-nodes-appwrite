@@ -250,6 +250,10 @@ The node sets `usableAsTool`, so you can attach it to an **AI Agent** node and l
 
 ## Version history
 
+### 0.1.1
+
+Fixes from running every operation against a live Appwrite Cloud project: Health › Get Certificate requires its Domain, Webhook › Update works on webhooks without basic authentication, OAuth2 server errors show Appwrite's reason, and requests that are safe to repeat are retried once after a connection reset.
+
 ### 0.1.0
 
 Initial release: the Appwrite 2.3 server API across databases (TablesDB, DocumentsDB, VectorsDB, dedicated databases), Storage, Functions, Sites, auth (users, teams, accounts), Messaging and project administration, with resource locators, a query builder, Return All pagination, Simplify, example workflows and AI agent tool support.

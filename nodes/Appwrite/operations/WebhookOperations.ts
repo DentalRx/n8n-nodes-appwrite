@@ -72,8 +72,10 @@ export async function executeWebhookOperation(
 					events: getStringListParameter.call(this, 'webhookEvents', i, 'Events'),
 					enabled: options.enabled,
 					tls: options.tls,
-					authUsername: options.authUsername,
-					authPassword: options.authPassword,
+					// Appwrite refuses empty credentials, so blank ones are left out,
+					// which creates the webhook without basic authentication.
+					authUsername: options.authUsername || undefined,
+					authPassword: options.authPassword || undefined,
 					// An empty secret would fail Appwrite's 8-character minimum; leaving
 					// it out makes Appwrite generate one, as the field promises.
 					secret: options.webhookSecret || undefined,
@@ -146,6 +148,10 @@ export async function executeWebhookOperation(
 		// A webhook always needs a name, a URL and events, so leaving one of
 		// them blank keeps the current value instead of emptying it. Blank basic
 		// authentication credentials do clear, which is how it is turned off.
+		// Appwrite refuses an empty username or password, so a blank one is left
+		// out of the body, which resets it to Appwrite's empty default.
+		const credential = (changed: string | undefined, current: unknown): string | undefined =>
+			(changed ?? (current as string | undefined)) || undefined;
 		const events =
 			updateFields.events === undefined
 				? []
@@ -161,8 +167,8 @@ export async function executeWebhookOperation(
 					events: events.length > 0 ? events : (current.events as string[] | undefined),
 					enabled: updateFields.enabled ?? (current.enabled as boolean | undefined),
 					tls: updateFields.tls ?? (current.tls as boolean | undefined),
-					authUsername: updateFields.authUsername ?? (current.authUsername as string | undefined),
-					authPassword: updateFields.authPassword ?? (current.authPassword as string | undefined),
+					authUsername: credential(updateFields.authUsername, current.authUsername),
+					authPassword: credential(updateFields.authPassword, current.authPassword),
 				},
 			},
 			i,
