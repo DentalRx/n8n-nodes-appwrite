@@ -6,4 +6,3 @@ yarn.lock
 .vscode/
 .idea/
 .DS_Store
-scripts/live-test/out
