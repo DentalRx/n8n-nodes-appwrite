@@ -1,7 +1,7 @@
 import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { getCollectionParameter, toItems } from '../GenericFunctions';
+import { getStringParameter, toItems } from '../GenericFunctions';
 import { appwriteApiRequest } from '../transport';
 
 /** Every health check is a plain GET; only the certificate check takes a parameter. */
@@ -53,8 +53,13 @@ export async function executeHealthOperation(
 
 	const qs: IDataObject = {};
 	if (operation === 'getCertificate') {
-		const { domain = '' } = getCollectionParameter.call(this, 'options', i) as { domain?: string };
-		qs.domain = domain === '' ? undefined : domain;
+		// Appwrite requires the domain, although its 1.8 spec marked it optional.
+		qs.domain = getStringParameter.call(this, 'domain', i).trim();
+		if (qs.domain === '') {
+			throw new NodeOperationError(this.getNode(), 'Enter the domain whose certificate to check', {
+				itemIndex: i,
+			});
+		}
 	}
 
 	const response = await appwriteApiRequest.call(this, 'GET', path, { qs }, i);
