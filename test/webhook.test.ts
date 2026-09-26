@@ -80,6 +80,16 @@ describe('Webhook › Create', () => {
 		});
 		expect(requests[0].body).not.toHaveProperty('secret');
 	});
+
+	it('leaves out blank basic authentication credentials, which Appwrite refuses', async () => {
+		const { requests } = await run({
+			...base,
+			webhookEvents: 'users.*.create',
+			options: { authUsername: '', authPassword: '' },
+		});
+		expect(requests[0].body).not.toHaveProperty('authUsername');
+		expect(requests[0].body).not.toHaveProperty('authPassword');
+	});
 });
 
 describe('Webhook › Update', () => {
@@ -135,13 +145,29 @@ describe('Webhook › Update', () => {
 			webhookId: locator('order-sync'),
 			updateFields: { name: '', url: '', events: '', authUsername: '', authPassword: '' },
 		});
-		expect(requests[1].body).toMatchObject({
+		// Appwrite refuses empty credentials; leaving them out of the PUT resets
+		// them to its empty default.
+		expect(requests[1].body).toEqual({
 			name: 'Order sync',
 			url: 'https://example.com/hook',
 			events: ['users.*.create', 'teams.*.create'],
-			authUsername: '',
-			authPassword: '',
+			enabled: false,
+			tls: true,
 		});
+	});
+
+	it('leaves out the empty credentials of a webhook without basic authentication', async () => {
+		const { requests } = await run(
+			{
+				operation: 'update',
+				webhookId: locator('order-sync'),
+				updateFields: { name: 'Renamed' },
+			},
+			() => ({ ...CURRENT, authUsername: '', authPassword: '' }),
+		);
+		expect(requests[1].body).not.toHaveProperty('authUsername');
+		expect(requests[1].body).not.toHaveProperty('authPassword');
+		expect(requests[1].body).toMatchObject({ name: 'Renamed' });
 	});
 });
 
